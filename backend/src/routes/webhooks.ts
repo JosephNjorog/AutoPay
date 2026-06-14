@@ -15,8 +15,6 @@ import { db } from "../db";
 import { transactions } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { recordSettlementStep } from "../services/settlement";
-import { getJson } from "../lib/redis";
-import { keys } from "../lib/redis";
 import { creditFromFloat } from "../services/avalanche";
 import type { Address } from "viem";
 
@@ -74,75 +72,6 @@ mpesaWebhookRouter.post("/result", async (c) => {
 mpesaWebhookRouter.post("/timeout", async (c) => {
   const body = await c.req.json() as { ConversationID?: string };
   console.warn(`[Webhook:Mpesa] B2C timeout ConversationID=${body.ConversationID ?? "unknown"}`);
-  return c.json({ ResultCode: 0, ResultDesc: "Accepted" });
-});
-
-// POST /webhooks/mpesa/stk — STK Push fund callback
-mpesaWebhookRouter.post("/stk", async (c) => {
-  const body = await c.req.json() as {
-    Body: {
-      stkCallback: {
-        MerchantRequestID: string;
-        CheckoutRequestID: string;
-        ResultCode: number;
-        ResultDesc: string;
-        CallbackMetadata?: {
-          Item: Array<{ Name: string; Value?: string | number }>;
-        };
-      };
-    };
-  };
-
-  const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } =
-    body.Body.stkCallback;
-
-  // Resolve internal reference stored in Redis at STK initiation
-  const reference = await getJson<string>(keys.stkRef(CheckoutRequestID));
-
-  if (!reference) {
-    console.warn(`[Webhook:Mpesa:STK] No reference for CheckoutRequestID=${CheckoutRequestID}`);
-    return c.json({ ResultCode: 0, ResultDesc: "Accepted" });
-  }
-
-  const tx = await db.query.transactions.findFirst({
-    where: eq(transactions.reference, reference),
-    with: { recipientUser: true },
-  });
-
-  if (!tx) {
-    return c.json({ ResultCode: 0, ResultDesc: "Accepted" });
-  }
-
-  if (ResultCode === 0 && CallbackMetadata) {
-    const meta = Object.fromEntries(
-      CallbackMetadata.Item.map((i) => [i.Name, i.Value])
-    );
-
-    await recordSettlementStep(tx.id, "settled", {
-      mpesaRef: meta["MpesaReceiptNumber"],
-      amountKes: meta["Amount"],
-    });
-
-    // Credit USDC from TUMA float to the user's smart wallet (non-blocking)
-    const walletAddress = (tx as unknown as { recipientUser?: { walletAddress?: string } })
-      ?.recipientUser?.walletAddress;
-
-    if (walletAddress) {
-      creditFromFloat(walletAddress as Address, parseFloat(tx.amountUsdc)).catch(
-        (err: Error) =>
-          console.error(`[Webhook:Mpesa:STK] USDC credit failed ref=${reference}:`, err.message)
-      );
-    }
-
-    console.log(`[Webhook:Mpesa:STK] ✓ Funded ref=${reference}`);
-  } else {
-    await recordSettlementStep(tx.id, "failed", {
-      resultCode: ResultCode,
-      resultDesc: ResultDesc,
-    });
-    console.error(`[Webhook:Mpesa:STK] ✗ Failed ref=${reference} code=${ResultCode}: ${ResultDesc}`);
-  }
-
   return c.json({ ResultCode: 0, ResultDesc: "Accepted" });
 });
 
