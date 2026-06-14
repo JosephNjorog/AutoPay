@@ -1,0 +1,21 @@
+{
+  "name": "tuma",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["packages/*", "backend", "frontend"],
+  "scripts": {
+    "dev:backend": "bun run --cwd backend dev",
+    "dev:frontend": "bun run --cwd frontend dev",
+    "dev": "concurrently \"bun run dev:backend\" \"bun run dev:frontend\"",
+    "db:push": "bun run --cwd backend db:push",
+    "db:migrate": "bun run --cwd backend db:migrate",
+    "db:studio": "bun run --cwd backend db:studio",
+    "contracts:build": "cd contracts && forge build",
+    "contracts:test": "cd contracts && forge test -vvv",
+    "contracts:deploy:testnet": "cd contracts && forge script script/Deploy.s.sol --rpc-url fuji --broadcast --verify",
+    "contracts:deploy:mainnet": "cd contracts && forge script script/Deploy.s.sol --rpc-url avalanche --broadcast --verify"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
