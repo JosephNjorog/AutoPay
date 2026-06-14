@@ -14,12 +14,15 @@ import { historyRouter } from "./routes/history";
 import { trackRouter } from "./routes/track";
 import { claimRouter } from "./routes/claim";
 import { merchantRouter } from "./routes/merchant";
+import { mpesaWebhookRouter, momoWebhookRouter } from "./routes/webhooks";
 import { isKnownError } from "./lib/errors";
+import { requestIdMiddleware } from "./middleware/request-id";
 
 const app = new Hono();
 
 // ── Global middleware ─────────────────────────────────────────────────────────
 
+app.use("*", requestIdMiddleware);
 app.use("*", logger());
 app.use("*", prettyJSON());
 app.use(
@@ -51,34 +54,10 @@ app.route("/api/track", trackRouter);
 app.route("/api/claim", claimRouter);
 app.route("/api/merchant", merchantRouter);
 
-// Paystack webhook — public endpoint (signature-verified internally)
+// Webhooks — public endpoints, signature-verified internally
 app.route("/webhooks/paystack", paystackWebhookRouter);
-
-// M-Pesa webhooks
-app.post("/webhooks/mpesa/result", async (c) => {
-  const body = await c.req.json();
-  console.log("[Webhook] M-Pesa B2C result:", JSON.stringify(body));
-  // TODO: parse B2CResult, update transaction status
-  return c.json({ ResultCode: 0, ResultDesc: "Success" });
-});
-
-app.post("/webhooks/mpesa/timeout", async (c) => {
-  console.warn("[Webhook] M-Pesa timeout received");
-  return c.json({ ResultCode: 0, ResultDesc: "Success" });
-});
-
-app.post("/webhooks/mpesa/stk", async (c) => {
-  const body = await c.req.json();
-  console.log("[Webhook] M-Pesa STK result:", JSON.stringify(body));
-  return c.json({ ResultCode: 0, ResultDesc: "Success" });
-});
-
-// MTN MoMo callback
-app.post("/webhooks/momo", async (c) => {
-  const body = await c.req.json();
-  console.log("[Webhook] MoMo callback:", JSON.stringify(body));
-  return c.json({ received: true });
-});
+app.route("/webhooks/mpesa", mpesaWebhookRouter);
+app.route("/webhooks/momo", momoWebhookRouter);
 
 // ── Global error handler ──────────────────────────────────────────────────────
 
