@@ -1,18 +1,98 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { ArrowLeft, Copy, Check, ExternalLink, ShieldCheck, Key } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { ArrowLeft, Copy, Check, ExternalLink, ShieldCheck, Wallet2, Unlink, Loader2, AlertCircle } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAccount, useDisconnect } from "wagmi";
+import { useAppKit } from "@reown/appkit/react";
 import { MobileFrame } from "@/components/MobileFrame";
 import { BottomNav } from "@/components/BottomNav";
-import { user, assets } from "@/lib/tuma-data";
+import { api, type WalletAsset, ApiError } from "@/lib/api/client";
+import { useAuthStore } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/wallet")({
   head: () => ({ meta: [{ title: "Wallet · TUMA" }, { name: "description", content: "Your non-custodial smart wallet on Avalanche." }] }),
   component: Wallet,
 });
 
+function assetColor(symbol: string) {
+  if (symbol === "USDC") return "bg-blue-600";
+  if (symbol === "USDT") return "bg-emerald-500";
+  if (symbol === "AVAX") return "bg-red-500";
+  return "bg-muted";
+}
+
 function Wallet() {
+  const navigate = useNavigate();
+  const { accessToken, user, updateUser, isLoggedIn } = useAuthStore();
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
-  const total = assets.reduce((s, a) => s + a.usd, 0);
+  const [extCopied, setExtCopied] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+
+  const { open } = useAppKit();
+  const { address: wagmiAddress, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
+
+  useEffect(() => {
+    if (!isLoggedIn()) navigate({ to: "/signup" });
+  }, [isLoggedIn, navigate]);
+
+  const { data: wallet, isLoading } = useQuery({
+    queryKey: ["wallet"],
+    queryFn: () => api.wallet.get(accessToken!),
+    enabled: !!accessToken,
+    refetchInterval: (q) => q.state.data?.status === "deploying" ? 4_000 : false,
+  });
+
+  const { data: extBalances, isLoading: extLoading } = useQuery({
+    queryKey: ["ext-balances", wagmiAddress ?? user?.walletAddress ?? null],
+    queryFn: () => {
+      const addr = wagmiAddress ?? (user as any)?.externalWalletAddress;
+      return api.wallet.balances(addr, accessToken!);
+    },
+    enabled: !!accessToken && !!(wagmiAddress ?? (user as any)?.externalWalletAddress),
+  });
+
+  const connectMutation = useMutation({
+    mutationFn: ({ address, walletType }: { address: string; walletType: string }) =>
+      api.wallet.connect(address, walletType, accessToken!),
+    onSuccess: (_, vars) => {
+      updateUser({ walletAddress: wallet?.walletAddress ?? null } as any);
+      queryClient.invalidateQueries({ queryKey: ["ext-balances"] });
+      setConnectError(null);
+    },
+    onError: (e) => {
+      setConnectError(e instanceof ApiError ? e.message : "Failed to link wallet.");
+    },
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: () => api.wallet.disconnect(accessToken!),
+    onSuccess: () => {
+      disconnect();
+      queryClient.invalidateQueries({ queryKey: ["ext-balances"] });
+    },
+  });
+
+  useEffect(() => {
+    if (isConnected && wagmiAddress && accessToken) {
+      connectMutation.mutate({ address: wagmiAddress, walletType: "walletconnect" });
+    }
+  }, [isConnected, wagmiAddress, accessToken]);
+
+  const tumaAddress = wallet?.walletAddress;
+  const assets: WalletAsset[] = wallet?.assets ?? [];
+  const totalUsd = wallet?.totalUsd ?? 0;
+  const isDeploying = wallet?.status === "deploying";
+  const explorerUrl = wallet?.explorerUrl;
+  const short = tumaAddress ? `${tumaAddress.slice(0, 6)}…${tumaAddress.slice(-4)}` : "—";
+  const extAddress = wagmiAddress ?? (user as any)?.externalWalletAddress;
+
+  function copy(s: string, ext?: boolean) {
+    navigator.clipboard?.writeText(s);
+    if (ext) { setExtCopied(true); setTimeout(() => setExtCopied(false), 1500); }
+    else { setCopied(true); setTimeout(() => setCopied(false), 1500); }
+  }
 
   return (
     <MobileFrame>
@@ -25,63 +105,153 @@ function Wallet() {
           <span className="text-[10px] font-bold text-success bg-success-soft px-2 py-1 rounded-full">Avalanche</span>
         </header>
 
+        {isDeploying && (
+          <div className="mx-5 mt-3 flex items-center gap-2 rounded-2xl bg-warning-soft px-4 py-2.5 text-xs text-warning-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+            Smart wallet is deploying on Avalanche…
+          </div>
+        )}
+
+        {/* TUMA smart wallet */}
         <div className="px-5 mt-3">
           <div className="rounded-3xl border border-border bg-card p-5">
             <div className="flex items-center gap-2">
               <div className="h-9 w-9 rounded-xl flex items-center justify-center text-primary-foreground font-black text-xs" style={{ background: "var(--gradient-portfolio)" }}>T</div>
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Bound to</p>
-                <p className="text-sm font-bold">{user.msisdn}</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">TUMA smart wallet</p>
+                <p className="text-sm font-bold">{user?.phone ?? "—"}</p>
               </div>
             </div>
-            <p className="mt-4 text-[10px] uppercase tracking-wider text-muted-foreground">Address</p>
-            <p className="font-mono text-xs break-all mt-1">{user.smartWallet}</p>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <button
-                onClick={() => { navigator.clipboard?.writeText(user.smartWallet); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-                className="rounded-xl border border-border bg-background py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5"
-              >
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied ? "Copied" : "Copy"}
-              </button>
-              <a href="#" className="rounded-xl border border-border bg-background py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5">
-                <ExternalLink className="h-3.5 w-3.5" /> Snowtrace
-              </a>
-            </div>
+            {isLoading ? (
+              <div className="mt-3 h-8 w-48 rounded-xl bg-muted animate-pulse" />
+            ) : (
+              <>
+                <p className="mt-4 text-[10px] uppercase tracking-wider text-muted-foreground">Address</p>
+                <p className="font-mono text-xs break-all mt-1">{tumaAddress ?? (isDeploying ? "Deploying…" : "—")}</p>
+              </>
+            )}
+            {tumaAddress && (
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button onClick={() => copy(tumaAddress)}
+                  className="rounded-xl border border-border bg-background py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5">
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied ? "Copied" : "Copy"}
+                </button>
+                {explorerUrl ? (
+                  <a href={explorerUrl} target="_blank" rel="noreferrer"
+                    className="rounded-xl border border-border bg-background py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5">
+                    <ExternalLink className="h-3.5 w-3.5" /> Snowtrace
+                  </a>
+                ) : (
+                  <span className="rounded-xl border border-border bg-background py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5 opacity-40">
+                    <ExternalLink className="h-3.5 w-3.5" /> Snowtrace
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
+        {/* On-chain balance */}
         <div className="px-5 mt-4">
           <div className="flex items-baseline justify-between">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">On-chain total</p>
-            <p className="text-2xl font-black">${total.toFixed(2)}</p>
+            <p className="text-2xl font-black">${totalUsd.toFixed(2)}</p>
           </div>
         </div>
 
-        <div className="px-5 mt-4 space-y-2 flex-1">
+        <div className="px-5 mt-3 space-y-2">
+          {isLoading && [0,1].map((i) => <div key={i} className="h-16 rounded-2xl bg-card border border-border animate-pulse" />)}
+          {!isLoading && assets.length === 0 && !isDeploying && (
+            <p className="text-xs text-muted-foreground py-2">No assets yet. Fund your wallet to get started.</p>
+          )}
           {assets.map((a) => (
             <div key={a.symbol} className="rounded-2xl border border-border bg-card p-4 flex items-center gap-3">
-              <div className={`h-11 w-11 rounded-full ${a.color} flex items-center justify-center text-sm font-bold text-white`}>{a.symbol[0]}</div>
+              <div className={`h-11 w-11 rounded-full ${assetColor(a.symbol)} flex items-center justify-center text-sm font-bold text-white`}>{a.symbol[0]}</div>
               <div className="flex-1">
-                <p className="text-sm font-bold">{a.name}</p>
-                <p className="text-[11px] text-muted-foreground">{a.symbol} · Avalanche C-Chain</p>
+                <p className="text-sm font-bold">{a.symbol}</p>
+                <p className="text-[11px] text-muted-foreground">Avalanche C-Chain</p>
               </div>
               <div className="text-right">
-                <p className="text-sm font-bold">{a.balance.toFixed(4)}</p>
-                <p className="text-[11px] text-muted-foreground">${a.usd.toFixed(2)}</p>
+                <p className="text-sm font-bold">{parseFloat(a.balance).toFixed(4)}</p>
+                <p className="text-[11px] text-muted-foreground">${a.balanceUsd.toFixed(2)}</p>
               </div>
             </div>
           ))}
         </div>
 
+        {/* External wallet connect */}
+        <div className="px-5 mt-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">External wallet</p>
+            {extAddress && (
+              <button onClick={() => disconnectMutation.mutate()}
+                className="text-[10px] text-destructive font-semibold flex items-center gap-1">
+                <Unlink className="h-3 w-3" /> Disconnect
+              </button>
+            )}
+          </div>
+
+          {!extAddress ? (
+            <button onClick={() => open()}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3.5 text-sm font-semibold hover:bg-muted/50 transition">
+              <Wallet2 className="h-4 w-4 text-primary" />
+              Connect MetaMask / Core / WalletConnect
+            </button>
+          ) : (
+            <div className="rounded-3xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2">
+                <Wallet2 className="h-5 w-5 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Connected</p>
+                  <p className="font-mono text-xs truncate">{extAddress}</p>
+                </div>
+                <button onClick={() => copy(extAddress, true)}
+                  className="h-7 w-7 rounded-xl border border-border bg-background flex items-center justify-center">
+                  {extCopied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+                </button>
+              </div>
+
+              {extLoading && <div className="mt-3 h-16 rounded-2xl bg-muted animate-pulse" />}
+
+              {extBalances && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  <div className="flex items-baseline justify-between mb-2">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">On-chain balance</p>
+                    <p className="text-sm font-black">${extBalances.totalUsd.toFixed(2)}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    {extBalances.assets.map((a) => (
+                      <div key={a.symbol} className="flex items-center justify-between text-xs">
+                        <span className="font-semibold">{a.symbol}</span>
+                        <span className="text-muted-foreground">{parseFloat(a.balance).toFixed(4)} · ${a.balanceUsd.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {extBalances.explorerUrl && (
+                    <a href={extBalances.explorerUrl} target="_blank" rel="noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary font-semibold">
+                      <ExternalLink className="h-3 w-3" /> View on Snowtrace
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {connectError && (
+            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />{connectError}
+            </div>
+          )}
+        </div>
+
+        {/* Security note */}
         <div className="px-5 mt-4">
           <div className="rounded-2xl bg-primary-soft p-4 flex gap-3">
             <ShieldCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold">Self-custodial. No seed phrase.</p>
-              <p className="text-[11px] text-muted-foreground mt-1">Keys are derived on-device from your phone number using passkeys. We can't see them or move your funds.</p>
-              <button className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">
-                <Key className="h-3 w-3" /> Manage security
-              </button>
+              <p className="text-[11px] text-muted-foreground mt-1">Your TUMA wallet is derived on-device from your phone number. We can't see your keys or move your funds.</p>
             </div>
           </div>
         </div>
