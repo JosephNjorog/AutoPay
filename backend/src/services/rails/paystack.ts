@@ -100,6 +100,52 @@ export async function sendTransfer(
   };
 }
 
+// ── Mobile money collection (fund wallet via M-Pesa / MTN MoMo) ──────────────
+
+type MobileMoneyProvider = "mpesa" | "mtn" | "vodafone" | "airtel" | "tigopesa";
+
+type MobileMoneyResult = {
+  reference: string;
+  displayText: string;
+  status: string;
+};
+
+/**
+ * Initiates a mobile money charge via Paystack.
+ * Supported: Kenya M-Pesa (KES), Ghana MTN MoMo (GHS),
+ *            Uganda MTN MoMo (UGX), Tanzania M-Pesa (TZS).
+ * On success, Paystack fires charge.success to /webhooks/paystack.
+ */
+export async function initiateMobileMoneyCharge(
+  phone: string,
+  amountLocal: number,
+  currency: string,
+  provider: MobileMoneyProvider,
+  ref: string
+): Promise<MobileMoneyResult> {
+  const data = await paystackFetch<{
+    reference: string;
+    display_text?: string;
+    status: string;
+  }>("/charge", {
+    method: "POST",
+    body: JSON.stringify({
+      email: `${phone.replace(/\D/g, "")}@tuma.user`,
+      amount: Math.round(amountLocal * 100),
+      currency,
+      reference: ref,
+      mobile_money: { phone, provider },
+      metadata: { tuma_ref: ref, channel: "mobile_money" },
+    }),
+  });
+
+  return {
+    reference: data.reference,
+    displayText: data.display_text ?? "Follow the prompt on your phone to complete payment.",
+    status: data.status,
+  };
+}
+
 // ── Card collection (fund wallet) ─────────────────────────────────────────────
 
 export async function initializeCardPayment(
