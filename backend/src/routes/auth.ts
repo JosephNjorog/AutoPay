@@ -18,6 +18,7 @@ import {
   deploySmartWallet,
   getSmartWalletAddress,
   registerWalletOnChain,
+  sponsorWallet,
 } from "../services/avalanche";
 import { otpSendLimiter, otpVerifyLimiter } from "../middleware/rateLimit";
 import { AuthError, ValidationError } from "../lib/errors";
@@ -95,6 +96,9 @@ authRouter.post("/verify-otp", otpVerifyLimiter, zValidator("json", VerifyOtpSch
 
         // Register in the on-chain phone-hash → wallet registry
         await registerWalletOnChain(phoneHash, addr);
+
+        // Enable gas sponsorship so the user pays zero network fees
+        await sponsorWallet(addr);
       })
       .catch((err) => {
         console.error(`[Auth] Wallet deploy failed for ${user!.id}:`, err.message);
