@@ -1,7 +1,8 @@
 /**
- * Fund wallet routes — all card payments go through Paystack.
+ * Fund wallet routes.
+ * Card and mobile money payments go through Paystack.
  * Bank transfer returns a generated virtual account.
- * Crypto shows the user's Avalanche wallet address directly.
+ * Crypto shows the user's Avalanche wallet address.
  */
 
 import { Hono, type Context } from "hono";
@@ -13,20 +14,41 @@ import { eq } from "drizzle-orm";
 import { authMiddleware } from "../middleware/auth";
 import {
   initializeCardPayment,
+  initiateMobileMoneyCharge,
   verifyPaystackWebhook,
 } from "../services/rails/paystack";
-import { initiateSTKPush } from "../services/rails/mpesa";
 import { creditFromFloat } from "../services/avalanche";
 import { generateTxRef } from "../lib/crypto";
-import { setex } from "../lib/redis";
-import { keys } from "../lib/redis";
 import { NotFoundError } from "../lib/errors";
 import type { Address } from "viem";
 
 export const fundRouter = new Hono();
 fundRouter.use("*", authMiddleware);
 
-// POST /api/fund/card  ─── Paystack card checkout
+// ── Phone prefix → mobile money config ───────────────────────────────────────
+
+type MobileConfig = {
+  currency: string;
+  provider: "mpesa" | "mtn" | "vodafone" | "airtel" | "tigopesa";
+  maxAmount: number;
+  label: string;
+};
+
+function mobileConfigForPhone(phone: string): MobileConfig | null {
+  if (phone.startsWith("+254") || phone.startsWith("+255")) {
+    return { currency: phone.startsWith("+254") ? "KES" : "TZS", provider: "mpesa", maxAmount: 500_000, label: "M-Pesa" };
+  }
+  if (phone.startsWith("+233")) {
+    return { currency: "GHS", provider: "mtn", maxAmount: 10_000, label: "MTN MoMo" };
+  }
+  if (phone.startsWith("+256")) {
+    return { currency: "UGX", provider: "mtn", maxAmount: 5_000_000, label: "MTN MoMo" };
+  }
+  return null;
+}
+
+// ── POST /api/fund/card — Paystack card checkout ───────────────────────────────
+
 fundRouter.post(
   "/card",
   zValidator("json", z.object({ amountUsd: z.number().positive().max(5000) })),
@@ -39,9 +61,7 @@ fundRouter.post(
 
     const reference = generateTxRef();
     const successUrl = `${process.env.APP_URL}/dashboard?funded=1&ref=${reference}`;
-
-    // Paystack uses email — we use the user's phone as a proxy email for now
-    const email = `${phone.replace("+", "")}@tuma.user`;
+    const email = `${phone.replace(/\D/g, "")}@tuma.user`;
 
     const { authorizationUrl, accessCode } = await initializeCardPayment(
       email,
@@ -50,7 +70,6 @@ fundRouter.post(
       successUrl
     );
 
-    // Record a pending fund transaction
     await db.insert(transactions).values({
       reference,
       senderId: null,
@@ -73,7 +92,6 @@ fundRouter.post(
         authorizationUrl,
         accessCode,
         reference,
-        // Fee breakdown
         fee: parseFloat((amountUsd * 0.015).toFixed(2)),
         feePercent: "1.5%",
         youReceive: parseFloat((amountUsd * 0.985).toFixed(2)),
@@ -83,74 +101,93 @@ fundRouter.post(
   }
 );
 
-// POST /api/fund/mobile  ─── M-Pesa STK Push (Kenya only)
+// ── POST /api/fund/mobile — Paystack mobile money (M-Pesa / MTN MoMo) ─────────
+// Supports Kenya (KES/M-Pesa), Tanzania (TZS/M-Pesa), Ghana (GHS/MTN), Uganda (UGX/MTN).
+// Paystack fires charge.success to /webhooks/paystack which credits USDC to the wallet.
+
 fundRouter.post("/mobile", async (c: Context) => {
-    const body = await c.req.json();
-    const parsed = z.object({ amountKes: z.number().positive().max(500_000) }).safeParse(body);
-    if (!parsed.success) {
-      return c.json({ ok: false, error: "amountKes must be a positive number up to 500,000" }, 422);
-    }
-    const { amountKes } = parsed.data;
-    const { sub: userId, phone } = c.get("user");
+  const body = await c.req.json();
+  const parsed = z
+    .object({ amountLocal: z.number().positive() })
+    .safeParse(body);
 
-    if (!phone.startsWith("+254")) {
-      return c.json({ ok: false, error: "M-Pesa is only available for Kenyan numbers" }, 400);
-    }
-
-    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
-    if (!user) throw new NotFoundError("User");
-
-    const reference = generateTxRef();
-    const { checkoutRequestId } = await initiateSTKPush(phone, amountKes, reference);
-
-    // Store CheckoutRequestID → reference in Redis so the STK webhook can reconcile
-    await setex(keys.stkRef(checkoutRequestId), 600, reference);
-
-    // Approximate USD value for ledger (live rate used at settlement time)
-    const amountUsd = parseFloat((amountKes / 130).toFixed(6));
-
-    await db.insert(transactions).values({
-      reference,
-      senderId: null,
-      recipientPhone: phone,
-      recipientUserId: userId,
-      recipientWalletAddress: user.walletAddress,
-      amountUsdc: amountUsd.toFixed(6),
-      amountLocal: amountKes.toFixed(2),
-      localCurrency: "KES",
-      fxRate: "130.00000000",
-      token: "USDC",
-      rail: "mpesa",
-      status: "initiated",
-      note: "M-Pesa STK Push funding",
-    });
-
-    return c.json({
-      ok: true,
-      data: {
-        checkoutRequestId,
-        reference,
-        amountKes,
-        estimatedUsdc: amountUsd,
-        message: "Check your phone for the M-Pesa prompt and enter your PIN.",
-      },
-    });
+  if (!parsed.success) {
+    return c.json({ ok: false, error: "amountLocal must be a positive number" }, 422);
   }
-);
 
-// GET /api/fund/bank  ─── Virtual bank account (static per user)
-fundRouter.get("/bank", async (c) => {
+  const { amountLocal } = parsed.data;
   const { sub: userId, phone } = c.get("user");
 
-  // In production this would call Paystack's Dedicated Virtual Accounts API
-  // or similar to generate a unique account per user.
-  // For now we return a deterministic placeholder.
+  const config = mobileConfigForPhone(phone);
+  if (!config) {
+    return c.json(
+      { ok: false, error: "Mobile money is not available for your country. Use card or crypto deposit." },
+      400
+    );
+  }
+
+  if (amountLocal > config.maxAmount) {
+    return c.json({ ok: false, error: `Maximum ${config.label} top-up is ${config.maxAmount.toLocaleString()} ${config.currency}` }, 422);
+  }
+
+  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!user) throw new NotFoundError("User");
+
+  const reference = generateTxRef();
+
+  // Approximate USD value for the ledger (real rate used at settlement time)
+  const approxRates: Record<string, number> = { KES: 130, GHS: 15, UGX: 3700, TZS: 2600 };
+  const amountUsd = parseFloat((amountLocal / (approxRates[config.currency] ?? 130)).toFixed(6));
+
+  const { displayText, status } = await initiateMobileMoneyCharge(
+    phone,
+    amountLocal,
+    config.currency,
+    config.provider,
+    reference
+  );
+
+  await db.insert(transactions).values({
+    reference,
+    senderId: null,
+    recipientPhone: phone,
+    recipientUserId: userId,
+    recipientWalletAddress: user.walletAddress,
+    amountUsdc: amountUsd.toFixed(6),
+    amountLocal: amountLocal.toFixed(2),
+    localCurrency: config.currency,
+    fxRate: (approxRates[config.currency] ?? 130).toFixed(8),
+    token: "USDC",
+    rail: "paystack",
+    status: "initiated",
+    note: `${config.label} funding via Paystack`,
+  });
+
+  return c.json({
+    ok: true,
+    data: {
+      reference,
+      amountLocal,
+      currency: config.currency,
+      provider: config.label,
+      displayText,
+      paystackStatus: status,
+      estimatedUsdc: amountUsd,
+      message: displayText,
+    },
+  });
+});
+
+// ── GET /api/fund/bank — Virtual bank account ──────────────────────────────────
+
+fundRouter.get("/bank", async (c) => {
+  const { sub: userId, phone } = c.get("user");
   const lastDigits = phone.slice(-4);
 
   return c.json({
     ok: true,
     data: {
-      bankName: "Guaranty Trust Bank",
+      bankName: "Wema Bank (Paystack Virtual Account)",
       accountName: "TUMA / " + phone,
       accountNumber: `020${lastDigits}0001`,
       routingReference: `TMA-${userId.slice(0, 8).toUpperCase()}`,
@@ -162,7 +199,8 @@ fundRouter.get("/bank", async (c) => {
   });
 });
 
-// GET /api/fund/crypto  ─── Direct on-chain deposit
+// ── GET /api/fund/crypto — Direct on-chain deposit ────────────────────────────
+
 fundRouter.get("/crypto", async (c) => {
   const { sub: userId } = c.get("user");
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
@@ -183,8 +221,10 @@ fundRouter.get("/crypto", async (c) => {
   });
 });
 
-// POST /api/webhooks/paystack  ─── Paystack payment webhook
-// Note: this endpoint is NOT behind authMiddleware — it's called by Paystack
+// ── POST /webhooks/paystack — Paystack payment webhook ────────────────────────
+// Handles both card (charge.success) and mobile money (charge.success) payments.
+// NOTE: mounted at /webhooks/paystack in index.ts — NOT behind authMiddleware.
+
 export const paystackWebhookRouter = new Hono();
 
 paystackWebhookRouter.post("/", async (c) => {
@@ -197,13 +237,18 @@ paystackWebhookRouter.post("/", async (c) => {
 
   const event = JSON.parse(rawBody) as {
     event: string;
-    data: { reference: string; status: string; amount: number; currency: string };
+    data: {
+      reference: string;
+      status: string;
+      amount: number;
+      currency: string;
+      channel?: string;
+    };
   };
 
   if (event.event === "charge.success") {
-    const { reference, amount, currency } = event.data;
+    const { reference, amount, currency, channel } = event.data;
 
-    // Find the pending fund transaction
     const tx = await db.query.transactions.findFirst({
       where: eq(transactions.reference, reference),
       with: { recipient: true },
@@ -215,18 +260,19 @@ paystackWebhookRouter.post("/", async (c) => {
         .set({ status: "settled", settledAt: new Date(), updatedAt: new Date() })
         .where(eq(transactions.reference, reference));
 
-      // Credit USDC from TUMA float to the user's smart wallet (non-blocking)
       const walletAddress = (tx as unknown as { recipient?: { walletAddress?: string } })
         ?.recipient?.walletAddress;
       const amountUsdc = parseFloat(tx.amountUsdc);
 
       if (walletAddress && amountUsdc > 0) {
-        creditFromFloat(walletAddress as `0x${string}`, amountUsdc).catch((err: Error) =>
-          console.error(`[Paystack] USDC credit failed ref=${reference}:`, err.message)
+        creditFromFloat(walletAddress as Address, amountUsdc).catch((err: Error) =>
+          console.error(
+            `[Paystack] USDC credit failed ref=${reference} channel=${channel ?? "?"}: ${err.message}`
+          )
         );
       }
 
-      console.log(`[Paystack] ✓ Card funded ref=${reference} amount=${amount / 100} ${currency}`);
+      console.log(`[Paystack] ✓ ${channel ?? "payment"} settled ref=${reference} amount=${amount / 100} ${currency}`);
     }
   }
 
