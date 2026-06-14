@@ -458,6 +458,57 @@ export async function claimEscrowOnChain(
   return hash;
 }
 
+/**
+ * Credits USDC from TUMA's relayer float directly to a user's smart wallet.
+ * Used after a successful card or M-Pesa STK Push funding payment.
+ * The relayer EOA must hold sufficient USDC float.
+ */
+export async function creditFromFloat(
+  toWalletAddress: Address,
+  amountUsd: number
+): Promise<Hash> {
+  const amountRaw = parseUnits(amountUsd.toFixed(6), 6);
+
+  const hash = await relayerClient.writeContract({
+    address: TOKEN_ADDRESSES.USDC,
+    abi: ERC20_ABI,
+    functionName: "transfer",
+    args: [toWalletAddress, amountRaw],
+  });
+
+  await publicClient.waitForTransactionReceipt({ hash });
+  return hash;
+}
+
+/**
+ * Registers a smart wallet with the Paymaster for gas sponsorship.
+ * Called after wallet deploy so the user never pays gas.
+ * Silently skips if TUMA_PAYMASTER_ADDRESS is not yet configured.
+ */
+export async function sponsorWallet(walletAddress: Address): Promise<void> {
+  const paymasterAddress = process.env.TUMA_PAYMASTER_ADDRESS as Address | undefined;
+  if (!paymasterAddress || paymasterAddress === "0x") return;
+
+  const PAYMASTER_APPROVE_ABI = [
+    {
+      name: "approveWallet",
+      type: "function",
+      stateMutability: "nonpayable",
+      inputs: [{ name: "wallet", type: "address" }],
+      outputs: [],
+    },
+  ] as const;
+
+  const hash = await relayerClient.writeContract({
+    address: paymasterAddress,
+    abi: PAYMASTER_APPROVE_ABI,
+    functionName: "approveWallet",
+    args: [walletAddress],
+  });
+
+  await publicClient.waitForTransactionReceipt({ hash });
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function getAvaxPriceUsd(): Promise<number> {
