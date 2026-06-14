@@ -23,6 +23,8 @@ export const keys = {
   session: (tokenHash: string) => `session:${tokenHash}`,
   rateLimit: (ip: string, route: string) => `rl:${route}:${ip}`,
   walletNonce: (address: string) => `nonce:${address}`,
+  // Maps an M-Pesa STK Push CheckoutRequestID → internal transaction reference
+  stkRef: (checkoutRequestId: string) => `mpesa_stk:${checkoutRequestId}`,
 };
 
 // ── Typed helpers ─────────────────────────────────────────────────────────────
