@@ -61,6 +61,8 @@ export const users = pgTable(
     walletAddress: text("wallet_address").unique(),
     walletDeployedAt: timestamp("wallet_deployed_at"),
     isMerchant: boolean("is_merchant").default(false).notNull(),
+    externalWalletAddress: text("external_wallet_address"),
+    externalWalletType: text("external_wallet_type"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
