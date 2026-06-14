@@ -7,10 +7,15 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { WagmiProvider } from "wagmi";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportError } from "../lib/error-reporting";
+import { wagmiConfig } from "../lib/web3";
+
+// Side-effect: initialises Reown AppKit modal
+import "../lib/web3";
 
 function NotFoundComponent() {
   return (
@@ -124,8 +129,10 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <Outlet />
-    </QueryClientProvider>
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+      </QueryClientProvider>
+    </WagmiProvider>
   );
 }
