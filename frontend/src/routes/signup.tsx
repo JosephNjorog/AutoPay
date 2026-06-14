@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, ShieldCheck, ChevronDown, Check, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, ShieldCheck, ChevronDown, Check, Loader2, Sparkles, AlertCircle } from "lucide-react";
 import { MobileFrame } from "@/components/MobileFrame";
 import { countries } from "@/lib/tuma-data";
+import { api, ApiError } from "@/lib/api/client";
+import { useAuthStore } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign up · TUMA" }, { name: "description", content: "Your number becomes your wallet. No seed phrases." }] }),
@@ -13,14 +15,19 @@ type Step = "phone" | "otp" | "creating" | "done";
 
 function Signup() {
   const navigate = useNavigate();
+  const { setAuth } = useAuthStore();
   const [step, setStep] = useState<Step>("phone");
   const [country, setCountry] = useState(countries[0]);
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [resendIn, setResendIn] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const fullPhone = `${country.dial}${phone.replace(/\D/g, "")}`;
   const valid = phone.replace(/\D/g, "").length >= 9;
+  const otpComplete = otp.every((c) => c !== "");
 
   useEffect(() => {
     if (step !== "otp") return;
@@ -35,7 +42,45 @@ function Signup() {
     return () => clearTimeout(t);
   }, [step]);
 
-  const otpComplete = otp.every((c) => c !== "");
+  async function handleSendOtp() {
+    setError(null);
+    setLoading(true);
+    try {
+      await api.auth.sendOtp(fullPhone);
+      setStep("otp");
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Failed to send OTP. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    setError(null);
+    setLoading(true);
+    try {
+      const code = otp.join("");
+      const result = await api.auth.verifyOtp(fullPhone, code);
+      setAuth({ accessToken: result.accessToken, refreshToken: result.refreshToken }, result.user);
+      setStep("creating");
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Incorrect code. Try again.");
+      setOtp(["", "", "", "", "", ""]);
+      otpRefs.current[0]?.focus();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    setError(null);
+    try {
+      await api.auth.sendOtp(fullPhone);
+      setResendIn(30);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Failed to resend OTP.");
+    }
+  }
 
   function handleOtp(i: number, v: string) {
     const ch = v.replace(/\D/g, "").slice(-1);
@@ -53,20 +98,27 @@ function Signup() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div className="flex gap-1.5">
-            {(["phone","otp","done"] as const).map((s, i) => {
-              const idx = ["phone","otp","creating","done"].indexOf(step);
-              const active = i <= [0,1,2,2][idx];
+            {(["phone", "otp", "done"] as const).map((s, i) => {
+              const idx = ["phone", "otp", "creating", "done"].indexOf(step);
+              const active = i <= [0, 1, 2, 2][idx];
               return <span key={s} className={`h-1.5 w-6 rounded-full transition ${active ? "bg-primary" : "bg-border"}`} />;
             })}
           </div>
         </div>
+
+        {error && (
+          <div className="mt-4 flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
 
         {step === "phone" && (
           <>
             <div className="mt-10">
               <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Step 1 of 3</p>
               <h1 className="mt-3 text-4xl font-black tracking-tight leading-[1.05]">What's your<br />number?</h1>
-              <p className="mt-3 text-sm text-muted-foreground">It becomes your global wallet ID. We'll text you a 6-digit code to verify it.</p>
+              <p className="mt-3 text-sm text-muted-foreground">It becomes your global wallet ID. We'll send a 6-digit code via WhatsApp.</p>
             </div>
 
             <div className="mt-8 space-y-3">
@@ -80,7 +132,7 @@ function Signup() {
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </button>
                 {open && (
-                  <div className="absolute z-20 mt-2 w-full max-h-64 overflow-y-auto rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]">
+                  <div className="absolute z-20 mt-2 w-full max-h-64 overflow-y-auto rounded-2xl border border-border bg-card shadow-(--shadow-card)">
                     {countries.map((c) => (
                       <button key={c.code} onClick={() => { setCountry(c); setOpen(false); }} className="w-full flex items-center gap-3 p-3 hover:bg-muted text-left">
                         <span className="text-xl">{c.flag}</span>
@@ -109,15 +161,17 @@ function Signup() {
               <ShieldCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold">No seed phrase. Ever.</p>
-                <p className="text-xs text-muted-foreground mt-1">A smart wallet is derived from your number + our server key. Recover by re-verifying your SIM.</p>
+                <p className="text-xs text-muted-foreground mt-1">A smart wallet is derived from your number on Avalanche. Recover by re-verifying your SIM.</p>
               </div>
             </div>
 
             <div className="mt-auto pt-8">
-              <button disabled={!valid} onClick={() => setStep("otp")}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground transition disabled:opacity-40 disabled:cursor-not-allowed shadow-[var(--shadow-elegant)]"
+              <button disabled={!valid || loading} onClick={handleSendOtp}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground transition disabled:opacity-40 disabled:cursor-not-allowed shadow-(--shadow-elegant)"
                 style={{ background: "var(--gradient-portfolio)" }}>
-                Send verification code <ArrowRight className="h-4 w-4" />
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {loading ? "Sending code…" : "Send verification code"}
+                {!loading && <ArrowRight className="h-4 w-4" />}
               </button>
               <p className="mt-3 text-center text-[11px] text-muted-foreground">By continuing you agree to TUMA's Terms.</p>
             </div>
@@ -129,7 +183,7 @@ function Signup() {
             <div className="mt-10">
               <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Step 2 of 3</p>
               <h1 className="mt-3 text-4xl font-black tracking-tight leading-[1.05]">Enter the<br />6-digit code</h1>
-              <p className="mt-3 text-sm text-muted-foreground">Sent via SMS to <span className="font-semibold text-foreground">{country.dial} {phone}</span></p>
+              <p className="mt-3 text-sm text-muted-foreground">Sent via WhatsApp to <span className="font-semibold text-foreground">{country.dial} {phone}</span></p>
             </div>
 
             <div className="mt-8 grid grid-cols-6 gap-2">
@@ -147,21 +201,21 @@ function Signup() {
               ))}
             </div>
 
-            <button onClick={() => setOtp(["1","2","3","4","5","6"])} className="mt-4 text-xs text-muted-foreground self-center">
-              Tap to autofill demo code
-            </button>
-
             <div className="mt-6 text-center text-xs text-muted-foreground">
-              {resendIn > 0 ? `Resend code in ${resendIn}s` : <button className="text-primary font-semibold" onClick={() => setResendIn(30)}>Resend code</button>}
+              {resendIn > 0
+                ? `Resend code in ${resendIn}s`
+                : <button className="text-primary font-semibold" onClick={handleResend}>Resend code</button>
+              }
             </div>
 
             <div className="mt-auto pt-8">
-              <button disabled={!otpComplete} onClick={() => setStep("creating")}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground transition disabled:opacity-40 shadow-[var(--shadow-elegant)]"
+              <button disabled={!otpComplete || loading} onClick={handleVerifyOtp}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground transition disabled:opacity-40 shadow-(--shadow-elegant)"
                 style={{ background: "var(--gradient-portfolio)" }}>
-                Verify <ArrowRight className="h-4 w-4" />
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {loading ? "Verifying…" : "Verify"} {!loading && <ArrowRight className="h-4 w-4" />}
               </button>
-              <button onClick={() => setStep("phone")} className="mt-3 w-full text-center text-[11px] text-muted-foreground">Change number</button>
+              <button onClick={() => { setStep("phone"); setError(null); }} className="mt-3 w-full text-center text-[11px] text-muted-foreground">Change number</button>
             </div>
           </>
         )}
@@ -193,7 +247,7 @@ function Signup() {
               <p className="mt-2 text-sm text-muted-foreground max-w-xs">Your TUMA wallet is live. Fund it to start sending across Africa.</p>
             </div>
 
-            <div className="mt-8 rounded-3xl p-5 text-primary-foreground shadow-[var(--shadow-elegant)]" style={{ background: "var(--gradient-portfolio)" }}>
+            <div className="mt-8 rounded-3xl p-5 text-primary-foreground shadow-(--shadow-elegant)" style={{ background: "var(--gradient-portfolio)" }}>
               <div className="flex items-center gap-2 text-xs opacity-90">
                 <Sparkles className="h-3.5 w-3.5" /> Your TUMA number
               </div>
@@ -203,7 +257,7 @@ function Signup() {
 
             <div className="mt-auto pt-8 space-y-2">
               <button onClick={() => navigate({ to: "/fund" })}
-                className="w-full rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-elegant)]"
+                className="w-full rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant)"
                 style={{ background: "var(--gradient-portfolio)" }}>
                 Add money to wallet
               </button>
