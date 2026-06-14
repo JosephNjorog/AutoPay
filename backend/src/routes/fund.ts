@@ -4,7 +4,7 @@
  * Crypto shows the user's Avalanche wallet address directly.
  */
 
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { db } from "../db";
@@ -15,7 +15,11 @@ import {
   initializeCardPayment,
   verifyPaystackWebhook,
 } from "../services/rails/paystack";
+import { initiateSTKPush } from "../services/rails/mpesa";
+import { creditFromFloat } from "../services/avalanche";
 import { generateTxRef } from "../lib/crypto";
+import { setex } from "../lib/redis";
+import { keys } from "../lib/redis";
 import { NotFoundError } from "../lib/errors";
 import type { Address } from "viem";
 
@@ -74,6 +78,61 @@ fundRouter.post(
         feePercent: "1.5%",
         youReceive: parseFloat((amountUsd * 0.985).toFixed(2)),
         currency: "USDC",
+      },
+    });
+  }
+);
+
+// POST /api/fund/mobile  ─── M-Pesa STK Push (Kenya only)
+fundRouter.post("/mobile", async (c: Context) => {
+    const body = await c.req.json();
+    const parsed = z.object({ amountKes: z.number().positive().max(500_000) }).safeParse(body);
+    if (!parsed.success) {
+      return c.json({ ok: false, error: "amountKes must be a positive number up to 500,000" }, 422);
+    }
+    const { amountKes } = parsed.data;
+    const { sub: userId, phone } = c.get("user");
+
+    if (!phone.startsWith("+254")) {
+      return c.json({ ok: false, error: "M-Pesa is only available for Kenyan numbers" }, 400);
+    }
+
+    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    if (!user) throw new NotFoundError("User");
+
+    const reference = generateTxRef();
+    const { checkoutRequestId } = await initiateSTKPush(phone, amountKes, reference);
+
+    // Store CheckoutRequestID → reference in Redis so the STK webhook can reconcile
+    await setex(keys.stkRef(checkoutRequestId), 600, reference);
+
+    // Approximate USD value for ledger (live rate used at settlement time)
+    const amountUsd = parseFloat((amountKes / 130).toFixed(6));
+
+    await db.insert(transactions).values({
+      reference,
+      senderId: null,
+      recipientPhone: phone,
+      recipientUserId: userId,
+      recipientWalletAddress: user.walletAddress,
+      amountUsdc: amountUsd.toFixed(6),
+      amountLocal: amountKes.toFixed(2),
+      localCurrency: "KES",
+      fxRate: "130.00000000",
+      token: "USDC",
+      rail: "mpesa",
+      status: "initiated",
+      note: "M-Pesa STK Push funding",
+    });
+
+    return c.json({
+      ok: true,
+      data: {
+        checkoutRequestId,
+        reference,
+        amountKes,
+        estimatedUsdc: amountUsd,
+        message: "Check your phone for the M-Pesa prompt and enter your PIN.",
       },
     });
   }
@@ -151,14 +210,23 @@ paystackWebhookRouter.post("/", async (c) => {
     });
 
     if (tx && tx.status === "initiated") {
-      // Mark as settled — in production: mint/bridge USDC to the user's wallet
       await db
         .update(transactions)
         .set({ status: "settled", settledAt: new Date(), updatedAt: new Date() })
         .where(eq(transactions.reference, reference));
 
-      // TODO: trigger USDC credit to user's Avalanche wallet from TUMA float
-      console.log(`[Paystack] Card payment settled: ${reference} — ${amount / 100} ${currency}`);
+      // Credit USDC from TUMA float to the user's smart wallet (non-blocking)
+      const walletAddress = (tx as unknown as { recipient?: { walletAddress?: string } })
+        ?.recipient?.walletAddress;
+      const amountUsdc = parseFloat(tx.amountUsdc);
+
+      if (walletAddress && amountUsdc > 0) {
+        creditFromFloat(walletAddress as `0x${string}`, amountUsdc).catch((err: Error) =>
+          console.error(`[Paystack] USDC credit failed ref=${reference}:`, err.message)
+        );
+      }
+
+      console.log(`[Paystack] ✓ Card funded ref=${reference} amount=${amount / 100} ${currency}`);
     }
   }
 
