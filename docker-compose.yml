@@ -1,0 +1,102 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tuma
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: tuma_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tuma"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://tuma:password@postgres:5432/tuma_db
+      REDIS_URL: redis://redis:6379
+      PORT: "3001"
+    restart: unless-stopped
+
+  worker-settlement:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["bun", "run", "src/workers/settlement.worker.ts"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://tuma:password@postgres:5432/tuma_db
+      REDIS_URL: redis://redis:6379
+    restart: unless-stopped
+
+  worker-escrow:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["bun", "run", "src/workers/escrow.worker.ts"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://tuma:password@postgres:5432/tuma_db
+      REDIS_URL: redis://redis:6379
+    restart: unless-stopped
+
+  worker-notify:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["bun", "run", "src/workers/notify.worker.ts"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://tuma:password@postgres:5432/tuma_db
+      REDIS_URL: redis://redis:6379
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
