@@ -1,9 +1,23 @@
 import { Queue, Worker, type Job } from "bullmq";
 import IORedis from "ioredis";
 
-const connection = new IORedis(process.env.REDIS_URL!, {
-  maxRetriesPerRequest: null,
-});
+const redisUrl = process.env.REDIS_URL;
+
+// Queues are disabled when REDIS_URL is absent (demo/in-memory mode).
+// Jobs enqueued without a connection are silently dropped.
+const connection = redisUrl
+  ? new IORedis(redisUrl, {
+      maxRetriesPerRequest: null,
+      enableOfflineQueue: false,
+      lazyConnect: true,
+    })
+  : (null as unknown as IORedis);
+
+if (connection) {
+  connection.connect().catch(() => {
+    // Suppress connection errors — ioredis will retry in the background
+  });
+}
 
 // ── Queue names ───────────────────────────────────────────────────────────────
 
@@ -48,25 +62,12 @@ export type WhatsAppNotifyJob = {
 
 // ── Queue instances ───────────────────────────────────────────────────────────
 
-export const settlementQueue = new Queue<SettlementPollJob>(
-  QUEUE_NAMES.SETTLEMENT_POLL,
-  { connection }
-);
+const queueOpts = connection ? { connection } : { connection: connection as unknown as IORedis };
 
-export const escrowQueue = new Queue<EscrowExpireJob>(
-  QUEUE_NAMES.ESCROW_EXPIRE,
-  { connection }
-);
-
-export const railQueue = new Queue<RailDisburseJob>(
-  QUEUE_NAMES.RAIL_DISBURSE,
-  { connection }
-);
-
-export const notifyQueue = new Queue<WhatsAppNotifyJob>(
-  QUEUE_NAMES.WHATSAPP_NOTIFY,
-  { connection }
-);
+export const settlementQueue = connection ? new Queue<SettlementPollJob>(QUEUE_NAMES.SETTLEMENT_POLL, queueOpts) : null;
+export const escrowQueue = connection ? new Queue<EscrowExpireJob>(QUEUE_NAMES.ESCROW_EXPIRE, queueOpts) : null;
+export const railQueue = connection ? new Queue<RailDisburseJob>(QUEUE_NAMES.RAIL_DISBURSE, queueOpts) : null;
+export const notifyQueue = connection ? new Queue<WhatsAppNotifyJob>(QUEUE_NAMES.WHATSAPP_NOTIFY, queueOpts) : null;
 
 // ── Scheduling helpers ────────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ export async function scheduleSettlementPoll(
   railReference: string,
   delayMs = 10_000
 ) {
-  await settlementQueue.add(
+  await settlementQueue?.add(
     "poll",
     { transactionId, rail, railReference, attempt: 0 },
     { delay: delayMs, attempts: 20, backoff: { type: "exponential", delay: 10_000 } }
@@ -88,18 +89,18 @@ export async function scheduleEscrowExpiry(
   expiresAt: Date
 ) {
   const delay = expiresAt.getTime() - Date.now();
-  await escrowQueue.add("expire", job, { delay: Math.max(delay, 0) });
+  await escrowQueue?.add("expire", job, { delay: Math.max(delay, 0) });
 }
 
 export async function enqueueRailDisburse(job: RailDisburseJob) {
-  await railQueue.add("disburse", job, {
+  await railQueue?.add("disburse", job, {
     attempts: 3,
     backoff: { type: "fixed", delay: 30_000 },
   });
 }
 
 export async function enqueueWhatsAppNotify(job: WhatsAppNotifyJob) {
-  await notifyQueue.add("notify", job, {
+  await notifyQueue?.add("notify", job, {
     attempts: 3,
     backoff: { type: "exponential", delay: 5_000 },
   });
