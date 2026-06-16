@@ -111,6 +111,8 @@ export type WalletData = {
   totalUsd?: number;
   assets?: WalletAsset[];
   network?: string;
+  externalWalletAddress?: string | null;
+  externalWalletType?: string | null;
 };
 
 // ── API client ────────────────────────────────────────────────────────────────

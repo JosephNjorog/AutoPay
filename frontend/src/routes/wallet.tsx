@@ -23,7 +23,7 @@ function assetColor(symbol: string) {
 
 function Wallet() {
   const navigate = useNavigate();
-  const { accessToken, user, updateUser, isLoggedIn } = useAuthStore();
+  const { accessToken, user, isLoggedIn } = useAuthStore();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [extCopied, setExtCopied] = useState(false);
@@ -44,20 +44,19 @@ function Wallet() {
     refetchInterval: (q) => q.state.data?.status === "deploying" ? 4_000 : false,
   });
 
+  const extAddress = wagmiAddress ?? wallet?.externalWalletAddress ?? null;
+
   const { data: extBalances, isLoading: extLoading } = useQuery({
-    queryKey: ["ext-balances", wagmiAddress ?? user?.walletAddress ?? null],
-    queryFn: () => {
-      const addr = wagmiAddress ?? (user as any)?.externalWalletAddress;
-      return api.wallet.balances(addr, accessToken!);
-    },
-    enabled: !!accessToken && !!(wagmiAddress ?? (user as any)?.externalWalletAddress),
+    queryKey: ["ext-balances", extAddress],
+    queryFn: () => api.wallet.balances(extAddress!, accessToken!),
+    enabled: !!accessToken && !!extAddress,
   });
 
   const connectMutation = useMutation({
     mutationFn: ({ address, walletType }: { address: string; walletType: string }) =>
       api.wallet.connect(address, walletType, accessToken!),
-    onSuccess: (_, vars) => {
-      updateUser({ walletAddress: wallet?.walletAddress ?? null } as any);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
       queryClient.invalidateQueries({ queryKey: ["ext-balances"] });
       setConnectError(null);
     },
@@ -70,6 +69,7 @@ function Wallet() {
     mutationFn: () => api.wallet.disconnect(accessToken!),
     onSuccess: () => {
       disconnect();
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
       queryClient.invalidateQueries({ queryKey: ["ext-balances"] });
     },
   });
@@ -86,7 +86,6 @@ function Wallet() {
   const isDeploying = wallet?.status === "deploying";
   const explorerUrl = wallet?.explorerUrl;
   const short = tumaAddress ? `${tumaAddress.slice(0, 6)}…${tumaAddress.slice(-4)}` : "—";
-  const extAddress = wagmiAddress ?? (user as any)?.externalWalletAddress;
 
   function copy(s: string, ext?: boolean) {
     navigator.clipboard?.writeText(s);
