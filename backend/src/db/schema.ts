@@ -66,6 +66,8 @@ export const users = pgTable(
     passwordHash: text("password_hash"),
     externalWalletAddress: text("external_wallet_address"),
     externalWalletType: text("external_wallet_type"),
+    // Notifications dated before this are considered read.
+    notificationsSeenAt: timestamp("notifications_seen_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
