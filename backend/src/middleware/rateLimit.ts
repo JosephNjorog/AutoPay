@@ -39,4 +39,5 @@ export const otpSendLimiter = rateLimit({ max: 3, windowSeconds: 300, route: "ot
 export const otpVerifyLimiter = rateLimit({ max: 5, windowSeconds: 300, route: "otp_verify" });
 export const loginLimiter = rateLimit({ max: 5, windowSeconds: 300, route: "login" });
 export const sendMoneyLimiter = rateLimit({ max: 10, windowSeconds: 60, route: "send" });
+export const withdrawLimiter = rateLimit({ max: 5, windowSeconds: 300, route: "withdraw" });
 export const generalLimiter = rateLimit({ max: 120, windowSeconds: 60, route: "general" });
