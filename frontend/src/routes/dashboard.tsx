@@ -1,11 +1,109 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Eye, EyeOff, Copy, Send, QrCode, Plus, Store, ArrowUpRight, ArrowDownLeft, Bell, Check, Loader2, LogOut } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { Eye, EyeOff, Copy, Send, QrCode, Plus, Store, ArrowUpRight, ArrowDownLeft, Bell, Check, Loader2, LogOut, Inbox, BadgeCheck, XCircle } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MobileFrame } from "@/components/MobileFrame";
 import { BottomNav } from "@/components/BottomNav";
-import { api, type WalletAsset, type TxSummary } from "@/lib/api/client";
+import { api, type WalletAsset, type TxSummary, type Notification } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
+
+function fmtNotifTime(iso: string) {
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  if (diff < 60_000) return "just now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+function notifIcon(kind: Notification["kind"]) {
+  if (kind === "received") return <ArrowDownLeft className="h-4 w-4" />;
+  if (kind === "failed") return <XCircle className="h-4 w-4" />;
+  return <BadgeCheck className="h-4 w-4" />;
+}
+
+function NotificationBell({ accessToken }: { accessToken: string | null }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+
+  const { data } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => api.notifications.list(accessToken!),
+    enabled: !!accessToken,
+    refetchInterval: 30_000,
+  });
+
+  const notifications = data?.notifications ?? [];
+  const unread = data?.unread ?? 0;
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [open]);
+
+  async function handleOpen() {
+    setOpen((o) => !o);
+    if (!open && unread > 0 && accessToken) {
+      await api.notifications.markSeen(accessToken);
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    }
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={handleOpen}
+        aria-label="Notifications"
+        className="relative h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center"
+      >
+        <Bell className="h-4 w-4" />
+        {unread > 0 && (
+          <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-72 max-h-96 overflow-y-auto rounded-2xl border border-border bg-card shadow-(--shadow-elegant) z-20">
+          <div className="px-4 py-3 border-b border-border">
+            <p className="text-sm font-bold">Notifications</p>
+          </div>
+          {notifications.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+              <Inbox className="h-6 w-6" />
+              <p className="text-xs">Nothing yet</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {notifications.map((n) => (
+                <div key={n.id} className="flex items-start gap-2.5 px-4 py-3">
+                  <div
+                    className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${
+                      n.kind === "failed" ? "bg-destructive/10 text-destructive" : n.kind === "received" ? "bg-success-soft text-success" : "bg-primary-soft text-primary"
+                    }`}
+                  >
+                    {notifIcon(n.kind)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold">{n.title}</p>
+                    <p className="text-[11px] text-muted-foreground leading-snug">{n.body}</p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground/70">{fmtNotifTime(n.createdAt)}</p>
+                  </div>
+                  {!n.read && <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-1" />}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Home · Autopayke" }, { name: "description", content: "Your Autopayke wallet — balance, assets, send & receive." }] }),
@@ -84,9 +182,7 @@ function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="relative h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
-              <Bell className="h-4 w-4" />
-            </button>
+            <NotificationBell accessToken={accessToken} />
             <button
               onClick={handleLogout}
               aria-label="Log out"
