@@ -26,6 +26,8 @@ walletRouter.get("/", async (c) => {
         walletAddress: null,
         status: "deploying",
         message: "Your smart wallet is being deployed. Check back in a few seconds.",
+        externalWalletAddress: user.externalWalletAddress,
+        externalWalletType: user.externalWalletType,
       },
     });
   }
@@ -42,6 +44,8 @@ walletRouter.get("/", async (c) => {
       totalUsd: parseFloat(totalUsd.toFixed(2)),
       assets,
       network: process.env.NODE_ENV === "production" ? "Avalanche C-Chain" : "Avalanche Fuji Testnet",
+      externalWalletAddress: user.externalWalletAddress,
+      externalWalletType: user.externalWalletType,
     },
   });
 });
