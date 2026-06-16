@@ -8,7 +8,7 @@ import { api, type TxSummary } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/history")({
-  head: () => ({ meta: [{ title: "History · TUMA" }, { name: "description", content: "All your TUMA transactions." }] }),
+  head: () => ({ meta: [{ title: "History · Autopayke" }, { name: "description", content: "All your Autopayke transactions." }] }),
   component: History,
 });
 
