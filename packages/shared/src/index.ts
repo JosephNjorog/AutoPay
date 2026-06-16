@@ -139,6 +139,10 @@ export const SendMoneySchema = z.object({
   note: z.string().max(140).optional(),
 });
 
+export const WithdrawSchema = z.object({
+  amountUsd: z.number().positive().max(10_000),
+});
+
 export const ClaimPaymentSchema = z.object({
   ref: z.string().min(4).max(20),
   phone: PhoneSchema,
