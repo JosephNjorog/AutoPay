@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Copy, Send, QrCode, Plus, Store, ArrowUpRight, ArrowDownLeft, Bell, Check, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Copy, Send, QrCode, Plus, Store, ArrowUpRight, ArrowDownLeft, Bell, Check, Loader2, LogOut } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { MobileFrame } from "@/components/MobileFrame";
 import { BottomNav } from "@/components/BottomNav";
@@ -31,13 +31,23 @@ function assetColor(symbol: string) {
 
 function Dashboard() {
   const navigate = useNavigate();
-  const { accessToken, user, isLoggedIn } = useAuthStore();
+  const { accessToken, refreshToken, user, isLoggedIn, logout } = useAuthStore();
   const [hide, setHide] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn()) navigate({ to: "/signup" });
   }, [isLoggedIn, navigate]);
+
+  async function handleLogout() {
+    try {
+      if (refreshToken && accessToken) await api.auth.logout(refreshToken, accessToken);
+    } catch {
+      // ignore — log out locally regardless of network/API state
+    }
+    logout();
+    navigate({ to: "/" });
+  }
 
   const { data: wallet, isLoading: walletLoading } = useQuery({
     queryKey: ["wallet"],
@@ -73,9 +83,18 @@ function Dashboard() {
               <p className="text-sm font-bold leading-tight">…{phoneHint}</p>
             </div>
           </div>
-          <button className="relative h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
-            <Bell className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button className="relative h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
+              <Bell className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleLogout}
+              aria-label="Log out"
+              className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-destructive transition"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </header>
 
         {isDeploying && (
