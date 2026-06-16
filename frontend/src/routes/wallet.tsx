@@ -10,7 +10,7 @@ import { api, type WalletAsset, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/wallet")({
-  head: () => ({ meta: [{ title: "Wallet · TUMA" }, { name: "description", content: "Your non-custodial smart wallet on Avalanche." }] }),
+  head: () => ({ meta: [{ title: "Wallet · Autopayke" }, { name: "description", content: "Your non-custodial smart wallet on Avalanche." }] }),
   component: Wallet,
 });
 
@@ -112,13 +112,13 @@ function Wallet() {
           </div>
         )}
 
-        {/* TUMA smart wallet */}
+        {/* Autopayke smart wallet */}
         <div className="px-5 mt-3">
           <div className="rounded-3xl border border-border bg-card p-5">
             <div className="flex items-center gap-2">
               <div className="h-9 w-9 rounded-xl flex items-center justify-center text-primary-foreground font-black text-xs" style={{ background: "var(--gradient-portfolio)" }}>T</div>
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">TUMA smart wallet</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Autopayke smart wallet</p>
                 <p className="text-sm font-bold">{user?.phone ?? "—"}</p>
               </div>
             </div>
@@ -251,7 +251,7 @@ function Wallet() {
             <ShieldCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold">Self-custodial. No seed phrase.</p>
-              <p className="text-[11px] text-muted-foreground mt-1">Your TUMA wallet is derived on-device from your phone number. We can't see your keys or move your funds.</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Your Autopayke wallet is derived on-device from your phone number. We can't see your keys or move your funds.</p>
             </div>
           </div>
         </div>
