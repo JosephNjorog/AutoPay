@@ -109,7 +109,7 @@ function Index() {
             </button>
           )}
           <Link
-            to="/signup"
+            to="/login"
             className="rounded-full bg-violet-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-violet-500 transition"
           >
             Sign in
