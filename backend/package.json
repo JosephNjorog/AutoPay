@@ -9,7 +9,7 @@
     "worker:settlement": "bun run src/workers/settlement.worker.ts",
     "worker:escrow": "bun run src/workers/escrow.worker.ts",
     "worker:notify": "bun run src/workers/notify.worker.ts",
-    "db:push": "drizzle-kit push",
+    "db:push": "drizzle-kit push --force",
     "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
