@@ -112,9 +112,12 @@ authRouter.post("/verify-otp", otpVerifyLimiter, zValidator("json", VerifyOtpSch
     user = created;
   }
 
-  // Deploy smart wallet for new users (non-blocking — we return immediately)
+  // Deploy smart wallet if missing (non-blocking — we return immediately).
+  // Not gated on isNewUser: retries deployment for existing accounts whose
+  // wallet creation failed previously (e.g. factory address misconfigured).
+  // createWallet() is idempotent on-chain, so retrying is always safe.
   let walletAddress = user.walletAddress;
-  if (isNewUser && !walletAddress) {
+  if (!walletAddress) {
     deploySmartWallet(phoneHash)
       .then(async (addr) => {
         await db
