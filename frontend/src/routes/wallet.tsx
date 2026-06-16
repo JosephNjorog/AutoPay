@@ -116,7 +116,7 @@ function Wallet() {
         <div className="px-5 mt-3">
           <div className="rounded-3xl border border-border bg-card p-5">
             <div className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-xl flex items-center justify-center text-primary-foreground font-black text-xs" style={{ background: "var(--gradient-portfolio)" }}>T</div>
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center text-primary-foreground font-black text-xs" style={{ background: "var(--gradient-portfolio)" }}>A</div>
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Autopayke smart wallet</p>
                 <p className="text-sm font-bold">{user?.phone ?? "—"}</p>

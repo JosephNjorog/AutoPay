@@ -66,7 +66,7 @@ function Dashboard() {
       <div className="flex min-h-full flex-col">
         <header className="flex items-center justify-between px-5 pt-6 pb-2">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl text-primary-foreground font-black" style={{ background: "var(--gradient-portfolio)" }}>T</div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl text-primary-foreground font-black" style={{ background: "var(--gradient-portfolio)" }}>A</div>
             <div>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">Hello</p>
               <p className="text-sm font-bold leading-tight">…{phoneHint}</p>

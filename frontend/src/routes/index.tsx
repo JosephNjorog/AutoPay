@@ -83,7 +83,7 @@ function Index() {
       <nav className="flex items-center justify-between px-6 py-5 max-w-2xl mx-auto w-full">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-xl flex items-center justify-center font-black text-sm bg-linear-to-br from-violet-500 to-purple-700">
-            T
+            A
           </div>
           <span className="font-black tracking-tight text-base">Autopayke</span>
         </div>
