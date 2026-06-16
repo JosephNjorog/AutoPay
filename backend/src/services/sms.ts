@@ -1,30 +1,19 @@
 /**
- * Africa's Talking SMS service.
+ * Twilio SMS service.
  *
- * Demo mode (AT_API_KEY / AT_USERNAME not set):
- *   OTP is printed to the server console. Check Render logs.
- *
- * Sandbox mode (AT_ENV=sandbox):
- *   Messages appear in the AT sandbox simulator — not delivered to real phones.
- *   Username must be "sandbox", API key from sandbox dashboard.
- *
- * Production (AT_ENV=production):
- *   Real SMS delivered. Set AT_SENDER_ID to your approved alphanumeric sender.
+ * Demo mode (credentials not set): OTP printed to server console (check Render logs).
+ * Trial mode: can only send to verified numbers in Twilio console.
+ * Production: sends to any number worldwide.
  */
 
-const AT_API_KEY = process.env.AT_API_KEY;
-const AT_USERNAME = process.env.AT_USERNAME;
-const AT_SENDER_ID = process.env.AT_SENDER_ID;
-const IS_PRODUCTION = process.env.AT_ENV === "production";
+const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const FROM_NUMBER = process.env.TWILIO_PHONE_NUMBER;
 
-const SMS_URL = IS_PRODUCTION
-  ? "https://api.africastalking.com/version1/messaging"
-  : "https://api.sandbox.africastalking.com/version1/messaging";
-
-const DEMO_MODE = !AT_API_KEY || !AT_USERNAME;
+const DEMO_MODE = !ACCOUNT_SID || !AUTH_TOKEN || !FROM_NUMBER;
 
 export async function sendOtpSms(phone: string, otp: string): Promise<void> {
-  const message = `Your Autopayke code is ${otp}. Valid for 5 minutes. Never share this with anyone.`;
+  const message = `Your Autopayke code is ${otp}. Valid for 5 minutes. Never share this.`;
 
   if (DEMO_MODE) {
     console.log(`\n[SMS DEMO] ──────────────────────────────`);
@@ -33,38 +22,27 @@ export async function sendOtpSms(phone: string, otp: string): Promise<void> {
     return;
   }
 
-  const params = new URLSearchParams({
-    username: AT_USERNAME!,
-    to: phone,
-    message,
-  });
-  if (AT_SENDER_ID) params.set("from", AT_SENDER_ID);
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${ACCOUNT_SID}/Messages.json`;
+  const credentials = Buffer.from(`${ACCOUNT_SID}:${AUTH_TOKEN}`).toString("base64");
 
-  const res = await fetch(SMS_URL, {
+  const body = new URLSearchParams({ To: phone, From: FROM_NUMBER!, Body: message });
+
+  const res = await fetch(url, {
     method: "POST",
     headers: {
+      Authorization: `Basic ${credentials}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-      apiKey: AT_API_KEY!,
     },
-    body: params.toString(),
+    body: body.toString(),
   });
 
-  const json = await res.json() as {
-    SMSMessageData: { Recipients: Array<{ status: string; number: string }> };
-  };
+  const json = await res.json() as { sid?: string; error_message?: string; message?: string };
 
   if (!res.ok) {
-    throw new Error(`[SMS] AT error ${res.status}: ${JSON.stringify(json)}`);
+    throw new Error(`[SMS] Twilio error ${res.status}: ${json.error_message ?? json.message}`);
   }
 
-  const recipients = json.SMSMessageData?.Recipients ?? [];
-  const failed = recipients.filter((r) => !["Success", "Sent"].includes(r.status));
-  if (failed.length > 0) {
-    throw new Error(`[SMS] Delivery failed for: ${failed.map((r) => r.number).join(", ")}`);
-  }
-
-  console.log(`[SMS] OTP sent to ${phone} (${IS_PRODUCTION ? "live" : "sandbox"})`);
+  console.log(`[SMS] OTP sent to ${phone} — SID: ${json.sid}`);
 }
 
 export async function sendClaimSms(
@@ -74,27 +52,22 @@ export async function sendClaimSms(
   currency: string,
   claimUrl: string
 ): Promise<void> {
-  const message = `${senderDisplay} sent you ${amount} ${currency} via Autopayke. Claim it here: ${claimUrl}`;
+  const message = `${senderDisplay} sent you ${amount} ${currency} via Autopayke. Claim: ${claimUrl}`;
 
   if (DEMO_MODE) {
     console.log(`[SMS DEMO] Claim SMS for ${recipientPhone}: ${message}`);
     return;
   }
 
-  const params = new URLSearchParams({
-    username: AT_USERNAME!,
-    to: recipientPhone,
-    message,
-  });
-  if (AT_SENDER_ID) params.set("from", AT_SENDER_ID);
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${ACCOUNT_SID}/Messages.json`;
+  const credentials = Buffer.from(`${ACCOUNT_SID}:${AUTH_TOKEN}`).toString("base64");
 
-  await fetch(SMS_URL, {
+  await fetch(url, {
     method: "POST",
     headers: {
+      Authorization: `Basic ${credentials}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-      apiKey: AT_API_KEY!,
     },
-    body: params.toString(),
+    body: new URLSearchParams({ To: recipientPhone, From: FROM_NUMBER!, Body: message }).toString(),
   });
 }
