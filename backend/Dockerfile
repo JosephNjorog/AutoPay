@@ -16,4 +16,5 @@ WORKDIR /app/backend
 
 EXPOSE 3001
 
-CMD ["bun", "run", "src/index.ts"]
+# Run schema push (idempotent — safe on every deploy) then start the server
+CMD ["/bin/sh", "-c", "bun run db:push --force && bun run src/index.ts"]
