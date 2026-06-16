@@ -14,7 +14,7 @@ export function MobileFrame({ children, className = "" }: { children: ReactNode;
             </div>
           </div>
           <p className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            TUMA · phone-first money
+            Autopayke · phone-first money
           </p>
         </div>
       </div>
