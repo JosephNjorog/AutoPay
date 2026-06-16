@@ -1,9 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Search, UserPlus, Check, ArrowRight, Sparkles, Loader2, Lock, Send as SendIcon, MessageCircle, AlertCircle } from "lucide-react";
+import {
+  ArrowLeft, Search, UserPlus, Check, ArrowRight, Sparkles,
+  Loader2, Lock, Send as SendIcon, MessageCircle, AlertCircle, BookUser,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { MobileFrame } from "@/components/MobileFrame";
-import { contacts, countries, type Contact } from "@/lib/tuma-data";
+import { contacts, countries, midRates, type Contact } from "@/lib/tuma-data";
 import { api, type FxQuote, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -20,15 +23,25 @@ function dialToFlag(msisdn: string) {
   return c?.flag ?? "🌍";
 }
 
+function getLocalCurrency(msisdn: string) {
+  const norm = msisdn.replace(/\s/g, "").replace(/^00/, "+");
+  const c = countries.find((cc) => norm.startsWith(cc.dial));
+  if (!c) return null;
+  const m = midRates[c.code];
+  return m ? { currency: m.ccy, rate: m.rate, code: c.code } : null;
+}
+
 function SendPage() {
   const navigate = useNavigate();
   const { accessToken, isLoggedIn } = useAuthStore();
   const [step, setStep] = useState<Step>("pick");
   const [recipient, setRecipient] = useState<Contact | null>(null);
-  const [amount, setAmount] = useState("25");
+  const [amount, setAmount] = useState("25"); // always USDC
   const [note, setNote] = useState("");
   const [quote, setQuote] = useState<FxQuote | null>(null);
-  const [sendResult, setSendResult] = useState<{ id: string; type: "direct" | "escrow"; rail: string; amountLocal: number; localCurrency: string } | null>(null);
+  const [sendResult, setSendResult] = useState<{
+    id: string; type: "direct" | "escrow"; rail: string; amountLocal: number; localCurrency: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const usd = Number(amount) || 0;
 
@@ -36,23 +49,20 @@ function SendPage() {
     if (!isLoggedIn()) navigate({ to: "/signup" });
   }, [isLoggedIn, navigate]);
 
-  useEffect(() => {
-    if (step !== "sending") return;
-    // sending is triggered from review after API call
-  }, [step]);
-
   const { data: wallet } = useQuery({
     queryKey: ["wallet"],
     queryFn: () => api.wallet.get(accessToken!),
     enabled: !!accessToken,
   });
 
-  const maxUsdc = wallet?.assets?.find((a) => a.symbol === "USDC") ? parseFloat(wallet.assets.find((a) => a.symbol === "USDC")!.balance) : 0;
+  const maxUsdc = wallet?.assets?.find((a) => a.symbol === "USDC")
+    ? parseFloat(wallet.assets.find((a) => a.symbol === "USDC")!.balance)
+    : 0;
 
   async function handleQuoteAndReview() {
     if (!recipient || !accessToken || usd <= 0) return;
     setError(null);
-    setStep("sending"); // borrow sending state for loading
+    setStep("sending");
     try {
       const q = await api.fx.quote(usd, recipient.msisdn, accessToken);
       setQuote(q);
@@ -68,7 +78,10 @@ function SendPage() {
     setError(null);
     setStep("sending");
     try {
-      const result = await api.send.send({ quoteId: quote.quoteId, recipientPhone: recipient.msisdn, amountUsd: usd, note: note || undefined }, accessToken);
+      const result = await api.send.send(
+        { quoteId: quote.quoteId, recipientPhone: recipient.msisdn, amountUsd: usd, note: note || undefined },
+        accessToken,
+      );
       setSendResult({ id: result.transactionId, type: result.type, rail: result.rail, amountLocal: result.amountLocal, localCurrency: result.localCurrency });
       setStep("done");
     } catch (e) {
@@ -81,12 +94,15 @@ function SendPage() {
     <MobileFrame>
       <div className="flex min-h-full flex-col">
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-5 py-4 flex items-center justify-between">
-          <button onClick={() => {
-            if (step === "pick") navigate({ to: "/dashboard" });
-            else if (step === "amount") setStep("pick");
-            else if (step === "review") setStep("amount");
-            else navigate({ to: "/dashboard" });
-          }} className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
+          <button
+            onClick={() => {
+              if (step === "pick") navigate({ to: "/dashboard" });
+              else if (step === "amount") setStep("pick");
+              else if (step === "review") setStep("amount");
+              else navigate({ to: "/dashboard" });
+            }}
+            className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center"
+          >
             <ArrowLeft className="h-4 w-4" />
           </button>
           <h1 className="text-sm font-bold">
@@ -168,7 +184,9 @@ function SendPage() {
                 style={{ background: "var(--gradient-portfolio)" }}>
                 Track settlement
               </Link>
-              <Link to="/dashboard" className="w-full block text-center rounded-2xl border border-border bg-card py-4 text-sm font-semibold">Back to home</Link>
+              <Link to="/dashboard" className="w-full block text-center rounded-2xl border border-border bg-card py-4 text-sm font-semibold">
+                Back to home
+              </Link>
             </div>
           </div>
         )}
@@ -178,28 +196,93 @@ function SendPage() {
   );
 }
 
+// ── Contact picker ────────────────────────────────────────────────────────────
+
 function PickRecipient({ onPick }: { onPick: (c: Contact) => void }) {
   const [q, setQ] = useState("");
-  const filtered = q ? contacts.filter((c) => c.name.toLowerCase().includes(q.toLowerCase()) || c.msisdn.includes(q)) : contacts;
+  const [importing, setImporting] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hasContactPicker = typeof navigator !== "undefined" && "contacts" in (navigator as any);
+
+  const filtered = q
+    ? contacts.filter((c) => c.name.toLowerCase().includes(q.toLowerCase()) || c.msisdn.includes(q))
+    : contacts;
   const typed = q.replace(/\s/g, "");
   const isPhone = /^\+?\d{8,}$/.test(typed);
   const noMatch = filtered.length === 0;
   const newContact = isPhone && noMatch;
-  const cc = countries.find((c) => typed.startsWith(c.dial)) ?? countries.find((c) => typed.startsWith(c.dial.slice(1))) ?? countries[0];
+  const cc = countries.find((c) => typed.startsWith(c.dial))
+    ?? countries.find((c) => typed.startsWith(c.dial.slice(1)))
+    ?? countries[0];
+
+  async function importFromContacts() {
+    if (!hasContactPicker) return;
+    setImporting(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const results = await (navigator as any).contacts.select(["name", "tel"], { multiple: false });
+      if (results.length > 0) {
+        const first = results[0];
+        const raw = (first.tel?.[0] ?? "").replace(/[\s\-().]/g, "");
+        const tel = raw.startsWith("+") ? raw : raw.startsWith("00") ? "+" + raw.slice(2) : "+" + raw;
+        const name = first.name?.[0] ?? tel;
+        if (tel.length >= 8) {
+          const country = countries.find((c) => tel.startsWith(c.dial)) ?? countries[0];
+          onPick({ id: "device", name, msisdn: tel, country: country.name, flag: country.flag, rail: "MoMo" });
+        }
+      }
+    } catch {
+      // user dismissed or permission denied
+    } finally {
+      setImporting(false);
+    }
+  }
 
   return (
     <>
       <div className="px-5 pt-5">
         <div className="flex items-center gap-2 rounded-2xl bg-card border border-border px-4 py-3">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or +254… phone number"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Name or +254… phone number"
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+          {hasContactPicker && (
+            <button
+              onClick={importFromContacts}
+              title="Import from phone contacts"
+              className="h-8 w-8 rounded-xl bg-muted flex items-center justify-center shrink-0 hover:bg-primary/10 transition"
+            >
+              {importing
+                ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                : <BookUser className="h-4 w-4 text-primary" />}
+            </button>
+          )}
         </div>
 
+        {hasContactPicker && (
+          <button
+            onClick={importFromContacts}
+            className="mt-3 w-full flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-left hover:bg-muted/50 transition"
+          >
+            {importing
+              ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              : <BookUser className="h-4 w-4 text-primary" />}
+            <span className="text-sm font-semibold">Choose from phone contacts</span>
+            <ArrowRight className="h-4 w-4 text-muted-foreground ml-auto" />
+          </button>
+        )}
+
         {newContact && (
-          <button onClick={() => onPick({ id: "new", name: typed, msisdn: typed, country: cc.name, flag: cc.flag, rail: "MoMo" })}
-            className="mt-4 w-full flex items-center gap-3 rounded-2xl border border-dashed border-primary bg-primary-soft/50 p-4 text-left">
-            <div className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center"><UserPlus className="h-4 w-4" /></div>
+          <button
+            onClick={() => onPick({ id: "new", name: typed, msisdn: typed, country: cc.name, flag: cc.flag, rail: "MoMo" })}
+            className="mt-4 w-full flex items-center gap-3 rounded-2xl border border-dashed border-primary bg-primary-soft/50 p-4 text-left"
+          >
+            <div className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+              <UserPlus className="h-4 w-4" />
+            </div>
             <div className="flex-1">
               <p className="text-sm font-semibold">Send to {typed} {cc.flag}</p>
               <p className="text-[11px] text-muted-foreground">Not on Autopayke yet — we'll text them a claim link</p>
@@ -213,7 +296,8 @@ function PickRecipient({ onPick }: { onPick: (c: Contact) => void }) {
         <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Contacts</p>
         <div className="space-y-2">
           {filtered.map((c) => (
-            <button key={c.id} onClick={() => onPick(c)} className="w-full flex items-center gap-3 rounded-2xl border border-border bg-card hover:bg-muted/50 p-3.5 text-left transition">
+            <button key={c.id} onClick={() => onPick(c)}
+              className="w-full flex items-center gap-3 rounded-2xl border border-border bg-card hover:bg-muted/50 p-3.5 text-left transition">
               <div className="relative h-11 w-11 rounded-full bg-muted flex items-center justify-center text-xl">{c.flag}</div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold truncate">{c.name}</p>
@@ -222,11 +306,33 @@ function PickRecipient({ onPick }: { onPick: (c: Contact) => void }) {
               <ArrowRight className="h-4 w-4 text-muted-foreground" />
             </button>
           ))}
-          {filtered.length === 0 && !newContact && <p className="py-12 text-center text-sm text-muted-foreground">No contacts match "{q}"</p>}
+          {filtered.length === 0 && !newContact && (
+            <p className="py-12 text-center text-sm text-muted-foreground">No contacts match "{q}"</p>
+          )}
         </div>
       </div>
     </>
   );
+}
+
+// ── Amount step with currency toggle ─────────────────────────────────────────
+
+type AmountMode = "usdc" | "local";
+
+const LOCAL_QUICK_AMOUNTS: Record<string, number[]> = {
+  KE: [500, 1_000, 2_500, 5_000],
+  TZ: [2_000, 5_000, 10_000, 25_000],
+  GH: [50, 100, 250, 500],
+  NG: [2_000, 5_000, 10_000, 25_000],
+  UG: [10_000, 25_000, 50_000, 100_000],
+  SN: [2_000, 5_000, 10_000, 25_000],
+  CI: [2_000, 5_000, 10_000, 25_000],
+};
+
+function fmtQuick(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(0)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
+  return String(v);
 }
 
 function AmountStep({ recipient, amount, setAmount, usd, maxUsdc, quote, onNext }: {
@@ -234,28 +340,111 @@ function AmountStep({ recipient, amount, setAmount, usd, maxUsdc, quote, onNext 
   usd: number; maxUsdc: number; quote: FxQuote | null;
   onNext: () => void;
 }) {
+  const [mode, setMode] = useState<AmountMode>("usdc");
+  const [localInput, setLocalInput] = useState("");
+
   const flag = dialToFlag(recipient.msisdn);
+  const localCurrData = getLocalCurrency(recipient.msisdn);
+  const localCurrency = localCurrData?.currency ?? null;
+  const localRate = localCurrData?.rate ?? null;
+  const countryCode = localCurrData?.code ?? null;
+
+  const quickLocal = countryCode ? (LOCAL_QUICK_AMOUNTS[countryCode] ?? [500, 1_000, 2_500, 5_000]) : [];
+
+  function switchMode(next: AmountMode) {
+    if (next === "local" && localRate) {
+      setLocalInput(((parseFloat(amount) || 0) * localRate).toFixed(0));
+    }
+    setMode(next);
+  }
+
+  function handleLocalChange(v: string) {
+    setLocalInput(v);
+    if (localRate) {
+      const usdc = (parseFloat(v) || 0) / localRate;
+      setAmount(usdc.toFixed(6));
+    }
+  }
+
+  function handleQuickAmount(v: number) {
+    if (mode === "local") {
+      setLocalInput(String(v));
+      if (localRate) setAmount((v / localRate).toFixed(6));
+    } else {
+      setAmount(String(v));
+    }
+  }
+
+  const displayValue = mode === "local" ? localInput : amount;
+  const displayCurrency = mode === "local" && localCurrency ? localCurrency : "USDC";
+
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
+      {/* Recipient row */}
       <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
         <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-lg">{flag}</div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate">{recipient.name !== recipient.msisdn ? recipient.name : recipient.msisdn}</p>
+          <p className="text-sm font-semibold truncate">
+            {recipient.name !== recipient.msisdn ? recipient.name : recipient.msisdn}
+          </p>
           <p className="text-[11px] text-muted-foreground">{recipient.msisdn}</p>
         </div>
       </div>
 
+      {/* Amount card with toggle */}
       <div className="mt-6 rounded-3xl p-5 text-primary-foreground shadow-(--shadow-elegant)" style={{ background: "var(--gradient-portfolio)" }}>
-        <p className="text-xs opacity-90">You send</p>
-        <div className="mt-1 flex items-baseline gap-2">
-          <span className="text-2xl font-black opacity-80">$</span>
-          <input value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-            inputMode="decimal" className="bg-transparent text-5xl font-black outline-none w-full" />
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs opacity-90">You send</p>
+          {localCurrency && (
+            <div className="flex items-center rounded-full bg-white/20 p-0.5">
+              <button
+                onClick={() => switchMode("usdc")}
+                className={`rounded-full px-3 py-1 text-[10px] font-bold transition ${mode === "usdc" ? "bg-white text-foreground shadow" : "text-white/70"}`}
+              >
+                USDC
+              </button>
+              <button
+                onClick={() => switchMode("local")}
+                className={`rounded-full px-3 py-1 text-[10px] font-bold transition ${mode === "local" ? "bg-white text-foreground shadow" : "text-white/70"}`}
+              >
+                {localCurrency}
+              </button>
+            </div>
+          )}
         </div>
-        <p className="mt-2 text-[11px] opacity-80">Available: {maxUsdc.toFixed(2)} USDC</p>
+
+        <div className="flex items-baseline gap-2">
+          <span className="text-xl font-black opacity-80">{displayCurrency}</span>
+          <input
+            value={displayValue}
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9.]/g, "");
+              if (mode === "local") handleLocalChange(v);
+              else setAmount(v);
+            }}
+            inputMode="decimal"
+            className="bg-transparent text-5xl font-black outline-none min-w-0 w-full"
+          />
+        </div>
+
+        {mode === "local" && localRate && (
+          <p className="mt-1 text-[11px] opacity-80">
+            ≈ {((parseFloat(localInput) || 0) / localRate).toFixed(2)} USDC
+          </p>
+        )}
+        {mode === "usdc" && (
+          <p className="mt-2 text-[11px] opacity-80">Available: {maxUsdc.toFixed(2)} USDC</p>
+        )}
+
         <div className="mt-3 flex gap-2">
-          {[10, 25, 50, 100].map((v) => (
-            <button key={v} onClick={() => setAmount(String(v))} className="flex-1 rounded-full bg-white/15 backdrop-blur py-1.5 text-xs font-semibold">${v}</button>
+          {(mode === "local" ? quickLocal : [10, 25, 50, 100]).map((v) => (
+            <button
+              key={v}
+              onClick={() => handleQuickAmount(v)}
+              className="flex-1 rounded-full bg-white/15 backdrop-blur py-1.5 text-xs font-semibold"
+            >
+              {mode === "local" ? fmtQuick(v) : `${v}`}
+            </button>
           ))}
         </div>
       </div>
@@ -264,21 +453,32 @@ function AmountStep({ recipient, amount, setAmount, usd, maxUsdc, quote, onNext 
         <div className="mt-4 rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
             <span>Recipient gets</span>
-            <span className="text-success normal-case flex items-center gap-1"><Lock className="h-3 w-3" /> Rate locked</span>
+            <span className="text-success normal-case flex items-center gap-1">
+              <Lock className="h-3 w-3" /> Rate locked
+            </span>
           </div>
-          <p className="mt-1 text-3xl font-black">{quote.toCurrency} {quote.toAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })}</p>
+          <p className="mt-1 text-3xl font-black">
+            {quote.toCurrency} {quote.toAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+          </p>
           <p className="mt-1 text-[11px] text-muted-foreground">1 USDC = {quote.tumaRate.toFixed(2)} {quote.toCurrency}</p>
           <div className="mt-3 pt-3 border-t border-border text-[11px] flex justify-between">
-            <span className="text-success font-semibold flex items-center gap-1"><Sparkles className="h-3 w-3" /> Saving vs banks</span>
-            <span className="text-success font-semibold">{quote.toCurrency} {((quote.midRate - quote.tumaRate) * usd).toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>
+            <span className="text-success font-semibold flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> Saving vs banks
+            </span>
+            <span className="text-success font-semibold">
+              {quote.toCurrency} {((quote.midRate - quote.tumaRate) * usd).toLocaleString("en-US", { maximumFractionDigits: 2 })}
+            </span>
           </div>
         </div>
       )}
 
       <div className="mt-auto pt-6">
-        <button disabled={usd <= 0 || (maxUsdc > 0 && usd > maxUsdc)} onClick={onNext}
+        <button
+          disabled={usd <= 0 || (maxUsdc > 0 && usd > maxUsdc)}
+          onClick={onNext}
           className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground disabled:opacity-40 shadow-(--shadow-elegant)"
-          style={{ background: "var(--gradient-portfolio)" }}>
+          style={{ background: "var(--gradient-portfolio)" }}
+        >
           Review transfer <ArrowRight className="h-4 w-4" />
         </button>
       </div>
@@ -286,30 +486,36 @@ function AmountStep({ recipient, amount, setAmount, usd, maxUsdc, quote, onNext 
   );
 }
 
+// ── Review step ───────────────────────────────────────────────────────────────
+
 function ReviewStep({ recipient, usd, quote, note, setNote, onSend }: {
   recipient: Contact; usd: number; quote: FxQuote;
   note: string; setNote: (v: string) => void; onSend: () => void;
 }) {
   const flag = dialToFlag(recipient.msisdn);
   const [loading, setLoading] = useState(false);
+
   async function handleSend() {
     setLoading(true);
     await onSend();
     setLoading(false);
   }
+
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
       <div className="rounded-3xl border border-border bg-card overflow-hidden">
         <div className="p-5 text-center" style={{ background: "var(--gradient-mesh)" }}>
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">You send</p>
-          <p className="mt-1 text-3xl font-black">${usd.toFixed(2)} USDC</p>
+          <p className="mt-1 text-3xl font-black">{usd.toFixed(2)} USDC</p>
           <div className="my-3 flex items-center justify-center text-muted-foreground">
             <div className="h-px flex-1 bg-border" />
             <SendIcon className="h-4 w-4 mx-3 text-primary" />
             <div className="h-px flex-1 bg-border" />
           </div>
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Recipient gets</p>
-          <p className="mt-1 text-3xl font-black">{quote.toCurrency} {quote.toAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })}</p>
+          <p className="mt-1 text-3xl font-black">
+            {quote.toCurrency} {quote.toAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+          </p>
         </div>
         <div className="divide-y divide-border text-xs">
           <KV k="To" v={`${recipient.name !== recipient.msisdn ? recipient.name : recipient.msisdn} ${flag}`} />
@@ -323,14 +529,21 @@ function ReviewStep({ recipient, usd, quote, note, setNote, onSend }: {
 
       <label className="mt-4 block rounded-2xl border border-border bg-card p-3.5">
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Add a note (optional)</span>
-        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Rent · groceries · birthday 🎁"
-          className="mt-1 w-full bg-transparent text-sm font-semibold outline-none placeholder:text-muted-foreground/50" />
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Rent · groceries · birthday 🎁"
+          className="mt-1 w-full bg-transparent text-sm font-semibold outline-none placeholder:text-muted-foreground/50"
+        />
       </label>
 
       <div className="mt-auto pt-6">
-        <button onClick={handleSend} disabled={loading}
+        <button
+          onClick={handleSend}
+          disabled={loading}
           className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant) disabled:opacity-60"
-          style={{ background: "var(--gradient-portfolio)" }}>
+          style={{ background: "var(--gradient-portfolio)" }}
+        >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
           {loading ? "Processing…" : "Confirm & send"}
         </button>
