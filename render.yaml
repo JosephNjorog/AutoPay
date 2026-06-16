@@ -6,18 +6,30 @@
 #
 # After deploy, set these environment variables manually in the Render dashboard
 # (marked "sync: false" below — they are intentionally left out of this file
-#  because they contain secrets that must not be in version control):
+#  because they contain secrets, or because their value depends on a deploy
+#  step that hasn't happened yet, e.g. the contract addresses below):
 #
-#   DATABASE_URL         → your Neon PostgreSQL connection string
-#   JWT_ACCESS_SECRET    → (copy from backend/.env — the generated value)
-#   JWT_REFRESH_SECRET   → (copy from backend/.env — the generated value)
-#   WALLET_DERIVE_SECRET → (copy from backend/.env — NEVER rotate after launch)
-#   PAYSTACK_SECRET_KEY  → sk_live_6a36...
+#   DATABASE_URL            → your Neon PostgreSQL connection string
+#   JWT_ACCESS_SECRET       → (copy from backend/.env — the generated value)
+#   JWT_REFRESH_SECRET      → (copy from backend/.env — the generated value)
+#   WALLET_DERIVE_SECRET    → (copy from backend/.env — NEVER rotate after launch)
+#   PAYSTACK_SECRET_KEY     → sk_live_...
 #   PAYSTACK_WEBHOOK_SECRET → from Paystack dashboard → Settings → Webhooks
-#   AT_API_KEY           → Africa's Talking API key (leave blank for demo mode)
-#   AT_USERNAME          → Africa's Talking username
-#   AT_WHATSAPP_SENDER   → WhatsApp sender ID from Africa's Talking
-#   RESEND_API_KEY       → (add when ready)
+#   AT_API_KEY              → Africa's Talking API key (WhatsApp claim links)
+#   AT_USERNAME             → Africa's Talking username
+#   AT_WHATSAPP_SENDER      → WhatsApp sender ID from Africa's Talking
+#   RELAYER_PRIVATE_KEY     → funded EOA that pays gas for wallet deploys/sponsorship
+#   SIGNER_PRIVATE_KEY      → key that signs escrow claims (NEVER rotate after launch)
+#   SIGNER_ADDRESS          → address derived from SIGNER_PRIVATE_KEY
+#   TUMA_REGISTRY_ADDRESS   → from contracts/script/Deploy.s.sol mainnet run
+#   TUMA_FACTORY_ADDRESS    → from contracts/script/Deploy.s.sol mainnet run
+#   TUMA_ESCROW_ADDRESS     → from contracts/script/Deploy.s.sol mainnet run
+#   TUMA_PAYMASTER_ADDRESS  → from contracts/script/Deploy.s.sol mainnet run
+#   TREASURY_ADDRESS        → wallet that receives merchant fees + cash-out withdrawals
+#   USDC_ADDRESS/USDT_ADDRESS → only needed if overriding the mainnet defaults in code
+#   OPEN_EXCHANGE_RATES_APP_ID → from openexchangerates.org — FX quotes fail without this
+#   TWILIO_ACCOUNT_SID/AUTH_TOKEN/PHONE_NUMBER → OTP SMS; without these OTP only logs to console
+#   RESEND_API_KEY          → (add when ready)
 ################################################################################
 
 services:
@@ -92,13 +104,51 @@ services:
       - key: SIGNER_ADDRESS
         sync: false
 
+      # ── Smart contracts (mainnet, chain 43114 — set after mainnet deploy) ──
+      - key: TUMA_REGISTRY_ADDRESS
+        sync: false
+      - key: TUMA_FACTORY_ADDRESS
+        sync: false
+      - key: TUMA_ESCROW_ADDRESS
+        sync: false
+      - key: TUMA_PAYMASTER_ADDRESS
+        sync: false
+
+      # ── Treasury wallet (receives merchant fees and cash-out withdrawals) ──
+      - key: TREASURY_ADDRESS
+        sync: false
+
+      # ── Token addresses (defaults in code match Avalanche mainnet; override
+      #    only if different) ─────────────────────────────────────────────────
+      - key: USDC_ADDRESS
+        sync: false
+      - key: USDT_ADDRESS
+        sync: false
+
+      # ── FX rates ─────────────────────────────────────────────────────────
+      - key: OPEN_EXCHANGE_RATES_APP_ID
+        sync: false
+      - key: FX_SPREAD
+        value: "0.023"
+
+      # ── Twilio (OTP SMS — without these, OTP silently no-ops to logs only) ─
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+
       # ── CORS / App URLs ───────────────────────────────────────────────────
+      # Update these to match wherever the frontend is actually hosted —
+      # if Vercel serves a custom domain, it must be listed here too or the
+      # browser will reject API calls with a CORS error.
       - key: CORS_ORIGINS
-        value: https://autopayke.vercel.app
+        value: https://autopayke.vercel.app,https://autopayke.com
       - key: API_BASE_URL
         value: https://autopayke-api.onrender.com
       - key: APP_URL
-        value: https://autopayke.vercel.app
+        value: https://autopayke.com
 
   # ── Redis ────────────────────────────────────────────────────────────────────
   - type: redis
