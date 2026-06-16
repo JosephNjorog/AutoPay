@@ -14,6 +14,7 @@ import { historyRouter } from "./routes/history";
 import { trackRouter } from "./routes/track";
 import { claimRouter } from "./routes/claim";
 import { merchantRouter } from "./routes/merchant";
+import { notificationsRouter } from "./routes/notifications";
 import { mpesaWebhookRouter, momoWebhookRouter } from "./routes/webhooks";
 import { isKnownError } from "./lib/errors";
 import { requestIdMiddleware } from "./middleware/request-id";
@@ -48,6 +49,7 @@ app.route("/api/history", historyRouter);
 app.route("/api/track", trackRouter);
 app.route("/api/claim", claimRouter);
 app.route("/api/merchant", merchantRouter);
+app.route("/api/notifications", notificationsRouter);
 
 app.route("/webhooks/paystack", paystackWebhookRouter);
 app.route("/webhooks/mpesa", mpesaWebhookRouter);
