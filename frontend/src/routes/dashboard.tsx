@@ -8,7 +8,7 @@ import { api, type WalletAsset, type TxSummary } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/dashboard")({
-  head: () => ({ meta: [{ title: "Home · TUMA" }, { name: "description", content: "Your TUMA wallet — balance, assets, send & receive." }] }),
+  head: () => ({ meta: [{ title: "Home · Autopayke" }, { name: "description", content: "Your Autopayke wallet — balance, assets, send & receive." }] }),
   component: Dashboard,
 });
 
