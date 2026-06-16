@@ -54,8 +54,8 @@ function requireRelayer() {
 // ── Token addresses ───────────────────────────────────────────────────────────
 
 export const TOKEN_ADDRESSES: Record<string, Address> = {
-  USDC: (process.env.USDC_ADDRESS ?? "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6") as Address,
-  USDT: (process.env.USDT_ADDRESS ?? "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c3") as Address,
+  USDC: (process.env.USDC_ADDRESS ?? "0xB97Ef9ef8734c71904d8002F8b6bc66dD9C48a6") as Address,
+  USDT: (process.env.USDT_ADDRESS ?? "0x9702230a8Ea53601F5cd2DC00fdbc13D4dF4a8c3") as Address,
 };
 
 // ── Contract ABIs (minimal) ───────────────────────────────────────────────────
