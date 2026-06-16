@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Download, Phone, Globe2, Zap, ShieldCheck, ArrowRight, Share } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePwaInstall } from "../lib/use-pwa-install";
 
 export const Route = createFileRoute("/")({
@@ -66,14 +66,25 @@ function IOSInstructions({ onClose }: { onClose: () => void }) {
 }
 
 function Index() {
-  const { canInstall, install, isIOS } = usePwaInstall();
+  const { canInstall, install, installed, isIOS } = usePwaInstall();
   const [showIOSSheet, setShowIOSSheet] = useState(false);
+  const [showBanner, setShowBanner] = useState(false);
+
+  // Show install banner after 2.5 seconds if not already installed
+  useEffect(() => {
+    if (installed) return;
+    const t = setTimeout(() => setShowBanner(true), 2500);
+    return () => clearTimeout(t);
+  }, [installed]);
 
   const handleGetApp = () => {
     if (isIOS) {
       setShowIOSSheet(true);
-    } else {
+    } else if (canInstall) {
       install();
+    } else {
+      // Desktop or unsupported — show iOS-style instructions adapted for desktop
+      setShowIOSSheet(true);
     }
   };
 
@@ -88,7 +99,7 @@ function Index() {
           <span className="font-black tracking-tight text-base">Autopayke</span>
         </div>
         <div className="flex items-center gap-2">
-          {canInstall && (
+          {!installed && (
             <button
               onClick={handleGetApp}
               className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/5 px-4 py-1.5 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition"
@@ -160,7 +171,7 @@ function Index() {
           >
             Skip — try demo account
           </Link>
-          {canInstall && (
+          {!installed && (
             <button
               onClick={handleGetApp}
               className="flex items-center justify-center gap-2 rounded-2xl border border-violet-500/30 bg-violet-500/10 py-3 text-sm font-medium text-violet-300 hover:bg-violet-500/20 transition"
@@ -177,7 +188,28 @@ function Index() {
         Powered by Avalanche · Secured by your phone
       </footer>
 
-      {/* iOS instructions sheet */}
+      {/* Install banner — slides up after 2.5s */}
+      {showBanner && !installed && !showIOSSheet && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center pointer-events-none">
+          <div className="pointer-events-auto w-full max-w-sm mx-4 mb-4 rounded-2xl border border-white/10 bg-[#18182a]/95 backdrop-blur-xl p-4 shadow-2xl flex items-center gap-3">
+            <div className="h-12 w-12 rounded-xl flex-shrink-0 flex items-center justify-center font-black text-white bg-linear-to-br from-violet-500 to-purple-700 text-lg">A</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-white">Add Autopayke to Home Screen</p>
+              <p className="text-xs text-white/50">Use it like a native app — instant access</p>
+            </div>
+            <div className="flex flex-col gap-1.5 shrink-0">
+              <button onClick={handleGetApp} className="rounded-xl bg-violet-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-violet-500 transition">
+                Install
+              </button>
+              <button onClick={() => setShowBanner(false)} className="rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white/50 hover:bg-white/15 transition">
+                Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* iOS / Desktop instructions sheet */}
       {showIOSSheet && <IOSInstructions onClose={() => setShowIOSSheet(false)} />}
     </div>
   );
