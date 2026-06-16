@@ -4,8 +4,8 @@ import { z } from "zod";
 import { db } from "../db";
 import { users, sessions } from "../db/schema";
 import { eq } from "drizzle-orm";
-import { SendOtpSchema, VerifyOtpSchema } from "@tuma/shared";
-import { generateOtp, hashPhone, hashToken } from "../lib/crypto";
+import { SendOtpSchema, VerifyOtpSchema, SetPasswordSchema, LoginSchema } from "@tuma/shared";
+import { generateOtp, hashPhone, hashToken, hashPassword, verifyPassword } from "../lib/crypto";
 import { setex, getJson, del, incr, keys } from "../lib/redis";
 import { sendOtpSms } from "../services/sms";
 import {
@@ -20,13 +20,35 @@ import {
   registerWalletOnChain,
   sponsorWallet,
 } from "../services/avalanche";
-import { otpSendLimiter, otpVerifyLimiter } from "../middleware/rateLimit";
+import { otpSendLimiter, otpVerifyLimiter, loginLimiter } from "../middleware/rateLimit";
+import { authMiddleware } from "../middleware/auth";
 import { AuthError, ValidationError } from "../lib/errors";
 
 const OTP_TTL = 300; // 5 minutes
 const OTP_MAX_ATTEMPTS = 5;
 
 export const authRouter = new Hono();
+
+/** Issues a fresh access/refresh token pair for a user and persists the session. */
+async function issueSession(user: typeof users.$inferSelect, ipAddress: string | null) {
+  const { token: refreshToken } = await signRefreshToken(user.id);
+  const accessToken = await signAccessToken({
+    sub: user.id,
+    phone: user.phone,
+    walletAddress: user.walletAddress,
+    isMerchant: user.isMerchant,
+  });
+
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  await db.insert(sessions).values({
+    userId: user.id,
+    refreshTokenHash: hashRefreshToken(refreshToken),
+    ipAddress,
+    expiresAt,
+  });
+
+  return { accessToken, refreshToken };
+}
 
 // POST /api/auth/send-otp
 authRouter.post("/send-otp", otpSendLimiter, zValidator("json", SendOtpSchema), async (c) => {
@@ -112,22 +134,10 @@ authRouter.post("/verify-otp", otpVerifyLimiter, zValidator("json", VerifyOtpSch
   }
 
   // Issue tokens
-  const { token: refreshToken, jti } = await signRefreshToken(user.id);
-  const accessToken = await signAccessToken({
-    sub: user.id,
-    phone: user.phone,
-    walletAddress: user.walletAddress,
-    isMerchant: user.isMerchant,
-  });
-
-  // Persist hashed refresh token
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  await db.insert(sessions).values({
-    userId: user.id,
-    refreshTokenHash: hashRefreshToken(refreshToken),
-    ipAddress: c.req.header("x-forwarded-for") ?? null,
-    expiresAt,
-  });
+  const { accessToken, refreshToken } = await issueSession(
+    user,
+    c.req.header("x-forwarded-for") ?? null
+  );
 
   return c.json({
     ok: true,
@@ -195,6 +205,58 @@ authRouter.post(
     return c.json({ ok: true, data: { message: "Logged out" } });
   }
 );
+
+// POST /api/auth/set-password — lets an already phone-verified user add an
+// email + password so future logins on a new device don't need a fresh OTP.
+authRouter.post(
+  "/set-password",
+  authMiddleware,
+  zValidator("json", SetPasswordSchema),
+  async (c) => {
+    const { email, password } = c.req.valid("json");
+    const { sub: userId } = c.get("user");
+
+    const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
+    if (existing && existing.id !== userId) {
+      throw new ValidationError("That email is already in use.");
+    }
+
+    const passwordHash = await hashPassword(password);
+    await db.update(users).set({ email, passwordHash }).where(eq(users.id, userId));
+
+    return c.json({ ok: true, data: { message: "Password set" } });
+  }
+);
+
+// POST /api/auth/login — email + password, skips OTP entirely.
+authRouter.post("/login", loginLimiter, zValidator("json", LoginSchema), async (c) => {
+  const { email, password } = c.req.valid("json");
+
+  const user = await db.query.users.findFirst({ where: eq(users.email, email) });
+  if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
+    throw new AuthError("Invalid email or password");
+  }
+
+  const { accessToken, refreshToken } = await issueSession(
+    user,
+    c.req.header("x-forwarded-for") ?? null
+  );
+
+  return c.json({
+    ok: true,
+    data: {
+      isNewUser: false,
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        walletAddress: user.walletAddress,
+        isMerchant: user.isMerchant,
+      },
+    },
+  });
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
