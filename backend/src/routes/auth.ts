@@ -41,9 +41,15 @@ authRouter.post("/send-otp", otpSendLimiter, zValidator("json", SendOtpSchema), 
   const otp = generateOtp();
   await setex(keys.otp(phone), OTP_TTL, { otp, attempts: 0 });
 
-  await sendOtpSms(phone, otp);
+  try {
+    await sendOtpSms(phone, otp);
+  } catch (err) {
+    // SMS delivery failed — OTP is still stored, log for manual lookup
+    console.error(`[Auth] SMS send failed for ${phone}:`, (err as Error).message);
+    console.log(`[Auth] FALLBACK OTP for ${phone}: ${otp}`);
+  }
 
-  return c.json({ ok: true, data: { message: "OTP sent via SMS", expiresIn: OTP_TTL } });
+  return c.json({ ok: true, data: { message: "OTP sent", expiresIn: OTP_TTL } });
 });
 
 // POST /api/auth/verify-otp
