@@ -37,5 +37,6 @@ export function rateLimit(opts: RateLimitOptions) {
 // Pre-configured limiters for common routes
 export const otpSendLimiter = rateLimit({ max: 3, windowSeconds: 300, route: "otp_send" });
 export const otpVerifyLimiter = rateLimit({ max: 5, windowSeconds: 300, route: "otp_verify" });
+export const loginLimiter = rateLimit({ max: 5, windowSeconds: 300, route: "login" });
 export const sendMoneyLimiter = rateLimit({ max: 10, windowSeconds: 60, route: "send" });
 export const generalLimiter = rateLimit({ max: 120, windowSeconds: 60, route: "general" });
