@@ -1,0 +1,112 @@
+################################################################################
+# Autopayke — Render Blueprint
+#
+# Deploy with: https://dashboard.render.com/select-repo
+# Then choose "Use render.yaml" when prompted.
+#
+# After deploy, set these environment variables manually in the Render dashboard
+# (marked "sync: false" below — they are intentionally left out of this file
+#  because they contain secrets that must not be in version control):
+#
+#   DATABASE_URL         → your Neon PostgreSQL connection string
+#   JWT_ACCESS_SECRET    → (copy from backend/.env — the generated value)
+#   JWT_REFRESH_SECRET   → (copy from backend/.env — the generated value)
+#   WALLET_DERIVE_SECRET → (copy from backend/.env — NEVER rotate after launch)
+#   PAYSTACK_SECRET_KEY  → sk_live_6a36...
+#   PAYSTACK_WEBHOOK_SECRET → from Paystack dashboard → Settings → Webhooks
+#   AT_API_KEY           → Africa's Talking API key (leave blank for demo mode)
+#   AT_USERNAME          → Africa's Talking username
+#   AT_WHATSAPP_SENDER   → WhatsApp sender ID from Africa's Talking
+#   RESEND_API_KEY       → (add when ready)
+################################################################################
+
+services:
+  # ── Backend API ─────────────────────────────────────────────────────────────
+  - type: web
+    name: autopayke-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+
+      # ── Database (set manually — Neon external) ────────────────────────────
+      - key: DATABASE_URL
+        sync: false
+
+      # ── Redis (auto-wired from the Redis service below) ───────────────────
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: autopayke-redis
+          property: connectionString
+
+      # ── JWT secrets (set manually — copy from backend/.env) ───────────────
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+
+      # ── Wallet derivation (set manually — NEVER rotate after first deploy) ─
+      - key: WALLET_DERIVE_SECRET
+        sync: false
+
+      # ── Paystack (set manually) ────────────────────────────────────────────
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: PAYSTACK_WEBHOOK_SECRET
+        sync: false
+
+      # ── Africa's Talking WhatsApp (set manually; omit for demo/log mode) ──
+      - key: AT_API_KEY
+        sync: false
+      - key: AT_USERNAME
+        sync: false
+      - key: AT_WHATSAPP_SENDER
+        sync: false
+      - key: AT_WHATSAPP_OTP_TEMPLATE
+        value: autopayke_otp
+      - key: AT_ENV
+        value: production
+
+      # ── Resend (email) — add when ready ───────────────────────────────────
+      # - key: RESEND_API_KEY
+      #   sync: false
+
+      # ── Avalanche ─────────────────────────────────────────────────────────
+      - key: AVALANCHE_RPC_URL
+        value: https://api.avax.network/ext/bc/C/rpc
+      - key: AVALANCHE_CHAIN_ID
+        value: "43114"
+      - key: RELAYER_PRIVATE_KEY
+        sync: false
+      - key: SIGNER_PRIVATE_KEY
+        sync: false
+      - key: SIGNER_ADDRESS
+        sync: false
+
+      # ── CORS / App URLs ───────────────────────────────────────────────────
+      - key: CORS_ORIGINS
+        value: https://autopayke.vercel.app
+      - key: API_BASE_URL
+        value: https://autopayke-api.onrender.com
+      - key: APP_URL
+        value: https://autopayke.vercel.app
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  - type: redis
+    name: autopayke-redis
+    plan: free
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
