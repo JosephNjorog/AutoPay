@@ -1,4 +1,7 @@
-import { createHash, randomInt } from "crypto";
+import { createHash, randomInt, randomBytes, scrypt, timingSafeEqual } from "crypto";
+import { promisify } from "util";
+
+const scryptAsync = promisify(scrypt);
 
 const PHONE_HASH_SECRET = process.env.WALLET_DERIVE_SECRET;
 if (!PHONE_HASH_SECRET) throw new Error("WALLET_DERIVE_SECRET is not set");
@@ -51,4 +54,21 @@ export function generateTxRef(): string {
 /** Generates a UUID-compatible escrow ref. */
 export function generateEscrowRef(): string {
   return `ESC-${Date.now()}-${randomInt(1000, 9999)}`;
+}
+
+/** Hashes a password with a random salt using scrypt. Stored as "salt:hash" hex. */
+export async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  const derived = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${salt}:${derived.toString("hex")}`;
+}
+
+/** Verifies a password against a "salt:hash" string produced by hashPassword. */
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const [salt, hashHex] = stored.split(":");
+  if (!salt || !hashHex) return false;
+  const derived = (await scryptAsync(password, salt, 64)) as Buffer;
+  const stored_ = Buffer.from(hashHex, "hex");
+  if (derived.length !== stored_.length) return false;
+  return timingSafeEqual(derived, stored_);
 }
