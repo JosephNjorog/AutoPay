@@ -97,6 +97,11 @@ function Dashboard() {
             </div>
             {walletLoading ? (
               <div className="mt-2 h-10 w-32 rounded-xl bg-white/20 animate-pulse" />
+            ) : isDeploying ? (
+              <div className="mt-2 flex items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin opacity-70" />
+                <span className="text-2xl font-black opacity-60">Setting up…</span>
+              </div>
             ) : (
               <p className="relative mt-2 text-4xl font-black tracking-tight">
                 {hide ? "$••••••" : `$${totalUsd.toFixed(2)}`}
