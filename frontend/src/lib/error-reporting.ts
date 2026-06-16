@@ -15,7 +15,7 @@ export function reportError(
 
   // Development: surface to console so nothing is silently swallowed.
   if (import.meta.env.DEV) {
-    console.error("[tuma/error]", detail);
+    console.error("[autopayke/error]", detail);
   }
 
   // Production: wire up your real provider here.
