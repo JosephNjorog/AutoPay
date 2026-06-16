@@ -14,7 +14,9 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SendRouteImport } from './routes/send'
 import { Route as ScanRouteImport } from './routes/scan'
 import { Route as ReceiveRouteImport } from './routes/receive'
+import { Route as PayRouteImport } from './routes/pay'
 import { Route as MerchantRouteImport } from './routes/merchant'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as FundRouteImport } from './routes/fund'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -47,9 +49,19 @@ const ReceiveRoute = ReceiveRouteImport.update({
   path: '/receive',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PayRoute = PayRouteImport.update({
+  id: '/pay',
+  path: '/pay',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MerchantRoute = MerchantRouteImport.update({
   id: '/merchant',
   path: '/merchant',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoryRoute = HistoryRouteImport.update({
@@ -88,7 +100,9 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/fund': typeof FundRoute
   '/history': typeof HistoryRoute
+  '/login': typeof LoginRoute
   '/merchant': typeof MerchantRoute
+  '/pay': typeof PayRoute
   '/receive': typeof ReceiveRoute
   '/scan': typeof ScanRoute
   '/send': typeof SendRoute
@@ -102,7 +116,9 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/fund': typeof FundRoute
   '/history': typeof HistoryRoute
+  '/login': typeof LoginRoute
   '/merchant': typeof MerchantRoute
+  '/pay': typeof PayRoute
   '/receive': typeof ReceiveRoute
   '/scan': typeof ScanRoute
   '/send': typeof SendRoute
@@ -117,7 +133,9 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/fund': typeof FundRoute
   '/history': typeof HistoryRoute
+  '/login': typeof LoginRoute
   '/merchant': typeof MerchantRoute
+  '/pay': typeof PayRoute
   '/receive': typeof ReceiveRoute
   '/scan': typeof ScanRoute
   '/send': typeof SendRoute
@@ -133,7 +151,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/fund'
     | '/history'
+    | '/login'
     | '/merchant'
+    | '/pay'
     | '/receive'
     | '/scan'
     | '/send'
@@ -147,7 +167,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/fund'
     | '/history'
+    | '/login'
     | '/merchant'
+    | '/pay'
     | '/receive'
     | '/scan'
     | '/send'
@@ -161,7 +183,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/fund'
     | '/history'
+    | '/login'
     | '/merchant'
+    | '/pay'
     | '/receive'
     | '/scan'
     | '/send'
@@ -176,7 +200,9 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   FundRoute: typeof FundRoute
   HistoryRoute: typeof HistoryRoute
+  LoginRoute: typeof LoginRoute
   MerchantRoute: typeof MerchantRoute
+  PayRoute: typeof PayRoute
   ReceiveRoute: typeof ReceiveRoute
   ScanRoute: typeof ScanRoute
   SendRoute: typeof SendRoute
@@ -223,11 +249,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReceiveRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pay': {
+      id: '/pay'
+      path: '/pay'
+      fullPath: '/pay'
+      preLoaderRoute: typeof PayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/merchant': {
       id: '/merchant'
       path: '/merchant'
       fullPath: '/merchant'
       preLoaderRoute: typeof MerchantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history': {
@@ -280,7 +320,9 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   FundRoute: FundRoute,
   HistoryRoute: HistoryRoute,
+  LoginRoute: LoginRoute,
   MerchantRoute: MerchantRoute,
+  PayRoute: PayRoute,
   ReceiveRoute: ReceiveRoute,
   ScanRoute: ScanRoute,
   SendRoute: SendRoute,
