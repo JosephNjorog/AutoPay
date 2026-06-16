@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { SendMoneySchema } from "@tuma/shared";
 import { db } from "../db";
-import { users, transactions } from "../db/schema";
+import { users, transactions, merchantSettings } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { authMiddleware } from "../middleware/auth";
 import { sendMoneyLimiter } from "../middleware/rateLimit";
@@ -94,17 +94,53 @@ sendRouter.post(
 
     if (isTumaUser) {
       // ── Direct TUMA-to-TUMA transfer ──────────────────────────────────────
+      // Detect merchant payments: recipient has merchant mode on and till open.
+      const recipientMerchant = recipient!.isMerchant
+        ? await db.query.merchantSettings.findFirst({
+            where: eq(merchantSettings.userId, recipient!.id),
+          })
+        : null;
+      const isMerchantPayment = !!recipientMerchant?.tillOpen;
+      const feeUsd = isMerchantPayment
+        ? parseFloat(((amountUsd * recipientMerchant!.feeBps) / 10_000).toFixed(6))
+        : 0;
+      const netAmountUsd = parseFloat((amountUsd - feeUsd).toFixed(6));
+      const netAmountLocal = isMerchantPayment
+        ? parseFloat((netAmountUsd * quote.tumaRate).toFixed(2))
+        : quote.toAmount;
+
       const txHash = await transferUsdc(
         recipientHash,
         sender.walletAddress as Address,
         recipient!.walletAddress as Address,
-        amountUsd
+        netAmountUsd
       );
+
+      const treasuryAddress = process.env.TREASURY_ADDRESS as Address | undefined;
+      if (isMerchantPayment && feeUsd > 0 && treasuryAddress) {
+        transferUsdc(
+          recipientHash,
+          sender.walletAddress as Address,
+          treasuryAddress,
+          feeUsd
+        ).catch((err) =>
+          console.error(`[Send] Merchant fee transfer failed for ${reference}:`, err.message)
+        );
+      }
+
+      await db
+        .update(transactions)
+        .set({
+          isMerchantPayment,
+          merchantId: isMerchantPayment ? recipient!.id : null,
+          feeUsdc: feeUsd.toFixed(6),
+        })
+        .where(eq(transactions.id, tx.id));
 
       // Disburse to local rail
       const { railReference } = await disburseToRail({
         recipientPhone,
-        amountLocal: quote.toAmount,
+        amountLocal: netAmountLocal,
         localCurrency: quote.toCurrency,
         reference,
       });
