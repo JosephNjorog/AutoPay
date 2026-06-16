@@ -48,17 +48,6 @@ export const assets: Asset[] = [
   { symbol: "AVAX", name: "Avalanche", balance: 2.41, usd: 72.19, color: "bg-[oklch(0.65_0.22_25)]" },
 ];
 
-export const contacts: Contact[] = [
-  { id: "c1", name: "Kwame Boateng", msisdn: "+233 50 123 4567", country: "Ghana", flag: "🇬🇭", rail: "MTN MoMo" },
-  { id: "c2", name: "Aïcha Diop", msisdn: "+221 77 654 3210", country: "Senegal", flag: "🇸🇳", rail: "Wave" },
-  { id: "c3", name: "Tunde Adebayo", msisdn: "+234 803 987 6543", country: "Nigeria", flag: "🇳🇬", rail: "Bank Transfer" },
-  { id: "c4", name: "Wanjiru Kamau", msisdn: "+254 712 345 678", country: "Kenya", flag: "🇰🇪", rail: "M-Pesa" },
-  { id: "c5", name: "Fatou Ndiaye", msisdn: "+221 76 222 1144", country: "Senegal", flag: "🇸🇳", rail: "Orange Money" },
-  { id: "c6", name: "Samuel Owusu", msisdn: "+233 27 555 8899", country: "Ghana", flag: "🇬🇭", rail: "MTN MoMo" },
-  { id: "c7", name: "Chiamaka Eze", msisdn: "+234 802 111 2233", country: "Nigeria", flag: "🇳🇬", rail: "Bank Transfer" },
-  { id: "c8", name: "Joseph Mwangi", msisdn: "+254 722 998 877", country: "Kenya", flag: "🇰🇪", rail: "M-Pesa" },
-];
-
 export const transactions: Tx[] = [
   { id: "tx1", direction: "out", counterparty: "Kwame Boateng", countryFlag: "🇬🇭", timestamp: "Just now", asset: "USDC", amount: "-25.00", localAmount: "GHS 380.00", rail: "MTN MoMo", fx: "1 USDC = 15.20 GHS", status: "pending" },
   { id: "tx2", direction: "in", counterparty: "Aïcha Diop", countryFlag: "🇸🇳", timestamp: "2h ago", asset: "USDT", amount: "+48.50", localAmount: "GHS 737.20", rail: "Wave", fx: "1 USDT = 15.20 GHS", status: "settled" },
@@ -113,7 +102,3 @@ export function dialToCountry(dial: string): string {
   return c?.code ?? "GH";
 }
 
-export function isTumaUser(msisdn: string) {
-  // mock: contacts in our book are TUMA users
-  return contacts.some((c) => c.msisdn.replace(/\s/g, "") === msisdn.replace(/\s/g, ""));
-}

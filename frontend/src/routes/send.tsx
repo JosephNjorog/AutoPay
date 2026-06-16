@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { MobileFrame } from "@/components/MobileFrame";
-import { contacts, countries, midRates, type Contact } from "@/lib/tuma-data";
+import { countries, midRates, type Contact } from "@/lib/tuma-data";
 import { api, type FxQuote, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -120,7 +120,9 @@ function SendPage() {
           </div>
         )}
 
-        {step === "pick" && <PickRecipient onPick={(c) => { setRecipient(c); setStep("amount"); }} />}
+        {step === "pick" && (
+          <PickRecipient accessToken={accessToken} onPick={(c) => { setRecipient(c); setStep("amount"); }} />
+        )}
 
         {step === "amount" && recipient && (
           <AmountStep
@@ -198,15 +200,38 @@ function SendPage() {
 
 // ── Contact picker ────────────────────────────────────────────────────────────
 
-function PickRecipient({ onPick }: { onPick: (c: Contact) => void }) {
+function PickRecipient({ accessToken, onPick }: { accessToken: string | null; onPick: (c: Contact) => void }) {
   const [q, setQ] = useState("");
   const [importing, setImporting] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hasContactPicker = typeof navigator !== "undefined" && "contacts" in (navigator as any);
 
+  // Recent recipients, built from real send history — no mock contacts.
+  const { data: history } = useQuery({
+    queryKey: ["history", "out", "recents"],
+    queryFn: () => api.history.list(accessToken!, { filter: "out", limit: 20 }),
+    enabled: !!accessToken,
+  });
+
+  const recents: Contact[] = [];
+  const seen = new Set<string>();
+  for (const tx of history?.transactions ?? []) {
+    if (seen.has(tx.counterparty)) continue;
+    seen.add(tx.counterparty);
+    const country = countries.find((c) => tx.counterparty.startsWith(c.dial));
+    recents.push({
+      id: tx.id,
+      name: tx.counterparty,
+      msisdn: tx.counterparty,
+      country: country?.name ?? "",
+      flag: country?.flag ?? "🌍",
+      rail: tx.rail,
+    });
+  }
+
   const filtered = q
-    ? contacts.filter((c) => c.name.toLowerCase().includes(q.toLowerCase()) || c.msisdn.includes(q))
-    : contacts;
+    ? recents.filter((c) => c.name.toLowerCase().includes(q.toLowerCase()) || c.msisdn.includes(q))
+    : recents;
   const typed = q.replace(/\s/g, "");
   const isPhone = /^\+?\d{8,}$/.test(typed);
   const noMatch = filtered.length === 0;
@@ -246,7 +271,10 @@ function PickRecipient({ onPick }: { onPick: (c: Contact) => void }) {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Name or +254… phone number"
+            placeholder="Type or paste a phone number"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           {hasContactPicker && (
@@ -293,7 +321,9 @@ function PickRecipient({ onPick }: { onPick: (c: Contact) => void }) {
       </div>
 
       <div className="px-5 mt-5 flex-1">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Contacts</p>
+        {filtered.length > 0 && (
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Recent</p>
+        )}
         <div className="space-y-2">
           {filtered.map((c) => (
             <button key={c.id} onClick={() => onPick(c)}
@@ -306,8 +336,13 @@ function PickRecipient({ onPick }: { onPick: (c: Contact) => void }) {
               <ArrowRight className="h-4 w-4 text-muted-foreground" />
             </button>
           ))}
-          {filtered.length === 0 && !newContact && (
-            <p className="py-12 text-center text-sm text-muted-foreground">No contacts match "{q}"</p>
+          {filtered.length === 0 && !newContact && q && (
+            <p className="py-12 text-center text-sm text-muted-foreground">No match for "{q}"</p>
+          )}
+          {filtered.length === 0 && !newContact && !q && (
+            <p className="py-12 text-center text-sm text-muted-foreground">
+              No recent recipients yet — type a phone number or import from contacts above.
+            </p>
           )}
         </div>
       </div>
