@@ -7,7 +7,7 @@ import { api, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/signup")({
-  head: () => ({ meta: [{ title: "Sign up · TUMA" }, { name: "description", content: "Your number becomes your wallet. No seed phrases." }] }),
+  head: () => ({ meta: [{ title: "Sign up · Autopayke" }, { name: "description", content: "Your number becomes your wallet. No seed phrases." }] }),
   component: Signup,
 });
 
@@ -173,7 +173,7 @@ function Signup() {
                 {loading ? "Sending code…" : "Send verification code"}
                 {!loading && <ArrowRight className="h-4 w-4" />}
               </button>
-              <p className="mt-3 text-center text-[11px] text-muted-foreground">By continuing you agree to TUMA's Terms.</p>
+              <p className="mt-3 text-center text-[11px] text-muted-foreground">By continuing you agree to Autopayke's Terms.</p>
             </div>
           </>
         )}
@@ -244,12 +244,12 @@ function Signup() {
                 <Check className="h-10 w-10 text-success" />
               </div>
               <h2 className="mt-6 text-3xl font-black tracking-tight">You're in.</h2>
-              <p className="mt-2 text-sm text-muted-foreground max-w-xs">Your TUMA wallet is live. Fund it to start sending across Africa.</p>
+              <p className="mt-2 text-sm text-muted-foreground max-w-xs">Your Autopayke wallet is live. Fund it to start sending across Africa.</p>
             </div>
 
             <div className="mt-8 rounded-3xl p-5 text-primary-foreground shadow-(--shadow-elegant)" style={{ background: "var(--gradient-portfolio)" }}>
               <div className="flex items-center gap-2 text-xs opacity-90">
-                <Sparkles className="h-3.5 w-3.5" /> Your TUMA number
+                <Sparkles className="h-3.5 w-3.5" /> Your Autopayke number
               </div>
               <p className="mt-1 text-2xl font-black">{country.dial} {phone || "24 567 8910"}</p>
               <p className="mt-1 text-[11px] opacity-80">Smart wallet linked · ready to receive</p>
