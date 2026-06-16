@@ -7,7 +7,7 @@ import { api, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/fund")({
-  head: () => ({ meta: [{ title: "Add money · TUMA" }, { name: "description", content: "Top up your TUMA wallet via card, M-Pesa, bank, or crypto." }] }),
+  head: () => ({ meta: [{ title: "Add money · Autopayke" }, { name: "description", content: "Top up your Autopayke wallet via card, M-Pesa, bank, or crypto." }] }),
   component: Fund,
 });
 
@@ -155,7 +155,7 @@ function PayCard({ amount, token, onDone }: { amount: number; token: string; onD
       <h2 className="mt-2 text-2xl font-black">${amount.toFixed(2)} via Paystack</h2>
       <div className="mt-4 rounded-2xl border border-border bg-card p-3 flex items-start gap-2">
         <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-        <p className="text-[11px] text-muted-foreground">You'll be redirected to Paystack's secure card payment page. Your TUMA wallet is credited once payment settles.</p>
+        <p className="text-[11px] text-muted-foreground">You'll be redirected to Paystack's secure card payment page. Your Autopayke wallet is credited once payment settles.</p>
       </div>
       {error && <div className="mt-3 flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
       <div className="mt-auto pt-6">
@@ -203,7 +203,7 @@ function PayMobile({ amount, token, onDone }: { amount: number; token: string; o
           <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
             <li className="flex items-start gap-2"><span className="text-primary font-bold mt-0.5">1.</span> Approve the payment prompt on your phone</li>
             <li className="flex items-start gap-2"><span className="text-primary font-bold mt-0.5">2.</span> We receive confirmation from Paystack</li>
-            <li className="flex items-start gap-2"><span className="text-primary font-bold mt-0.5">3.</span> USDC is credited to your TUMA wallet</li>
+            <li className="flex items-start gap-2"><span className="text-primary font-bold mt-0.5">3.</span> USDC is credited to your Autopayke wallet</li>
           </ul>
         </div>
         <div className="mt-auto pt-6">
