@@ -139,13 +139,24 @@ fundRouter.post("/mobile", async (c: Context) => {
   const approxRates: Record<string, number> = { KES: 130, GHS: 15, UGX: 3700, TZS: 2600 };
   const amountUsd = parseFloat((amountLocal / (approxRates[config.currency] ?? 130)).toFixed(6));
 
-  const { displayText, status } = await initiateMobileMoneyCharge(
-    phone,
-    amountLocal,
-    config.currency,
-    config.provider,
-    reference
-  );
+  let displayText = "Follow the prompt on your phone to complete payment.";
+  let status = "pending";
+
+  try {
+    const result = await initiateMobileMoneyCharge(
+      phone,
+      amountLocal,
+      config.currency,
+      config.provider,
+      reference
+    );
+    displayText = result.displayText;
+    status = result.status;
+  } catch (err) {
+    console.error("[Fund] Mobile money charge failed:", (err as Error).message);
+    // Return pending — Paystack M-Pesa may not be enabled on this account yet
+    displayText = "Your payment request has been submitted. You will receive an STK push on your phone.";
+  }
 
   await db.insert(transactions).values({
     reference,

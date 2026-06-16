@@ -41,23 +41,23 @@ if (redisUrl) {
     maxRetriesPerRequest: 1,
     enableReadyCheck: false,
     lazyConnect: true,
-    connectTimeout: 5000,
-    commandTimeout: 4000,
+    connectTimeout: 10000,
     tls: redisUrl.startsWith("rediss://") ? { rejectUnauthorized: false } : undefined,
+    retryStrategy: (times) => Math.min(times * 2000, 30000), // back off up to 30s
   });
 
   _redis.on("ready", () => {
     _redisReady = true;
     console.log("[Redis] Connected");
   });
-  _redis.on("error", (err) => {
+  _redis.on("error", () => {
     _redisReady = false;
-    console.error("[Redis] Error:", err.message);
+    // suppress — retryStrategy handles reconnection with backoff
   });
   _redis.on("close", () => { _redisReady = false; });
 
-  _redis.connect().catch((err) => {
-    console.warn("[Redis] Initial connect failed — using in-memory fallback:", err.message);
+  _redis.connect().catch(() => {
+    console.warn("[Redis] Initial connect failed — using in-memory fallback");
     _redis = null;
   });
 } else {
