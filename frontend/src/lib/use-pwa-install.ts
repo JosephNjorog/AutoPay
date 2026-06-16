@@ -9,6 +9,10 @@ function isIOS() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent) && !(window as unknown as Record<string, unknown>).MSStream;
 }
 
+function isAndroid() {
+  return /android/i.test(navigator.userAgent);
+}
+
 function isStandalone() {
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
@@ -48,7 +52,8 @@ export function usePwaInstall() {
   };
 
   const ios = typeof navigator !== "undefined" && isIOS();
+  const android = typeof navigator !== "undefined" && isAndroid();
   const canInstall = !installed && (!!prompt || ios);
 
-  return { canInstall, install, installed, isIOS: ios };
+  return { canInstall, install, installed, isIOS: ios, isAndroid: android, hasNativePrompt: !!prompt };
 }
