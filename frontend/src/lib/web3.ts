@@ -14,9 +14,9 @@ createAppKit({
   networks,
   projectId,
   metadata: {
-    name: "TUMA",
+    name: "Autopayke",
     description: "Phone-first cross-border payments for Africa",
-    url: (import.meta.env.VITE_APP_URL as string | undefined) ?? "https://tuma.app",
+    url: (import.meta.env.VITE_APP_URL as string | undefined) ?? "https://autopayke.com",
     icons: [],
   },
   features: {
