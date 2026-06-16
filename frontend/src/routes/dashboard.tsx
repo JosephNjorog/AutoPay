@@ -44,7 +44,8 @@ function Dashboard() {
     queryFn: () => api.wallet.get(accessToken!),
     enabled: !!accessToken,
     retry: 2,
-    refetchInterval: wallet?.status === "deploying" ? 4_000 : false,
+    refetchInterval: (query) =>
+      (query.state.data as { status?: string } | undefined)?.status === "deploying" ? 4_000 : false,
   });
 
   const { data: historyData, isLoading: historyLoading } = useQuery({
