@@ -108,6 +108,10 @@ export const OtpCodeSchema = z
 
 export const SendOtpSchema = z.object({
   phone: PhoneSchema,
+  // Optional: returning users already have one on file. New users must
+  // supply it — the OTP is delivered by email while SMS isn't reliably
+  // configured.
+  email: z.string().email().optional(),
 });
 
 export const VerifyOtpSchema = z.object({
