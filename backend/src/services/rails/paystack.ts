@@ -88,7 +88,7 @@ export async function sendTransfer(
       source: "balance",
       amount: Math.round(amount * 100), // NGN to kobo
       recipient: recipientCode,
-      reason: `TUMA transfer ${ref}`,
+      reason: `Autopayke transfer ${ref}`,
       reference: ref,
     }),
   });
