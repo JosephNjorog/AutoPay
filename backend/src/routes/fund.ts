@@ -18,6 +18,7 @@ import {
   verifyPaystackWebhook,
 } from "../services/rails/paystack";
 import { creditFromFloat } from "../services/avalanche";
+import { recordSettlementStep } from "../services/settlement";
 import { generateTxRef } from "../lib/crypto";
 import { NotFoundError } from "../lib/errors";
 import type { Address } from "viem";
@@ -70,7 +71,7 @@ fundRouter.post(
       successUrl
     );
 
-    await db.insert(transactions).values({
+    const [tx] = await db.insert(transactions).values({
       reference,
       senderId: null,
       recipientPhone: phone,
@@ -84,7 +85,9 @@ fundRouter.post(
       rail: "paystack",
       status: "initiated",
       note: "Card funding via Paystack",
-    });
+    }).returning();
+
+    await recordSettlementStep(tx.id, "initiated");
 
     return c.json({
       ok: true,
@@ -158,7 +161,7 @@ fundRouter.post("/mobile", async (c: Context) => {
     displayText = "Your payment request has been submitted. You will receive an STK push on your phone.";
   }
 
-  await db.insert(transactions).values({
+  const [tx] = await db.insert(transactions).values({
     reference,
     senderId: null,
     recipientPhone: phone,
@@ -172,7 +175,9 @@ fundRouter.post("/mobile", async (c: Context) => {
     rail: "paystack",
     status: "initiated",
     note: `${config.label} funding via Paystack`,
-  });
+  }).returning();
+
+  await recordSettlementStep(tx.id, "initiated");
 
   return c.json({
     ok: true,
@@ -266,24 +271,30 @@ paystackWebhookRouter.post("/", async (c) => {
     });
 
     if (tx && tx.status === "initiated") {
-      await db
-        .update(transactions)
-        .set({ status: "settled", settledAt: new Date(), updatedAt: new Date() })
-        .where(eq(transactions.reference, reference));
-
       const walletAddress = (tx as unknown as { recipient?: { walletAddress?: string } })
         ?.recipient?.walletAddress;
       const amountUsdc = parseFloat(tx.amountUsdc);
 
-      if (walletAddress && amountUsdc > 0) {
-        creditFromFloat(walletAddress as Address, amountUsdc).catch((err: Error) =>
-          console.error(
-            `[Paystack] USDC credit failed ref=${reference} channel=${channel ?? "?"}: ${err.message}`
-          )
-        );
+      if (!walletAddress || amountUsdc <= 0) {
+        await recordSettlementStep(tx.id, "failed", { reason: "no wallet address or zero amount" });
+        console.error(`[Paystack] Cannot credit ref=${reference} — missing wallet address or amount`);
+        return c.json({ received: true });
       }
 
-      console.log(`[Paystack] ✓ ${channel ?? "payment"} settled ref=${reference} amount=${amount / 100} ${currency}`);
+      // Credit USDC before marking settled — Paystack already has the user's
+      // fiat, so this must succeed (and be confirmed on-chain) before we tell
+      // the user their money arrived.
+      try {
+        const txHash = await creditFromFloat(walletAddress as Address, amountUsdc);
+        await recordSettlementStep(tx.id, "onchain", { txHash });
+        await recordSettlementStep(tx.id, "routed", { note: "fiat funding — no local rail leg" });
+        await recordSettlementStep(tx.id, "settled");
+        await db.update(transactions).set({ txHash }).where(eq(transactions.id, tx.id));
+        console.log(`[Paystack] ✓ ${channel ?? "payment"} settled ref=${reference} amount=${amount / 100} ${currency}`);
+      } catch (err) {
+        await recordSettlementStep(tx.id, "failed", { error: (err as Error).message });
+        console.error(`[Paystack] USDC credit failed ref=${reference} channel=${channel ?? "?"}: ${(err as Error).message}`);
+      }
     }
   }
 
