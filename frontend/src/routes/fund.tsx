@@ -2,12 +2,28 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft, CreditCard, Building2, Wallet as WalletIcon,
-  Smartphone, ArrowRight, Check, Copy, Info, Loader2, AlertCircle, Lock,
+  Smartphone, ArrowRight, Check, Copy, Info, Loader2, AlertCircle, Lock, Zap,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useAccount, useWriteContract, usePublicClient } from "wagmi";
+import { useAppKit } from "@reown/appkit/react";
+import { parseUnits } from "viem";
 import { MobileFrame } from "@/components/MobileFrame";
 import { api, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
+
+const ERC20_TRANSFER_ABI = [
+  {
+    name: "transfer",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
 
 export const Route = createFileRoute("/fund")({
   head: () => ({ meta: [{ title: "Add money · Autopayke" }, { name: "description", content: "Top up your Autopayke wallet via card, M-Pesa, bank, or crypto." }] }),
@@ -522,8 +538,14 @@ function PayBank({ token, onDone }: { token: string; onDone: () => void }) {
 
 // ── Crypto deposit ────────────────────────────────────────────────────────────
 
+type PayStep = "idle" | "sending" | "confirming" | "recording" | "error";
+
 function PayCrypto({ token, onDone }: { token: string; onDone: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [amount, setAmount] = useState("25");
+  const [payStep, setPayStep] = useState<PayStep>("idle");
+  const [payError, setPayError] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ["fund-crypto"],
     queryFn: () => api.fund.crypto(token),
@@ -531,7 +553,52 @@ function PayCrypto({ token, onDone }: { token: string; onDone: () => void }) {
   });
   const address = data?.walletAddress ?? null;
 
+  const { open } = useAppKit();
+  const { isConnected } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
+
   function copy(s: string) { navigator.clipboard?.writeText(s); setCopied(true); setTimeout(() => setCopied(false), 1500); }
+
+  async function handlePayWithWallet() {
+    if (!address || !data) return;
+    if (!isConnected) { open(); return; }
+
+    const amountUsd = parseFloat(amount);
+    if (!amountUsd || amountUsd <= 0) return;
+
+    setPayError(null);
+    setPayStep("sending");
+    try {
+      const hash = await writeContractAsync({
+        address: data.usdcAddress as `0x${string}`,
+        abi: ERC20_TRANSFER_ABI,
+        functionName: "transfer",
+        args: [address as `0x${string}`, parseUnits(amount, 6)],
+        chainId: data.chainId,
+      });
+
+      setPayStep("confirming");
+      await publicClient?.waitForTransactionReceipt({ hash });
+
+      setPayStep("recording");
+      await api.fund.confirmCrypto(hash, token);
+
+      onDone();
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "Payment failed. Try again.");
+      setPayStep("error");
+    }
+  }
+
+  const paying = payStep === "sending" || payStep === "confirming" || payStep === "recording";
+  const payLabel: Record<PayStep, string> = {
+    idle: isConnected ? "Pay with connected wallet" : "Connect wallet to pay",
+    sending: "Approve in your wallet…",
+    confirming: "Confirming on-chain…",
+    recording: "Recording deposit…",
+    error: "Try again",
+  };
 
   return (
     <div className="flex-1 flex flex-col mt-6">
@@ -539,16 +606,58 @@ function PayCrypto({ token, onDone }: { token: string; onDone: () => void }) {
       <h2 className="mt-2 text-2xl font-black">Send to your smart wallet</h2>
       <p className="mt-2 text-sm text-muted-foreground">USDC, USDT, or AVAX on Avalanche C-Chain.</p>
       {isLoading && <div className="mt-5 h-24 rounded-3xl bg-card border border-border animate-pulse" />}
+
       {address && (
-        <div className="mt-5 rounded-3xl border border-border bg-card p-4">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Avalanche C-Chain address</p>
-          <p className="mt-1 text-sm font-mono break-all">{address}</p>
-          <button onClick={() => copy(address)} className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-muted py-2.5 text-xs font-semibold">
-            {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? "Address copied" : "Copy address"}
-          </button>
-        </div>
+        <>
+          {/* Active flow — connect wallet and approve an exact amount */}
+          <div className="mt-5 rounded-3xl border border-primary/30 bg-primary-soft/40 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Zap className="h-3 w-3 text-primary" /> Pay with a connected wallet
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-lg font-black">$</span>
+              <input
+                value={amount}
+                onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                inputMode="decimal"
+                disabled={paying}
+                className="flex-1 bg-transparent text-2xl font-black outline-none disabled:opacity-50"
+              />
+              <span className="text-xs font-semibold text-muted-foreground">USDC</span>
+            </div>
+            <button
+              onClick={handlePayWithWallet}
+              disabled={paying || !amount || parseFloat(amount) <= 0}
+              className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50 shadow-(--shadow-elegant)"
+              style={{ background: "var(--gradient-portfolio)" }}
+            >
+              {paying && <Loader2 className="h-4 w-4 animate-spin" />}
+              {payLabel[payStep]}
+            </button>
+            {payError && (
+              <p className="mt-2 text-[11px] text-destructive text-center">{payError}</p>
+            )}
+            <p className="mt-2 text-[10px] text-muted-foreground text-center">
+              Opens MetaMask, Core, or scan with any WalletConnect-compatible wallet.
+            </p>
+          </div>
+
+          <div className="my-4 flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <div className="h-px flex-1 bg-border" /> or send manually <div className="h-px flex-1 bg-border" />
+          </div>
+
+          {/* Manual flow — paste the address into any wallet */}
+          <div className="rounded-3xl border border-border bg-card p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Avalanche C-Chain address</p>
+            <p className="mt-1 text-sm font-mono break-all">{address}</p>
+            <button onClick={() => copy(address)} className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-muted py-2.5 text-xs font-semibold">
+              {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? "Address copied" : "Copy address"}
+            </button>
+          </div>
+        </>
       )}
+
       <p className="mt-3 text-[11px] text-warning text-center font-semibold">Only send on Avalanche C-Chain. Other networks = lost funds.</p>
       <div className="mt-auto pt-6">
         <button onClick={onDone} className="w-full rounded-2xl py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant)" style={{ background: "var(--gradient-portfolio)" }}>I've sent the deposit</button>
