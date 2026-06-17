@@ -28,8 +28,8 @@
 #   TREASURY_ADDRESS        → wallet that receives merchant fees + cash-out withdrawals
 #   USDC_ADDRESS/USDT_ADDRESS → only needed if overriding the mainnet defaults in code
 #   OPEN_EXCHANGE_RATES_APP_ID → from openexchangerates.org — FX quotes fail without this
-#   TWILIO_ACCOUNT_SID/AUTH_TOKEN/PHONE_NUMBER → OTP SMS; without these OTP only logs to console
-#   RESEND_API_KEY          → (add when ready)
+#   TWILIO_ACCOUNT_SID/AUTH_TOKEN/PHONE_NUMBER → OTP SMS fallback; without these OTP only logs to console
+#   RESEND_API_KEY          → from resend.com — primary OTP delivery channel (email)
 ################################################################################
 
 services:
@@ -88,9 +88,12 @@ services:
       - key: AT_ENV
         value: production
 
-      # ── Resend (email) — add when ready ───────────────────────────────────
-      # - key: RESEND_API_KEY
-      #   sync: false
+      # ── Resend (email) — primary OTP delivery channel while Twilio SMS
+      #    isn't reliably configured (trial account) ───────────────────────
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        value: "Autopayke <noreply@autopayke.com>"
 
       # ── Avalanche ─────────────────────────────────────────────────────────
       - key: AVALANCHE_RPC_URL
