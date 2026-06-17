@@ -4,6 +4,7 @@ import { transactions } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { authMiddleware } from "../middleware/auth";
 import { getSettlementTimeline } from "../services/settlement";
+import { reconcilePaystackFunding } from "./fund";
 import { NotFoundError, AuthError } from "../lib/errors";
 import { explorerUrl } from "../services/avalanche";
 
@@ -15,7 +16,7 @@ trackRouter.get("/:id", async (c) => {
   const { id } = c.req.param();
   const { sub: userId } = c.get("user");
 
-  const tx = await db.query.transactions.findFirst({
+  let tx = await db.query.transactions.findFirst({
     where: eq(transactions.id, id),
   });
 
@@ -24,6 +25,15 @@ trackRouter.get("/:id", async (c) => {
   // Only sender or recipient can view
   if (tx.senderId !== userId && tx.recipientUserId !== userId) {
     throw new AuthError("Access denied");
+  }
+
+  // Backstop for missed/delayed Paystack webhooks — check directly with
+  // Paystack on every poll while a funding transaction is still pending, so
+  // it resolves within a poll cycle or two instead of waiting indefinitely
+  // on a webhook that may never arrive.
+  if (tx.status === "initiated" && tx.rail === "paystack") {
+    await reconcilePaystackFunding(tx.id);
+    tx = (await db.query.transactions.findFirst({ where: eq(transactions.id, id) })) ?? tx;
   }
 
   const timeline = await getSettlementTimeline(id);

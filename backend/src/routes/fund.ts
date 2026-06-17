@@ -16,12 +16,70 @@ import {
   initializeCardPayment,
   initiateMobileMoneyCharge,
   verifyPaystackWebhook,
+  verifyTransaction,
 } from "../services/rails/paystack";
 import { creditFromFloat } from "../services/avalanche";
 import { recordSettlementStep } from "../services/settlement";
 import { generateTxRef } from "../lib/crypto";
 import { NotFoundError } from "../lib/errors";
 import type { Address } from "viem";
+
+// Credits USDC for a confirmed Paystack charge and walks the settlement
+// timeline through to "settled". Shared by the webhook and the polling
+// backstop in reconcilePaystackFunding() below, since either one might be
+// the first to learn the charge succeeded.
+async function settleFundingCharge(
+  tx: typeof transactions.$inferSelect & { recipient?: { walletAddress?: string | null } | null },
+  channel?: string
+): Promise<void> {
+  const walletAddress = tx.recipient?.walletAddress;
+  const amountUsdc = parseFloat(tx.amountUsdc);
+
+  if (!walletAddress || amountUsdc <= 0) {
+    await recordSettlementStep(tx.id, "failed", { reason: "no wallet address or zero amount" });
+    console.error(`[Fund] Cannot credit ref=${tx.reference} — missing wallet address or amount`);
+    return;
+  }
+
+  try {
+    const txHash = await creditFromFloat(walletAddress as Address, amountUsdc);
+    await recordSettlementStep(tx.id, "onchain", { txHash });
+    await recordSettlementStep(tx.id, "routed", { note: "fiat funding — no local rail leg" });
+    await recordSettlementStep(tx.id, "settled");
+    await db.update(transactions).set({ txHash }).where(eq(transactions.id, tx.id));
+    console.log(`[Fund] ✓ ${channel ?? "payment"} settled ref=${tx.reference} amount=${amountUsdc} USDC`);
+  } catch (err) {
+    await recordSettlementStep(tx.id, "failed", { error: (err as Error).message });
+    console.error(`[Fund] USDC credit failed ref=${tx.reference} channel=${channel ?? "?"}: ${(err as Error).message}`);
+  }
+}
+
+/**
+ * Backstop for webhook delivery — Paystack webhooks are best-effort, and a
+ * free-tier Render web service can be asleep and miss the delivery window
+ * entirely. Called from GET /api/track/:id so a still-"initiated" Paystack
+ * funding transaction gets a direct status check on every poll instead of
+ * waiting on a webhook that may never arrive.
+ */
+export async function reconcilePaystackFunding(transactionId: string): Promise<void> {
+  const tx = await db.query.transactions.findFirst({
+    where: eq(transactions.id, transactionId),
+    with: { recipient: true },
+  });
+  if (!tx || tx.status !== "initiated" || tx.rail !== "paystack") return;
+
+  try {
+    const result = await verifyTransaction(tx.reference);
+    if (result.status === "success") {
+      await settleFundingCharge(tx, result.channel);
+    } else if (result.status === "failed" || result.status === "abandoned") {
+      await recordSettlementStep(tx.id, "failed", { reason: `paystack status: ${result.status}` });
+    }
+    // "pending"/"ongoing" — leave as-is, the next poll will check again.
+  } catch (err) {
+    console.error(`[Fund] Reconcile check failed ref=${tx.reference}: ${(err as Error).message}`);
+  }
+}
 
 export const fundRouter = new Hono();
 fundRouter.use("*", authMiddleware);
@@ -263,7 +321,7 @@ paystackWebhookRouter.post("/", async (c) => {
   };
 
   if (event.event === "charge.success") {
-    const { reference, amount, currency, channel } = event.data;
+    const { reference, channel } = event.data;
 
     const tx = await db.query.transactions.findFirst({
       where: eq(transactions.reference, reference),
@@ -271,30 +329,7 @@ paystackWebhookRouter.post("/", async (c) => {
     });
 
     if (tx && tx.status === "initiated") {
-      const walletAddress = (tx as unknown as { recipient?: { walletAddress?: string } })
-        ?.recipient?.walletAddress;
-      const amountUsdc = parseFloat(tx.amountUsdc);
-
-      if (!walletAddress || amountUsdc <= 0) {
-        await recordSettlementStep(tx.id, "failed", { reason: "no wallet address or zero amount" });
-        console.error(`[Paystack] Cannot credit ref=${reference} — missing wallet address or amount`);
-        return c.json({ received: true });
-      }
-
-      // Credit USDC before marking settled — Paystack already has the user's
-      // fiat, so this must succeed (and be confirmed on-chain) before we tell
-      // the user their money arrived.
-      try {
-        const txHash = await creditFromFloat(walletAddress as Address, amountUsdc);
-        await recordSettlementStep(tx.id, "onchain", { txHash });
-        await recordSettlementStep(tx.id, "routed", { note: "fiat funding — no local rail leg" });
-        await recordSettlementStep(tx.id, "settled");
-        await db.update(transactions).set({ txHash }).where(eq(transactions.id, tx.id));
-        console.log(`[Paystack] ✓ ${channel ?? "payment"} settled ref=${reference} amount=${amount / 100} ${currency}`);
-      } catch (err) {
-        await recordSettlementStep(tx.id, "failed", { error: (err as Error).message });
-        console.error(`[Paystack] USDC credit failed ref=${reference} channel=${channel ?? "?"}: ${(err as Error).message}`);
-      }
+      await settleFundingCharge(tx, channel);
     }
   }
 

@@ -175,6 +175,18 @@ export async function initializeCardPayment(
   };
 }
 
+// ── Direct status check ────────────────────────────────────────────────────────
+// Backstop for webhook delivery — Paystack's webhook is best-effort (and a free-
+// tier Render web service can be cold and miss its delivery window entirely), so
+// funding can't depend on it alone. Lets the backend ask Paystack directly.
+
+export async function verifyTransaction(reference: string): Promise<{ status: string; amount: number; currency: string; channel: string }> {
+  const data = await paystackFetch<{ status: string; amount: number; currency: string; channel: string }>(
+    `/transaction/verify/${encodeURIComponent(reference)}`
+  );
+  return data;
+}
+
 // ── Webhook verification ──────────────────────────────────────────────────────
 
 export function verifyPaystackWebhook(
