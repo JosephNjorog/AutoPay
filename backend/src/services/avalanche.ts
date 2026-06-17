@@ -120,6 +120,15 @@ const ERC20_ABI = [
     inputs: [],
     outputs: [{ name: "", type: "uint8" }],
   },
+  {
+    name: "Transfer",
+    type: "event",
+    inputs: [
+      { name: "from", type: "address", indexed: true },
+      { name: "to", type: "address", indexed: true },
+      { name: "value", type: "uint256", indexed: false },
+    ],
+  },
 ] as const;
 
 const TUMA_FACTORY_ABI = [
@@ -346,6 +355,98 @@ export async function getUsdcBalance(walletAddress: Address): Promise<bigint> {
     functionName: "balanceOf",
     args: [walletAddress],
   }) as Promise<bigint>;
+}
+
+export type IncomingTransfer = {
+  txHash: string;
+  from: Address;
+  amount: bigint;
+  token: "USDC" | "USDT";
+  blockNumber: bigint;
+};
+
+/**
+ * Scans for incoming USDC/USDT transfers to a wallet between two blocks —
+ * picks up deposits sent directly to the wallet address from outside the
+ * app (e.g. an external wallet), which otherwise leave no record anywhere.
+ */
+export async function getIncomingTransfers(
+  walletAddress: Address,
+  fromBlock: bigint,
+  toBlock: bigint
+): Promise<IncomingTransfer[]> {
+  const tokens: { address: Address; symbol: "USDC" | "USDT" }[] = [
+    { address: TOKEN_ADDRESSES.USDC, symbol: "USDC" },
+    ...(TOKEN_ADDRESSES.USDT ? [{ address: TOKEN_ADDRESSES.USDT, symbol: "USDT" as const }] : []),
+  ];
+
+  const results = await Promise.all(
+    tokens.map(({ address, symbol }) =>
+      publicClient
+        .getLogs({
+          address,
+          event: {
+            name: "Transfer",
+            type: "event",
+            inputs: ERC20_ABI.find((i) => i.name === "Transfer")!.inputs,
+          },
+          args: { to: walletAddress },
+          fromBlock,
+          toBlock,
+        })
+        .then((logs) =>
+          logs.map((log) => ({
+            txHash: log.transactionHash,
+            from: (log.args as { from: Address }).from,
+            amount: (log.args as { value: bigint }).value,
+            token: symbol,
+            blockNumber: log.blockNumber,
+          }))
+        )
+        .catch((err) => {
+          console.error(`[Avalanche] getIncomingTransfers(${symbol}) failed:`, (err as Error).message);
+          return [] as IncomingTransfer[];
+        })
+    )
+  );
+
+  return results.flat();
+}
+
+/**
+ * Verifies a transaction hash is a confirmed USDC/USDT transfer to the
+ * expected wallet address, returning the real on-chain amount — used by the
+ * "pay with connected wallet" funding flow so the credited amount always
+ * comes from the chain itself, never from client-supplied input.
+ */
+export async function verifyIncomingTransfer(
+  txHash: Hash,
+  expectedTo: Address
+): Promise<{ from: Address; amount: bigint; token: "USDC" | "USDT" } | null> {
+  const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+  if (receipt.status !== "success") return null;
+
+  const tokens: { address: Address; symbol: "USDC" | "USDT" }[] = [
+    { address: TOKEN_ADDRESSES.USDC, symbol: "USDC" },
+    ...(TOKEN_ADDRESSES.USDT ? [{ address: TOKEN_ADDRESSES.USDT, symbol: "USDT" as const }] : []),
+  ];
+
+  for (const log of receipt.logs) {
+    const token = tokens.find((t) => t.address.toLowerCase() === log.address.toLowerCase());
+    if (!token) continue;
+
+    // Transfer(address indexed from, address indexed to, uint256 value)
+    // topics[1] = from, topics[2] = to (both left-padded to 32 bytes)
+    if (log.topics.length < 3) continue;
+    const to = `0x${log.topics[2]!.slice(-40)}` as Address;
+    if (to.toLowerCase() !== expectedTo.toLowerCase()) continue;
+
+    const from = `0x${log.topics[1]!.slice(-40)}` as Address;
+    const amount = BigInt(log.data);
+    return { from, amount, token: token.symbol };
+  }
+
+  return null;
 }
 
 // ── Token transfers ───────────────────────────────────────────────────────────
