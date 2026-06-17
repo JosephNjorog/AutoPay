@@ -18,11 +18,12 @@ import {
   verifyPaystackWebhook,
   verifyTransaction,
 } from "../services/rails/paystack";
-import { creditFromFloat } from "../services/avalanche";
+import { creditFromFloat, verifyIncomingTransfer, TOKEN_ADDRESSES } from "../services/avalanche";
 import { recordSettlementStep } from "../services/settlement";
 import { generateTxRef } from "../lib/crypto";
-import { NotFoundError } from "../lib/errors";
-import type { Address } from "viem";
+import { NotFoundError, ValidationError } from "../lib/errors";
+import { formatUnits } from "viem";
+import type { Address, Hash } from "viem";
 
 // Credits USDC for a confirmed Paystack charge and walks the settlement
 // timeline through to "settled". Shared by the webhook and the polling
@@ -287,13 +288,69 @@ fundRouter.get("/crypto", async (c) => {
       network: "Avalanche C-Chain",
       chainId: process.env.NODE_ENV === "production" ? 43114 : 43113,
       supportedTokens: ["USDC", "USDT", "AVAX"],
-      usdcAddress: process.env.USDC_ADDRESS,
-      usdtAddress: process.env.USDT_ADDRESS,
+      usdcAddress: TOKEN_ADDRESSES.USDC,
+      usdtAddress: TOKEN_ADDRESSES.USDT ?? null,
       fee: "Free",
       note: "Only send tokens on Avalanche C-Chain (not Avalanche X-Chain or P-Chain).",
     },
   });
 });
+
+// ── POST /api/fund/crypto/confirm — record a "pay with connected wallet" deposit ──
+// The frontend already sent the on-chain transfer itself (via the user's
+// connected external wallet); this just verifies it really happened and
+// records it. The amount is always read from the chain, never trusted from
+// the client.
+
+fundRouter.post(
+  "/crypto/confirm",
+  zValidator("json", z.object({ txHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/) })),
+  async (c) => {
+    const { txHash } = c.req.valid("json");
+    const { sub: userId } = c.get("user");
+
+    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    if (!user?.walletAddress) throw new NotFoundError("Wallet");
+
+    const existing = await db.query.transactions.findFirst({ where: eq(transactions.txHash, txHash) });
+    if (existing) {
+      return c.json({ ok: true, data: { transactionId: existing.id, alreadyRecorded: true } });
+    }
+
+    const result = await verifyIncomingTransfer(txHash as Hash, user.walletAddress as Address);
+    if (!result) {
+      throw new ValidationError("Couldn't verify that transaction as a transfer to your wallet.");
+    }
+
+    const amountUsd = parseFloat(formatUnits(result.amount, 6));
+
+    const [tx] = await db
+      .insert(transactions)
+      .values({
+        reference: generateTxRef(),
+        senderId: null,
+        recipientPhone: user.phone,
+        recipientUserId: userId,
+        recipientWalletAddress: user.walletAddress,
+        amountUsdc: amountUsd.toFixed(6),
+        amountLocal: amountUsd.toFixed(2),
+        localCurrency: "USD",
+        fxRate: "1.00000000",
+        token: result.token,
+        rail: "crypto",
+        txHash,
+        note: `Crypto deposit from ${result.from.slice(0, 6)}…${result.from.slice(-4)}`,
+      })
+      .returning();
+
+    await recordSettlementStep(tx.id, "initiated");
+    await recordSettlementStep(tx.id, "onchain", { txHash });
+    await recordSettlementStep(tx.id, "routed", { note: "direct on-chain deposit" });
+    await recordSettlementStep(tx.id, "settled");
+
+    return c.json({ ok: true, data: { transactionId: tx.id, amountUsd, token: result.token } });
+  }
+);
 
 // ── POST /webhooks/paystack — Paystack payment webhook ────────────────────────
 // Handles both card (charge.success) and mobile money (charge.success) payments.
