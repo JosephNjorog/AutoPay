@@ -193,9 +193,12 @@ export function verifyPaystackWebhook(
   payload: string,
   signature: string
 ): boolean {
-  const expected = createHmac("sha512", process.env.PAYSTACK_WEBHOOK_SECRET!)
-    .update(payload)
-    .digest("hex");
+  const secret = process.env.PAYSTACK_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error("[Paystack] PAYSTACK_WEBHOOK_SECRET is not configured — rejecting webhook");
+    return false;
+  }
+  const expected = createHmac("sha512", secret).update(payload).digest("hex");
   return expected === signature;
 }
 
