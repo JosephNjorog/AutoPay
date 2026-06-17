@@ -53,6 +53,9 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
     /// @notice claimRef => EscrowPayment
     mapping(bytes32 => EscrowPayment) public payments;
 
+    /// @notice Tokens depositors are allowed to escrow (USDC/USDT only, in practice).
+    mapping(address => bool) public allowedTokens;
+
     // ── Events ────────────────────────────────────────────────────────────────
 
     event Deposited(
@@ -62,6 +65,8 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
         uint256 amount,
         uint256 expiry
     );
+
+    event TokenAllowedSet(address indexed token, bool allowed);
 
     event Claimed(
         bytes32 indexed claimRef,
@@ -86,16 +91,40 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
     error ZeroAmount();
     error ZeroAddress();
     error InvalidSignature();
+    error TokenNotAllowed(address token);
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
-    constructor(address admin, address relayer, address signer) {
+    /**
+     * @param initialTokens Tokens to allow from day one (e.g. USDC, USDT) — avoids a
+     *                       separate setTokenAllowed transaction per token after deploy.
+     */
+    constructor(address admin, address relayer, address signer, address[] memory initialTokens) {
         if (admin == address(0) || relayer == address(0) || signer == address(0)) {
             revert ZeroAddress();
         }
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(RELAYER_ROLE, relayer);
         _grantRole(SIGNER_ROLE, signer);
+
+        for (uint256 i = 0; i < initialTokens.length; i++) {
+            allowedTokens[initialTokens[i]] = true;
+            emit TokenAllowedSet(initialTokens[i], true);
+        }
+    }
+
+    // ── Admin ─────────────────────────────────────────────────────────────────
+
+    /**
+     * @notice Allow or disallow a token from being escrowed.
+     * @dev Restricted to USDC/USDT in practice — guards against depositing an
+     *      arbitrary/malicious ERC-20 (fee-on-transfer, rebasing, etc.) that could
+     *      desync the recorded `amount` from what's actually held.
+     */
+    function setTokenAllowed(address token, bool allowed) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (token == address(0)) revert ZeroAddress();
+        allowedTokens[token] = allowed;
+        emit TokenAllowedSet(token, allowed);
     }
 
     // ── Core functions ────────────────────────────────────────────────────────
@@ -118,6 +147,7 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
         if (payments[claimRef].sender != address(0)) revert AlreadyExists(claimRef);
         if (amount == 0) revert ZeroAmount();
         if (token == address(0)) revert ZeroAddress();
+        if (!allowedTokens[token]) revert TokenNotAllowed(token);
         if (expiryOffset < MIN_EXPIRY || expiryOffset > MAX_EXPIRY) revert InvalidExpiry();
 
         uint256 expiry = block.timestamp + expiryOffset;
