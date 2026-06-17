@@ -11,6 +11,10 @@ export const SUPPORTED_RAILS = [
   "bank",
 ] as const;
 export type Rail = (typeof SUPPORTED_RAILS)[number];
+// Settlement rails recorded on a transaction — broader than Rail, which is
+// specifically "where a country's payout goes." Crypto deposits aren't tied
+// to a country/payout rail at all.
+export type TransactionRail = Rail | "crypto";
 
 export const SUPPORTED_TOKENS = ["USDC", "USDT"] as const;
 export type Token = (typeof SUPPORTED_TOKENS)[number];
@@ -206,7 +210,7 @@ export type TransactionSummary = {
   amountLocal: number;
   localCurrency: string;
   fxRate: number;
-  rail: Rail;
+  rail: TransactionRail;
   status: TransactionStatus;
   note: string | null;
   createdAt: string;
