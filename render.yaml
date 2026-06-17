@@ -18,9 +18,14 @@
 #   AT_API_KEY              → Africa's Talking API key (WhatsApp claim links)
 #   AT_USERNAME             → Africa's Talking username
 #   AT_WHATSAPP_SENDER      → WhatsApp sender ID from Africa's Talking
-#   RELAYER_PRIVATE_KEY     → funded EOA that pays gas for wallet deploys/sponsorship
-#   SIGNER_PRIVATE_KEY      → key that signs escrow claims (NEVER rotate after launch)
-#   SIGNER_ADDRESS          → address derived from SIGNER_PRIVATE_KEY
+#   RELAYER_PRIVATE_KEY     → funded EOA that pays gas for wallet deploys/sponsorship.
+#                             Prefer RELAYER_KMS_KEY_ID instead once AWS KMS is set up
+#                             (see backend/src/lib/kms-signer.ts) — leave this unset then.
+#   RELAYER_KMS_KEY_ID      → AWS KMS key ARN/id for the relayer, if using KMS
+#   SIGNER_PRIVATE_KEY      → key that signs escrow claims (NEVER rotate after launch).
+#                             Same KMS preference as above via SIGNER_KMS_KEY_ID.
+#   SIGNER_KMS_KEY_ID       → AWS KMS key ARN/id for the signer, if using KMS
+#   SIGNER_ADDRESS          → address derived from SIGNER_PRIVATE_KEY or the KMS key
 #   TUMA_REGISTRY_ADDRESS   → from contracts/script/Deploy.s.sol mainnet run
 #   TUMA_FACTORY_ADDRESS    → from contracts/script/Deploy.s.sol mainnet run
 #   TUMA_ESCROW_ADDRESS     → from contracts/script/Deploy.s.sol mainnet run
@@ -102,7 +107,11 @@ services:
         value: "43114"
       - key: RELAYER_PRIVATE_KEY
         sync: false
+      - key: RELAYER_KMS_KEY_ID
+        sync: false
       - key: SIGNER_PRIVATE_KEY
+        sync: false
+      - key: SIGNER_KMS_KEY_ID
         sync: false
       - key: SIGNER_ADDRESS
         sync: false
@@ -152,6 +161,78 @@ services:
         value: https://tumabackendservice.onrender.com
       - key: APP_URL
         value: https://autopayke.com
+
+  # ── Background workers ──────────────────────────────────────────────────────
+  # Settlement polling, escrow expiry/refund, rail disbursement, and WhatsApp
+  # notifications all run as BullMQ workers consuming Redis queues — without
+  # this service none of them run at all, and queued jobs (escrow refunds,
+  # rail payouts, notifications) just sit in Redis forever. Combined into one
+  # process (src/workers/all.worker.ts) rather than four separate services —
+  # these are low-volume queues that don't need independent scaling.
+  - type: worker
+    name: autopayke-workers
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    dockerCommand: bun run worker:all
+    plan: starter
+    region: oregon
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: autopayke-redis
+          property: connectionString
+      - key: WALLET_DERIVE_SECRET
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: AT_API_KEY
+        sync: false
+      - key: AT_USERNAME
+        sync: false
+      - key: AT_WHATSAPP_SENDER
+        sync: false
+      - key: AT_WHATSAPP_OTP_TEMPLATE
+        value: autopayke_otp
+      - key: AT_ENV
+        value: production
+      - key: AVALANCHE_RPC_URL
+        value: https://api.avax.network/ext/bc/C/rpc
+      - key: AVALANCHE_CHAIN_ID
+        value: "43114"
+      - key: RELAYER_PRIVATE_KEY
+        sync: false
+      - key: RELAYER_KMS_KEY_ID
+        sync: false
+      - key: SIGNER_PRIVATE_KEY
+        sync: false
+      - key: SIGNER_KMS_KEY_ID
+        sync: false
+      - key: SIGNER_ADDRESS
+        sync: false
+      - key: TUMA_REGISTRY_ADDRESS
+        sync: false
+      - key: TUMA_FACTORY_ADDRESS
+        sync: false
+      - key: TUMA_ESCROW_ADDRESS
+        sync: false
+      - key: TUMA_PAYMASTER_ADDRESS
+        sync: false
+      - key: TREASURY_ADDRESS
+        sync: false
+      - key: USDC_ADDRESS
+        sync: false
+      - key: USDT_ADDRESS
+        sync: false
+      - key: OPEN_EXCHANGE_RATES_APP_ID
+        sync: false
+      - key: FX_SPREAD
+        value: "0.023"
 
   # ── Redis ────────────────────────────────────────────────────────────────────
   - type: redis
