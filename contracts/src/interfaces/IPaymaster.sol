@@ -5,7 +5,7 @@ import "./UserOperation.sol";
 
 /**
  * ERC-4337 IPaymaster interface.
- * TumaPaymaster implements this to sponsor gas for TUMA wallet operations.
+ * AutopayPaymaster implements this to sponsor gas for Autopayke wallet operations.
  */
 interface IPaymaster {
     enum PostOpMode {

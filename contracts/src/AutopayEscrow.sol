@@ -9,24 +9,24 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
- * @title TumaEscrow
- * @notice Holds USDC for unclaimed payments sent to non-TUMA users.
+ * @title AutopayEscrow
+ * @notice Holds USDC for unclaimed payments sent to non-Autopayke users.
  *
  * Flow:
  * 1. Sender calls deposit() with a unique claimRef and the recipient's share.
- *    The USDC is pulled from the sender's TumaSmartWallet (pre-approved).
- * 2. Recipient receives a WhatsApp claim link. They sign up for TUMA and call claim()
+ *    The USDC is pulled from the sender's AutopaySmartWallet (pre-approved).
+ * 2. Recipient receives a WhatsApp claim link. They sign up for Autopayke and call claim()
  *    with a backend-issued signature proving they own that phone number.
- * 3. If unclaimed after `expiryDuration`, anyone (typically the TUMA backend) can call
+ * 3. If unclaimed after `expiryDuration`, anyone (typically the Autopayke backend) can call
  *    refund() to return the USDC to the original sender.
  *
  * Security properties:
  * - ReentrancyGuard on all state-changing functions.
  * - One-time claim: claimRef is consumed on success.
  * - Refund only after expiry.
- * - Claim requires a signature from TUMA's signer key (prevents front-running).
+ * - Claim requires a signature from Autopayke's signer key (prevents front-running).
  */
-contract TumaEscrow is ReentrancyGuard, AccessControl {
+contract AutopayEscrow is ReentrancyGuard, AccessControl {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
@@ -138,12 +138,12 @@ contract TumaEscrow is ReentrancyGuard, AccessControl {
 
     /**
      * @notice Claim an escrow payment on behalf of the verified recipient.
-     * @dev The TUMA backend signs a message authorizing the claim only after
+     * @dev The Autopayke backend signs a message authorizing the claim only after
      *      the recipient has completed WhatsApp OTP verification.
      *
      * @param claimRef   The escrow reference
      * @param recipient  Address that will receive the tokens
-     * @param signature  ECDSA signature by TUMA signer over (claimRef, recipient, chainId)
+     * @param signature  ECDSA signature by Autopayke signer over (claimRef, recipient, chainId)
      */
     function claim(
         bytes32 claimRef,
@@ -158,7 +158,7 @@ contract TumaEscrow is ReentrancyGuard, AccessControl {
         }
         if (recipient == address(0)) revert ZeroAddress();
 
-        // Verify TUMA signer authorized this claim
+        // Verify Autopayke signer authorized this claim
         bytes32 digest = keccak256(
             abi.encodePacked(claimRef, recipient, block.chainid)
         ).toEthSignedMessageHash();
@@ -179,7 +179,7 @@ contract TumaEscrow is ReentrancyGuard, AccessControl {
 
     /**
      * @notice Refund an expired escrow payment to the original sender.
-     * @dev Anyone can call this after expiry — typically the TUMA escrow worker.
+     * @dev Anyone can call this after expiry — typically the Autopayke escrow worker.
      *      The relayer can also call it on behalf of any expired escrow.
      *
      * @param claimRef The escrow reference to refund

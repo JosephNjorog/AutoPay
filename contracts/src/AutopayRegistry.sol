@@ -4,16 +4,16 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
- * @title TumaRegistry
+ * @title AutopayRegistry
  * @notice Maps hashed phone numbers to smart wallet addresses.
  *
  * The phone hash is keccak256(SECRET_SALT + phone) computed off-chain by the backend.
  * This preserves privacy — no raw phone number is ever stored on-chain.
  *
- * Only the RELAYER_ROLE (TUMA backend) can register or update wallet addresses.
+ * Only the RELAYER_ROLE (Autopayke backend) can register or update wallet addresses.
  * Anyone can look up a wallet address given a phone hash.
  */
-contract TumaRegistry is AccessControl {
+contract AutopayRegistry is AccessControl {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
     /// @notice phone hash => wallet address
@@ -38,7 +38,7 @@ contract TumaRegistry is AccessControl {
 
     /**
      * @param admin   Address that can grant/revoke roles.
-     * @param relayer TUMA backend relayer address (gets RELAYER_ROLE).
+     * @param relayer Autopayke backend relayer address (gets RELAYER_ROLE).
      */
     constructor(address admin, address relayer) {
         if (admin == address(0) || relayer == address(0)) revert ZeroAddress();
@@ -52,7 +52,7 @@ contract TumaRegistry is AccessControl {
      * @notice Register a new wallet for a phone hash.
      * @dev Called by the relayer at user signup after wallet deployment.
      * @param phoneHash keccak256(SECRET_SALT + phone)
-     * @param wallet    The deployed TumaSmartWallet address
+     * @param wallet    The deployed AutopaySmartWallet address
      */
     function registerWallet(bytes32 phoneHash, address wallet)
         external

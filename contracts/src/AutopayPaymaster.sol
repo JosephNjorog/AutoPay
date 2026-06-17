@@ -9,28 +9,28 @@ import "./interfaces/IEntryPoint.sol";
 import "./interfaces/UserOperation.sol";
 
 /**
- * @title TumaPaymaster
- * @notice ERC-4337 Paymaster that sponsors gas for all TUMA wallet operations.
+ * @title AutopayPaymaster
+ * @notice ERC-4337 Paymaster that sponsors gas for all Autopayke wallet operations.
  *
  * How it works:
- * - TUMA funds this contract with AVAX deposited into the EntryPoint.
+ * - Autopayke funds this contract with AVAX deposited into the EntryPoint.
  * - When a user's UserOperation arrives at the bundler, the bundler calls
  *   validatePaymasterUserOp() here. We verify the UserOp comes from a
- *   registered TumaSmartWallet and approve sponsorship.
+ *   registered AutopaySmartWallet and approve sponsorship.
  * - The EntryPoint deducts gas from our deposit.
- * - The user pays zero AVAX. TUMA recoups costs via the 2.3% FX spread.
+ * - The user pays zero AVAX. Autopayke recoups costs via the 2.3% FX spread.
  *
  * Sponsorship limits:
  * - maxGasPerOp: cap per UserOperation to prevent abuse.
- * - whitelistedWallets: only registered TumaSmartWallet addresses are sponsored.
- *   In practice, we verify via TumaRegistry; however this contract also keeps
+ * - whitelistedWallets: only registered AutopaySmartWallet addresses are sponsored.
+ *   In practice, we verify via AutopayRegistry; however this contract also keeps
  *   an internal whitelist for fast on-chain checking.
  *
  * Deposit management:
  * - The RELAYER_ROLE can top up the paymaster deposit (depositTo).
  * - The ADMIN can withdraw remaining funds.
  */
-contract TumaPaymaster is IPaymaster, AccessControl {
+contract AutopayPaymaster is IPaymaster, AccessControl {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
@@ -74,7 +74,7 @@ contract TumaPaymaster is IPaymaster, AccessControl {
      * @notice Called by the EntryPoint to verify this paymaster will cover gas.
      *
      * Validates:
-     * 1. sender is a sponsored TUMA wallet
+     * 1. sender is a sponsored Autopayke wallet
      * 2. max gas cost does not exceed our per-op limit
      *
      * Returns a context containing (wallet, userOpHash) for postOp accounting.

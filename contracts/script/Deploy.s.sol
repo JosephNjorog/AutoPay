@@ -2,16 +2,16 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
-import "../src/TumaRegistry.sol";
-import "../src/TumaSmartWallet.sol";
-import "../src/TumaWalletFactory.sol";
-import "../src/TumaEscrow.sol";
-import "../src/TumaPaymaster.sol";
+import "../src/AutopayRegistry.sol";
+import "../src/AutopaySmartWallet.sol";
+import "../src/AutopayWalletFactory.sol";
+import "../src/AutopayEscrow.sol";
+import "../src/AutopayPaymaster.sol";
 import "../src/interfaces/IEntryPoint.sol";
 
 /**
  * @title Deploy
- * @notice Full deployment script for all TUMA contracts.
+ * @notice Full deployment script for all Autopayke contracts.
  *
  * Usage:
  *   # Testnet (Avalanche Fuji)
@@ -23,8 +23,8 @@ import "../src/interfaces/IEntryPoint.sol";
  * Required env vars:
  *   DEPLOYER_PRIVATE_KEY   Private key of the deploying wallet
  *   ADMIN_ADDRESS          Admin address (multisig in production)
- *   RELAYER_ADDRESS        TUMA backend relayer EOA
- *   SIGNER_ADDRESS         TUMA backend signer EOA (for escrow claim signatures)
+ *   RELAYER_ADDRESS        Autopayke backend relayer EOA
+ *   SIGNER_ADDRESS         Autopayke backend signer EOA (for escrow claim signatures)
  *
  * The canonical ERC-4337 EntryPoint v0.6:
  *   0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789
@@ -34,10 +34,10 @@ contract Deploy is Script {
     address constant ENTRY_POINT = 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789;
 
     struct Deployed {
-        TumaRegistry registry;
-        TumaWalletFactory factory;
-        TumaEscrow escrow;
-        TumaPaymaster paymaster;
+        AutopayRegistry registry;
+        AutopayWalletFactory factory;
+        AutopayEscrow escrow;
+        AutopayPaymaster paymaster;
     }
 
     function run() external returns (Deployed memory deployed) {
@@ -48,7 +48,7 @@ contract Deploy is Script {
 
         address deployer = vm.addr(deployerKey);
 
-        console.log("=== TUMA Contract Deployment ===");
+        console.log("=== Autopayke Contract Deployment ===");
         console.log("Deployer: ", deployer);
         console.log("Admin:    ", admin);
         console.log("Relayer:  ", relayer);
@@ -58,30 +58,30 @@ contract Deploy is Script {
 
         vm.startBroadcast(deployerKey);
 
-        // 1. TumaRegistry
-        deployed.registry = new TumaRegistry(admin, relayer);
-        console.log("TumaRegistry:      ", address(deployed.registry));
+        // 1. AutopayRegistry
+        deployed.registry = new AutopayRegistry(admin, relayer);
+        console.log("AutopayRegistry:      ", address(deployed.registry));
 
-        // 2. TumaWalletFactory
-        deployed.factory = new TumaWalletFactory(
+        // 2. AutopayWalletFactory
+        deployed.factory = new AutopayWalletFactory(
             IEntryPoint(ENTRY_POINT),
             relayer,    // guardian == relayer for Phase 1
             admin,
             relayer
         );
-        console.log("TumaWalletFactory: ", address(deployed.factory));
+        console.log("AutopayWalletFactory: ", address(deployed.factory));
 
-        // 3. TumaEscrow
-        deployed.escrow = new TumaEscrow(admin, relayer, signer);
-        console.log("TumaEscrow:        ", address(deployed.escrow));
+        // 3. AutopayEscrow
+        deployed.escrow = new AutopayEscrow(admin, relayer, signer);
+        console.log("AutopayEscrow:        ", address(deployed.escrow));
 
-        // 4. TumaPaymaster
-        deployed.paymaster = new TumaPaymaster(
+        // 4. AutopayPaymaster
+        deployed.paymaster = new AutopayPaymaster(
             IEntryPoint(ENTRY_POINT),
             admin,
             relayer
         );
-        console.log("TumaPaymaster:     ", address(deployed.paymaster));
+        console.log("AutopayPaymaster:     ", address(deployed.paymaster));
 
         vm.stopBroadcast();
 
@@ -96,7 +96,7 @@ contract Deploy is Script {
         // Post-deployment checklist
         console.log("");
         console.log("=== Post-deploy checklist ===");
-        console.log("[ ] Fund TumaPaymaster deposit: paymaster.deposit{value: 2 ether}()");
+        console.log("[ ] Fund AutopayPaymaster deposit: paymaster.deposit{value: 2 ether}()");
         console.log("[ ] Add paymaster stake: paymaster.addStake{value: 1 ether}(86400)");
         console.log("[ ] Verify contracts on Snowtrace");
         console.log("[ ] Update ADMIN_ADDRESS to multisig after testing");

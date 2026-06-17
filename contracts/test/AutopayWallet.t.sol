@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
-import "../src/TumaSmartWallet.sol";
-import "../src/TumaWalletFactory.sol";
+import "../src/AutopaySmartWallet.sol";
+import "../src/AutopayWalletFactory.sol";
 import "../src/interfaces/IEntryPoint.sol";
 import "../src/interfaces/UserOperation.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -38,10 +38,10 @@ contract MockERC20 is ERC20 {
     function mint(address to, uint256 amount) external { _mint(to, amount); }
 }
 
-contract TumaSmartWalletTest is Test {
+contract AutopaySmartWalletTest is Test {
     MockEntryPoint public entryPoint;
-    TumaWalletFactory public factory;
-    TumaSmartWallet public wallet;
+    AutopayWalletFactory public factory;
+    AutopaySmartWallet public wallet;
 
     uint256 ownerKey = 0xB0B;
     address owner    = vm.addr(ownerKey);
@@ -55,7 +55,7 @@ contract TumaSmartWalletTest is Test {
     function setUp() public {
         entryPoint = new MockEntryPoint();
 
-        factory = new TumaWalletFactory(
+        factory = new AutopayWalletFactory(
             IEntryPoint(address(entryPoint)),
             guardian,
             admin,
@@ -65,7 +65,7 @@ contract TumaSmartWalletTest is Test {
         // Deploy a wallet
         vm.prank(guardian);
         address walletAddr = factory.createWallet(owner, PHONE_HASH);
-        wallet = TumaSmartWallet(payable(walletAddr));
+        wallet = AutopaySmartWallet(payable(walletAddr));
 
         // Fund the wallet
         vm.deal(address(wallet), 10 ether);
@@ -75,20 +75,20 @@ contract TumaSmartWalletTest is Test {
 
     // ── Initialization ────────────────────────────────────────────────────────
 
-    function test_initializedCorrectly() public view {
+    function test_initializedCorrectly() public {
         assertEq(wallet.owner(), owner);
         assertEq(wallet.guardian(), guardian);
         assertTrue(wallet.initialized());
     }
 
     function test_cannotInitializeTwice() public {
-        vm.expectRevert(TumaSmartWallet.AlreadyInitialized.selector);
+        vm.expectRevert(AutopaySmartWallet.AlreadyInitialized.selector);
         wallet.initialize(alice, guardian);
     }
 
     // ── Factory determinism ───────────────────────────────────────────────────
 
-    function test_addressDeterminism() public view {
+    function test_addressDeterminism() public {
         address predicted = factory.getWalletAddress(owner, PHONE_HASH);
         assertEq(predicted, address(wallet));
     }
@@ -121,7 +121,7 @@ contract TumaSmartWalletTest is Test {
 
     function test_execute_strangerReverts() public {
         vm.prank(alice);
-        vm.expectRevert(TumaSmartWallet.NotAuthorized.selector);
+        vm.expectRevert(AutopaySmartWallet.NotAuthorized.selector);
         wallet.execute(alice, 1 ether, "");
     }
 
@@ -156,7 +156,7 @@ contract TumaSmartWalletTest is Test {
 
     function test_transferToken_revertsForStranger() public {
         vm.prank(alice);
-        vm.expectRevert(TumaSmartWallet.NotAuthorized.selector);
+        vm.expectRevert(AutopaySmartWallet.NotAuthorized.selector);
         wallet.transferToken(address(token), alice, 100e18);
     }
 
@@ -182,7 +182,7 @@ contract TumaSmartWalletTest is Test {
 
     function test_updateOwner_revertsForStranger() public {
         vm.prank(alice);
-        vm.expectRevert(TumaSmartWallet.NotAuthorized.selector);
+        vm.expectRevert(AutopaySmartWallet.NotAuthorized.selector);
         wallet.updateOwner(alice);
     }
 
@@ -199,7 +199,7 @@ contract TumaSmartWalletTest is Test {
 
     function test_updateGuardian_revertsForOwner() public {
         vm.prank(owner);
-        vm.expectRevert(TumaSmartWallet.NotAuthorized.selector);
+        vm.expectRevert(AutopaySmartWallet.NotAuthorized.selector);
         wallet.updateGuardian(alice);
     }
 
@@ -214,6 +214,7 @@ contract TumaSmartWalletTest is Test {
     // ── Deposit management ────────────────────────────────────────────────────
 
     function test_addDeposit() public {
+        vm.deal(owner, 1 ether);
         vm.prank(owner);
         wallet.addDeposit{value: 1 ether}();
 

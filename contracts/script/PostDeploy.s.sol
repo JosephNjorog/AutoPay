@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
-import "../src/TumaPaymaster.sol";
+import "../src/AutopayPaymaster.sol";
 
 /**
  * @title PostDeploy
- * @notice Funds the TumaPaymaster deposit and stake in the ERC-4337 EntryPoint.
+ * @notice Funds the AutopayPaymaster deposit and stake in the ERC-4337 EntryPoint.
  *
  * Run after Deploy.s.sol once the paymaster address is known:
  *   TUMA_PAYMASTER_ADDRESS=0x... forge script script/PostDeploy.s.sol \
@@ -25,9 +25,9 @@ contract PostDeploy is Script {
         uint256 deployerKey   = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address paymasterAddr = vm.envAddress("TUMA_PAYMASTER_ADDRESS");
 
-        TumaPaymaster paymaster = TumaPaymaster(payable(paymasterAddr));
+        AutopayPaymaster paymaster = AutopayPaymaster(payable(paymasterAddr));
 
-        console.log("=== TUMA PostDeploy: Fund Paymaster ===");
+        console.log("=== Autopayke PostDeploy: Fund Paymaster ===");
         console.log("Paymaster: ", paymasterAddr);
         console.log("Network:   ", block.chainid == 43114 ? "Avalanche Mainnet" : "Fuji Testnet");
 

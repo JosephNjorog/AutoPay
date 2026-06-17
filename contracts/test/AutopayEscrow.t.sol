@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
-import "../src/TumaEscrow.sol";
+import "../src/AutopayEscrow.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 // Minimal USDC mock
@@ -16,8 +16,8 @@ contract MockUSDC is ERC20 {
     }
 }
 
-contract TumaEscrowTest is Test {
-    TumaEscrow public escrow;
+contract AutopayEscrowTest is Test {
+    AutopayEscrow public escrow;
     MockUSDC public usdc;
 
     address public admin   = makeAddr("admin");
@@ -35,7 +35,7 @@ contract TumaEscrowTest is Test {
 
     function setUp() public {
         usdc = new MockUSDC();
-        escrow = new TumaEscrow(admin, relayer, signer);
+        escrow = new AutopayEscrow(admin, relayer, signer);
 
         // Fund sender and approve escrow
         usdc.mint(sender, AMOUNT * 10);
@@ -54,20 +54,20 @@ contract TumaEscrowTest is Test {
             address _token,
             uint256 _amount,
             uint256 _expiry,
-            TumaEscrow.EscrowStatus _status
+            AutopayEscrow.EscrowStatus _status
         ) = escrow.getPayment(CLAIM_REF);
 
         assertEq(_sender, sender);
         assertEq(_token, address(usdc));
         assertEq(_amount, AMOUNT);
-        assertEq(uint8(_status), uint8(TumaEscrow.EscrowStatus.Pending));
+        assertEq(uint8(_status), uint8(AutopayEscrow.EscrowStatus.Pending));
         assertTrue(_expiry > block.timestamp);
         assertEq(usdc.balanceOf(address(escrow)), AMOUNT);
     }
 
     function test_deposit_emitsEvent() public {
         vm.expectEmit(true, true, true, true);
-        emit TumaEscrow.Deposited(
+        emit AutopayEscrow.Deposited(
             CLAIM_REF,
             sender,
             address(usdc),
@@ -84,25 +84,25 @@ contract TumaEscrowTest is Test {
         escrow.deposit(CLAIM_REF, address(usdc), AMOUNT, EXPIRY);
 
         vm.prank(sender);
-        vm.expectRevert(abi.encodeWithSelector(TumaEscrow.AlreadyExists.selector, CLAIM_REF));
+        vm.expectRevert(abi.encodeWithSelector(AutopayEscrow.AlreadyExists.selector, CLAIM_REF));
         escrow.deposit(CLAIM_REF, address(usdc), AMOUNT, EXPIRY);
     }
 
     function test_deposit_revertsOnZeroAmount() public {
         vm.prank(sender);
-        vm.expectRevert(TumaEscrow.ZeroAmount.selector);
+        vm.expectRevert(AutopayEscrow.ZeroAmount.selector);
         escrow.deposit(CLAIM_REF, address(usdc), 0, EXPIRY);
     }
 
     function test_deposit_revertsOnExpiryTooShort() public {
         vm.prank(sender);
-        vm.expectRevert(TumaEscrow.InvalidExpiry.selector);
+        vm.expectRevert(AutopayEscrow.InvalidExpiry.selector);
         escrow.deposit(CLAIM_REF, address(usdc), AMOUNT, 30 minutes);
     }
 
     function test_deposit_revertsOnExpiryTooLong() public {
         vm.prank(sender);
-        vm.expectRevert(TumaEscrow.InvalidExpiry.selector);
+        vm.expectRevert(AutopayEscrow.InvalidExpiry.selector);
         escrow.deposit(CLAIM_REF, address(usdc), AMOUNT, 31 days);
     }
 
@@ -129,8 +129,8 @@ contract TumaEscrowTest is Test {
         assertEq(usdc.balanceOf(recipient), AMOUNT);
         assertEq(usdc.balanceOf(address(escrow)), 0);
 
-        (,,, , TumaEscrow.EscrowStatus status) = escrow.getPayment(CLAIM_REF);
-        assertEq(uint8(status), uint8(TumaEscrow.EscrowStatus.Claimed));
+        (,,, , AutopayEscrow.EscrowStatus status) = escrow.getPayment(CLAIM_REF);
+        assertEq(uint8(status), uint8(AutopayEscrow.EscrowStatus.Claimed));
     }
 
     function test_claim_emitsEvent() public {
@@ -140,7 +140,7 @@ contract TumaEscrowTest is Test {
         bytes memory sig = _signerSign(CLAIM_REF, recipient);
 
         vm.expectEmit(true, true, false, true);
-        emit TumaEscrow.Claimed(CLAIM_REF, recipient, address(usdc), AMOUNT);
+        emit AutopayEscrow.Claimed(CLAIM_REF, recipient, address(usdc), AMOUNT);
 
         escrow.claim(CLAIM_REF, recipient, sig);
     }
@@ -152,7 +152,7 @@ contract TumaEscrowTest is Test {
         // Sign for wrong recipient
         bytes memory badSig = _signerSign(CLAIM_REF, attacker);
 
-        vm.expectRevert(TumaEscrow.InvalidSignature.selector);
+        vm.expectRevert(AutopayEscrow.InvalidSignature.selector);
         escrow.claim(CLAIM_REF, recipient, badSig);
     }
 
@@ -165,9 +165,9 @@ contract TumaEscrowTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                TumaEscrow.AlreadyResolved.selector,
+                AutopayEscrow.AlreadyResolved.selector,
                 CLAIM_REF,
-                TumaEscrow.EscrowStatus.Claimed
+                AutopayEscrow.EscrowStatus.Claimed
             )
         );
         escrow.claim(CLAIM_REF, recipient, sig);
@@ -187,8 +187,8 @@ contract TumaEscrowTest is Test {
         assertEq(usdc.balanceOf(sender), senderBalanceBefore + AMOUNT);
         assertEq(usdc.balanceOf(address(escrow)), 0);
 
-        (,,,, TumaEscrow.EscrowStatus status) = escrow.getPayment(CLAIM_REF);
-        assertEq(uint8(status), uint8(TumaEscrow.EscrowStatus.Refunded));
+        (,,,, AutopayEscrow.EscrowStatus status) = escrow.getPayment(CLAIM_REF);
+        assertEq(uint8(status), uint8(AutopayEscrow.EscrowStatus.Refunded));
     }
 
     function test_refund_revertsBeforeExpiry() public {
@@ -210,9 +210,9 @@ contract TumaEscrowTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                TumaEscrow.AlreadyResolved.selector,
+                AutopayEscrow.AlreadyResolved.selector,
                 CLAIM_REF,
-                TumaEscrow.EscrowStatus.Claimed
+                AutopayEscrow.EscrowStatus.Claimed
             )
         );
         escrow.refund(CLAIM_REF);

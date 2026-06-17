@@ -2,10 +2,10 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
-import "../src/TumaRegistry.sol";
+import "../src/AutopayRegistry.sol";
 
-contract TumaRegistryTest is Test {
-    TumaRegistry public registry;
+contract AutopayRegistryTest is Test {
+    AutopayRegistry public registry;
 
     address public admin  = makeAddr("admin");
     address public relayer = makeAddr("relayer");
@@ -17,7 +17,7 @@ contract TumaRegistryTest is Test {
     bytes32 constant PHONE_HASH_2 = keccak256("secret:+233244567890");
 
     function setUp() public {
-        registry = new TumaRegistry(admin, relayer);
+        registry = new AutopayRegistry(admin, relayer);
     }
 
     // ── registerWallet ────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ contract TumaRegistryTest is Test {
 
     function test_registerWallet_emitsEvent() public {
         vm.expectEmit(true, true, false, false);
-        emit TumaRegistry.WalletRegistered(PHONE_HASH_1, user1);
+        emit AutopayRegistry.WalletRegistered(PHONE_HASH_1, user1);
 
         vm.prank(relayer);
         registry.registerWallet(PHONE_HASH_1, user1);
@@ -44,13 +44,13 @@ contract TumaRegistryTest is Test {
         registry.registerWallet(PHONE_HASH_1, user1);
 
         vm.prank(relayer);
-        vm.expectRevert(abi.encodeWithSelector(TumaRegistry.AlreadyRegistered.selector, PHONE_HASH_1));
+        vm.expectRevert(abi.encodeWithSelector(AutopayRegistry.AlreadyRegistered.selector, PHONE_HASH_1));
         registry.registerWallet(PHONE_HASH_1, user2); // same hash, different wallet
     }
 
     function test_registerWallet_revertsOnZeroAddress() public {
         vm.prank(relayer);
-        vm.expectRevert(TumaRegistry.ZeroAddress.selector);
+        vm.expectRevert(AutopayRegistry.ZeroAddress.selector);
         registry.registerWallet(PHONE_HASH_1, address(0));
     }
 
@@ -76,17 +76,17 @@ contract TumaRegistryTest is Test {
 
     function test_updateWallet_revertsIfNotRegistered() public {
         vm.prank(relayer);
-        vm.expectRevert(abi.encodeWithSelector(TumaRegistry.NotRegistered.selector, PHONE_HASH_1));
+        vm.expectRevert(abi.encodeWithSelector(AutopayRegistry.NotRegistered.selector, PHONE_HASH_1));
         registry.updateWallet(PHONE_HASH_1, user2);
     }
 
     // ── Queries ───────────────────────────────────────────────────────────────
 
-    function test_isRegistered_falseByDefault() public view {
+    function test_isRegistered_falseByDefault() public {
         assertFalse(registry.isRegistered(PHONE_HASH_1));
     }
 
-    function test_getWallet_returnsZeroIfUnregistered() public view {
+    function test_getWallet_returnsZeroIfUnregistered() public {
         assertEq(registry.getWallet(PHONE_HASH_1), address(0));
     }
 
@@ -117,17 +117,20 @@ contract TumaRegistryTest is Test {
 
     function test_adminCanGrantRelayerRole() public {
         address newRelayer = makeAddr("newRelayer");
+        bytes32 relayerRole = registry.RELAYER_ROLE();
 
         vm.prank(admin);
-        registry.grantRole(registry.RELAYER_ROLE(), newRelayer);
+        registry.grantRole(relayerRole, newRelayer);
 
         vm.prank(newRelayer);
         registry.registerWallet(PHONE_HASH_1, user1); // should succeed
     }
 
     function test_adminCanRevokeRelayerRole() public {
+        bytes32 relayerRole = registry.RELAYER_ROLE();
+
         vm.prank(admin);
-        registry.revokeRole(registry.RELAYER_ROLE(), relayer);
+        registry.revokeRole(relayerRole, relayer);
 
         vm.prank(relayer);
         vm.expectRevert();

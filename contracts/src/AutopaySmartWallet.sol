@@ -11,22 +11,22 @@ import "./interfaces/IEntryPoint.sol";
 import "./interfaces/UserOperation.sol";
 
 /**
- * @title TumaSmartWallet
- * @notice ERC-4337 smart account for each TUMA user.
+ * @title AutopaySmartWallet
+ * @notice ERC-4337 smart account for each Autopayke user.
  *
  * Architecture:
- * - owner:   The user's EOA derived from their phone hash + TUMA secret.
+ * - owner:   The user's EOA derived from their phone hash + Autopayke secret.
  *            Signs UserOperations directly.
- * - guardian: TUMA backend relayer. Can execute transactions on behalf of the user
+ * - guardian: Autopayke backend relayer. Can execute transactions on behalf of the user
  *             (for the relayer model used before passkey upgrades).
  *
  * Upgrade path:
  * - Phase 1 (current): guardian relayer signs ops, user just does OTP auth.
  * - Phase 2: User sets their own passkey key, guardian role becomes recovery-only.
  *
- * Deployed via TumaWalletFactory using CREATE2 for deterministic addresses.
+ * Deployed via AutopayWalletFactory using CREATE2 for deterministic addresses.
  */
-contract TumaSmartWallet is IAccount, ReentrancyGuard {
+contract AutopaySmartWallet is IAccount, ReentrancyGuard {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
     using SafeERC20 for IERC20;
@@ -181,7 +181,7 @@ contract TumaSmartWallet is IAccount, ReentrancyGuard {
     }
 
     /**
-     * @notice Approve a spender to pull tokens (e.g., TumaEscrow pulling USDC).
+     * @notice Approve a spender to pull tokens (e.g., AutopayEscrow pulling USDC).
      */
     function approveToken(address token, address spender, uint256 amount)
         external
@@ -204,7 +204,7 @@ contract TumaSmartWallet is IAccount, ReentrancyGuard {
     }
 
     /**
-     * @notice Update the guardian (TUMA relayer rotation or user self-custody upgrade).
+     * @notice Update the guardian (Autopayke relayer rotation or user self-custody upgrade).
      * @dev Only the current guardian can update guardian.
      */
     function updateGuardian(address newGuardian) external onlyGuardian {

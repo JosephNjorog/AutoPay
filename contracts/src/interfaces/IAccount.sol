@@ -5,7 +5,7 @@ import "./UserOperation.sol";
 
 /**
  * ERC-4337 IAccount interface.
- * Every TumaSmartWallet must implement this.
+ * Every AutopaySmartWallet must implement this.
  */
 interface IAccount {
     /**

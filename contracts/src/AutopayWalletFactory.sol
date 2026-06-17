@@ -3,21 +3,21 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
-import "./TumaSmartWallet.sol";
+import "./AutopaySmartWallet.sol";
 import "./interfaces/IEntryPoint.sol";
 
 /**
- * @title TumaWalletFactory
- * @notice Deploys TumaSmartWallet instances using CREATE2 for deterministic addresses.
+ * @title AutopayWalletFactory
+ * @notice Deploys AutopaySmartWallet instances using CREATE2 for deterministic addresses.
  *
  * The wallet address is deterministic given:
- *   - owner EOA (derived from phone hash + TUMA secret)
+ *   - owner EOA (derived from phone hash + Autopayke secret)
  *   - phoneHash (keccak256 of salted phone)
  *
  * This means the address can be predicted before deployment — the frontend can
  * show the wallet address immediately after signup, even before the tx confirms.
  */
-contract TumaWalletFactory is AccessControl {
+contract AutopayWalletFactory is AccessControl {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
     IEntryPoint public immutable entryPoint;
@@ -41,7 +41,7 @@ contract TumaWalletFactory is AccessControl {
 
     /**
      * @param _entryPoint  The ERC-4337 EntryPoint (0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789)
-     * @param _guardian    TUMA relayer address (set as guardian on every wallet)
+     * @param _guardian    Autopayke relayer address (set as guardian on every wallet)
      * @param admin        Admin address (can grant RELAYER_ROLE)
      * @param relayer      Relayer address (can call createWallet)
      */
@@ -61,7 +61,7 @@ contract TumaWalletFactory is AccessControl {
     // ── Deployment ────────────────────────────────────────────────────────────
 
     /**
-     * @notice Deploy a new TumaSmartWallet for a user.
+     * @notice Deploy a new AutopaySmartWallet for a user.
      * @dev Idempotent — returns existing address if already deployed.
      * @param owner     The user's derived EOA address
      * @param phoneHash keccak256(SECRET_SALT + phone)
@@ -85,7 +85,7 @@ contract TumaWalletFactory is AccessControl {
         address deployed = Create2.deploy(0, salt, bytecode);
 
         // Initialize the wallet
-        TumaSmartWallet(payable(deployed)).initialize(owner, guardian);
+        AutopaySmartWallet(payable(deployed)).initialize(owner, guardian);
 
         emit WalletCreated(phoneHash, owner, deployed);
         return deployed;
@@ -109,7 +109,7 @@ contract TumaWalletFactory is AccessControl {
 
     function _creationCode(address /*owner*/) internal view returns (bytes memory) {
         return abi.encodePacked(
-            type(TumaSmartWallet).creationCode,
+            type(AutopaySmartWallet).creationCode,
             abi.encode(address(entryPoint))
         );
     }
