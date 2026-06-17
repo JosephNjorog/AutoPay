@@ -51,7 +51,12 @@ contract AutopayWalletFactory is AccessControl {
         address admin,
         address relayer
     ) {
-        if (address(_entryPoint) == address(0) || _guardian == address(0)) revert ZeroAddress();
+        if (
+            address(_entryPoint) == address(0) ||
+            _guardian == address(0) ||
+            admin == address(0) ||
+            relayer == address(0)
+        ) revert ZeroAddress();
         entryPoint = _entryPoint;
         guardian = _guardian;
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
