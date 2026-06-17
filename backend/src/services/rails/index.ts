@@ -56,7 +56,7 @@ export async function disburseToRail(params: DisburseParams): Promise<DisburseRe
       // In production this would be cached per phone number.
       const recipientCode = await createTransferRecipient(
         "mobile_money",
-        "TUMA Recipient",
+        "Autopayke Recipient",
         params.recipientPhone.replace("+234", "0"),
         "999992", // MTN Nigeria bank code — adjust per recipient bank
         "NGN"
