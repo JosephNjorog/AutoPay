@@ -8,6 +8,7 @@ import { SendOtpSchema, VerifyOtpSchema, SetPasswordSchema, LoginSchema } from "
 import { generateOtp, hashPhone, hashToken, hashPassword, verifyPassword } from "../lib/crypto";
 import { setex, getJson, del, incr, keys } from "../lib/redis";
 import { sendOtpSms } from "../services/sms";
+import { sendOtpEmail } from "../services/email";
 import {
   signAccessToken,
   signRefreshToken,
@@ -52,7 +53,7 @@ async function issueSession(user: typeof users.$inferSelect, ipAddress: string |
 
 // POST /api/auth/send-otp
 authRouter.post("/send-otp", otpSendLimiter, zValidator("json", SendOtpSchema), async (c) => {
-  const { phone } = c.req.valid("json");
+  const { phone, email } = c.req.valid("json");
 
   // Guard: max 3 sends per phone per 5 min (separate from IP limit)
   const sendCount = await incr(`otp_send:${phone}`, OTP_TTL);
@@ -60,25 +61,48 @@ authRouter.post("/send-otp", otpSendLimiter, zValidator("json", SendOtpSchema), 
     throw new ValidationError("Too many OTP requests for this number. Try again in 5 minutes.");
   }
 
-  const otp = generateOtp();
-  await setex(keys.otp(phone), OTP_TTL, { otp, attempts: 0 });
+  // Returning users already have an email on file — reuse it even if this
+  // particular request didn't include one.
+  const existingUser = await db.query.users.findFirst({ where: eq(users.phone, phone) });
+  const effectiveEmail = email ?? existingUser?.email ?? null;
 
-  try {
-    await sendOtpSms(phone, otp);
-  } catch (err) {
-    // SMS delivery failed — OTP is still stored, log for manual lookup
-    console.error(`[Auth] SMS send failed for ${phone}:`, (err as Error).message);
-    console.log(`[Auth] FALLBACK OTP for ${phone}: ${otp}`);
+  const otp = generateOtp();
+  await setex(keys.otp(phone), OTP_TTL, { otp, attempts: 0, email: effectiveEmail });
+
+  if (effectiveEmail) {
+    try {
+      await sendOtpEmail(effectiveEmail, otp);
+    } catch (err) {
+      // Email delivery failed — fall back to SMS, OTP is still stored either way
+      console.error(`[Auth] Email send failed for ${effectiveEmail}:`, (err as Error).message);
+      try {
+        await sendOtpSms(phone, otp);
+      } catch (smsErr) {
+        console.error(`[Auth] SMS fallback also failed for ${phone}:`, (smsErr as Error).message);
+        console.log(`[Auth] FALLBACK OTP for ${phone}: ${otp}`);
+      }
+    }
+  } else {
+    try {
+      await sendOtpSms(phone, otp);
+    } catch (err) {
+      // SMS delivery failed — OTP is still stored, log for manual lookup
+      console.error(`[Auth] SMS send failed for ${phone}:`, (err as Error).message);
+      console.log(`[Auth] FALLBACK OTP for ${phone}: ${otp}`);
+    }
   }
 
-  return c.json({ ok: true, data: { message: "OTP sent", expiresIn: OTP_TTL } });
+  return c.json({
+    ok: true,
+    data: { message: "OTP sent", expiresIn: OTP_TTL, channel: effectiveEmail ? "email" : "sms" },
+  });
 });
 
 // POST /api/auth/verify-otp
 authRouter.post("/verify-otp", otpVerifyLimiter, zValidator("json", VerifyOtpSchema), async (c) => {
   const { phone, code } = c.req.valid("json");
 
-  const stored = await getJson<{ otp: string; attempts: number }>(keys.otp(phone));
+  const stored = await getJson<{ otp: string; attempts: number; email?: string | null }>(keys.otp(phone));
 
   if (!stored) {
     throw new ValidationError("OTP expired or not found. Request a new one.");
@@ -105,9 +129,14 @@ authRouter.post("/verify-otp", otpVerifyLimiter, zValidator("json", VerifyOtpSch
   const isNewUser = !user;
 
   if (!user) {
+    let email = stored.email ?? null;
+    if (email) {
+      const emailTaken = await db.query.users.findFirst({ where: eq(users.email, email) });
+      if (emailTaken) email = null; // don't block signup over a duplicate email
+    }
     const [created] = await db
       .insert(users)
-      .values({ phone, phoneHash, countryCode })
+      .values({ phone, phoneHash, countryCode, email })
       .returning();
     user = created;
   }
