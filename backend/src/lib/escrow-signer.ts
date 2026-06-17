@@ -1,19 +1,24 @@
-import { privateKeyToAccount } from "viem/accounts";
 import { stringToBytes32 } from "../services/avalanche";
 import type { Address } from "viem";
 import { keccak256, encodePacked, toBytes } from "viem";
+import type { LocalAccount } from "viem/accounts";
 import { BlockchainError } from "./errors";
+import { getRelayerOrSignerAccount } from "./kms-signer";
 
-let _signerAccount: ReturnType<typeof privateKeyToAccount> | null = null;
+// Prefers AWS KMS (see ./kms-signer.ts) whenever SIGNER_KMS_KEY_ID is
+// configured; falls back to a raw SIGNER_PRIVATE_KEY otherwise. Anyone
+// holding this key can authorize an escrow claim to any recipient, so it
+// deserves the same KMS treatment as the relayer key, not just the relayer.
+let _signerAccountPromise: Promise<LocalAccount> | null = null;
 
-function requireSigner() {
-  if (_signerAccount) return _signerAccount;
-  const key = process.env.SIGNER_PRIVATE_KEY;
-  if (!key || !/^0x[0-9a-fA-F]{64}$/.test(key)) {
-    throw new BlockchainError("SIGNER_PRIVATE_KEY is not configured — escrow signing is disabled");
+function requireSigner(): Promise<LocalAccount> {
+  if (!_signerAccountPromise) {
+    _signerAccountPromise = getRelayerOrSignerAccount("SIGNER_PRIVATE_KEY", "SIGNER_KMS_KEY_ID").catch((err) => {
+      _signerAccountPromise = null;
+      throw new BlockchainError(`Signer account unavailable — escrow signing is disabled: ${(err as Error).message}`);
+    });
   }
-  _signerAccount = privateKeyToAccount(key as `0x${string}`);
-  return _signerAccount;
+  return _signerAccountPromise;
 }
 
 export async function signEscrowClaim(
@@ -30,5 +35,6 @@ export async function signEscrowClaim(
     )
   );
 
-  return requireSigner().signMessage({ message: { raw: toBytes(digest) } });
+  const signer = await requireSigner();
+  return signer.signMessage({ message: { raw: toBytes(digest) } });
 }
