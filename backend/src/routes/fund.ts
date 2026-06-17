@@ -263,9 +263,9 @@ fundRouter.get("/bank", async (c) => {
     ok: true,
     data: {
       bankName: "Wema Bank (Paystack Virtual Account)",
-      accountName: "TUMA / " + phone,
+      accountName: "Autopayke / " + phone,
       accountNumber: `020${lastDigits}0001`,
-      routingReference: `TMA-${userId.slice(0, 8).toUpperCase()}`,
+      routingReference: `APK-${userId.slice(0, 8).toUpperCase()}`,
       fee: 0.30,
       feeCurrency: "USD",
       note: "Transfer exact amount. Funds credited within 1-3 business hours.",
