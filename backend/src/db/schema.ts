@@ -6,6 +6,7 @@ import {
   timestamp,
   numeric,
   integer,
+  bigint,
   pgEnum,
   jsonb,
   index,
@@ -31,6 +32,7 @@ export const railEnum = pgEnum("rail", [
   "wave",
   "orange_money",
   "bank",
+  "crypto",
 ]);
 
 export const tokenEnum = pgEnum("token", ["USDC", "USDT"]);
@@ -68,6 +70,10 @@ export const users = pgTable(
     externalWalletType: text("external_wallet_type"),
     // Notifications dated before this are considered read.
     notificationsSeenAt: timestamp("notifications_seen_at"),
+    // Last Avalanche block scanned for incoming USDC/USDT transfers — lets
+    // crypto deposits made outside the app (sent directly to the wallet
+    // address) get backfilled into transaction history.
+    lastCryptoScanBlock: bigint("last_crypto_scan_block", { mode: "number" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
