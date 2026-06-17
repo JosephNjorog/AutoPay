@@ -20,8 +20,20 @@ function isStandalone() {
   );
 }
 
+function getEarlyCapturedPrompt(): BeforeInstallPromptEvent | null {
+  return (
+    (window as unknown as { __pwaInstallPrompt?: BeforeInstallPromptEvent | null })
+      .__pwaInstallPrompt ?? null
+  );
+}
+
 export function usePwaInstall() {
-  const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  // index.html captures beforeinstallprompt the instant it fires (often
+  // before this lazily-loaded route's effects ever run) — pick that up
+  // immediately instead of only listening from here on out.
+  const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(() =>
+    typeof window !== "undefined" ? getEarlyCapturedPrompt() : null
+  );
   const [installed, setInstalled] = useState(() => isStandalone());
 
   useEffect(() => {
@@ -29,14 +41,17 @@ export function usePwaInstall() {
       e.preventDefault();
       setPrompt(e as BeforeInstallPromptEvent);
     };
+    const onAvailable = () => setPrompt(getEarlyCapturedPrompt());
     const onInstalled = () => {
       setInstalled(true);
       setPrompt(null);
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("pwa-install-available", onAvailable);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("pwa-install-available", onAvailable);
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
@@ -45,6 +60,7 @@ export function usePwaInstall() {
     if (!prompt) return;
     await prompt.prompt();
     const { outcome } = await prompt.userChoice;
+    (window as unknown as { __pwaInstallPrompt?: BeforeInstallPromptEvent | null }).__pwaInstallPrompt = null;
     if (outcome === "accepted") {
       setInstalled(true);
       setPrompt(null);
