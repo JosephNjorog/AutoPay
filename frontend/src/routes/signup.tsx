@@ -28,7 +28,8 @@ function Signup() {
   const [password, setPassword] = useState("");
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const fullPhone = `${country.dial}${phone.replace(/\D/g, "")}`;
-  const valid = phone.replace(/\D/g, "").length >= 9;
+  const validEmail = /^\S+@\S+\.\S+$/.test(email);
+  const valid = phone.replace(/\D/g, "").length >= 9 && validEmail;
   const otpComplete = otp.every((c) => c !== "");
 
   useEffect(() => {
@@ -61,7 +62,7 @@ function Signup() {
     setError(null);
     setLoading(true);
     try {
-      await api.auth.sendOtp(fullPhone);
+      await api.auth.sendOtp(fullPhone, email);
       setStep("otp");
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Failed to send OTP. Try again.");
@@ -90,7 +91,7 @@ function Signup() {
   async function handleResend() {
     setError(null);
     try {
-      await api.auth.sendOtp(fullPhone);
+      await api.auth.sendOtp(fullPhone, email);
       setResendIn(30);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Failed to resend OTP.");
@@ -133,7 +134,7 @@ function Signup() {
             <div className="mt-10">
               <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Step 1 of 3</p>
               <h1 className="mt-3 text-4xl font-black tracking-tight leading-[1.05]">What's your<br />number?</h1>
-              <p className="mt-3 text-sm text-muted-foreground">It becomes your global wallet ID. We'll send a 6-digit code via WhatsApp.</p>
+              <p className="mt-3 text-sm text-muted-foreground">It becomes your global wallet ID. We'll email you a 6-digit code.</p>
             </div>
 
             <div className="mt-8 space-y-3">
@@ -170,6 +171,16 @@ function Signup() {
                   />
                 </div>
               </div>
+
+              <div className="rounded-2xl border border-border bg-card p-4">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"><Mail className="h-3 w-3" /> Email</p>
+                <input
+                  type="email" inputMode="email" placeholder="you@example.com"
+                  value={email} onChange={(e) => setEmail(e.target.value)}
+                  className="mt-1 w-full bg-transparent text-lg font-bold outline-none placeholder:text-muted-foreground/40"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">We'll send your verification code here.</p>
+              </div>
             </div>
 
             <div className="mt-6 rounded-2xl bg-primary-soft p-4 flex gap-3">
@@ -198,7 +209,7 @@ function Signup() {
             <div className="mt-10">
               <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Step 2 of 3</p>
               <h1 className="mt-3 text-4xl font-black tracking-tight leading-[1.05]">Enter the<br />6-digit code</h1>
-              <p className="mt-3 text-sm text-muted-foreground">Sent via WhatsApp to <span className="font-semibold text-foreground">{country.dial} {phone}</span></p>
+              <p className="mt-3 text-sm text-muted-foreground">Sent to <span className="font-semibold text-foreground">{email}</span></p>
             </div>
 
             <div className="mt-8 grid grid-cols-6 gap-2">
