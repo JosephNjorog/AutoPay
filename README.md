@@ -1,16 +1,16 @@
-# TUMA
+# Autopayke
 
 > Money that moves like a text message.
 
-TUMA is a mobile-first, phone-number-based cross-border money transfer and payments application built for Africa. It lets users send, receive, and spend money across African countries using just a phone number — no bank account, no crypto wallet setup, no seed phrases.
+Autopayke is a mobile-first, phone-number-based cross-border money transfer and payments application built for Africa. It lets users send, receive, and spend money across African countries using just a phone number — no bank account, no crypto wallet setup, no seed phrases.
 
-Under the hood, TUMA runs on the Avalanche blockchain with USDC/USDT stablecoins, but that complexity is completely invisible to the user. Payments settle to local rails (M-Pesa, MTN MoMo, Wave, Orange Money, bank transfers) in under 12 seconds with no network fees — costs are covered by a 2.3% FX spread baked into the exchange rate.
+Under the hood, Autopayke runs on the Avalanche blockchain with USDC/USDT stablecoins, but that complexity is completely invisible to the user. Payments settle to local rails (M-Pesa, MTN MoMo, Wave, Orange Money, bank transfers) in under 12 seconds with no network fees — costs are covered by a 2.3% FX spread baked into the exchange rate.
 
 ---
 
-## What Makes TUMA Different
+## What Makes Autopayke Different
 
-| Feature | TUMA | Traditional Transfer |
+| Feature | Autopayke | Traditional Transfer |
 |---|---|---|
 | Identity | Phone number | Account + password |
 | Wallet setup | Automatic, no seed phrase | Manual, technical |
@@ -45,19 +45,19 @@ Under the hood, TUMA runs on the Avalanche blockchain with USDC/USDT stablecoins
 - Search contacts by name or phone number, or type any phone number
 - Amount entry in USD; recipient sees local currency equivalent in real time
 - FX rate locked for 30 seconds during review
-- Savings calculator shows how much cheaper TUMA is vs. a bank
+- Savings calculator shows how much cheaper Autopayke is vs. a bank
 - Recipient rail auto-selected based on their country (M-Pesa, MoMo, Wave, etc.)
 - One-line optional note field
 - Slide-to-confirm gesture for the final send action
 - Settlement timeline tracking after send
 
 ### Unclaimed Payments
-- Send to any phone number, even if they don't have a TUMA account
-- Recipient gets an SMS with a claim link (e.g., `tuma.app/claim/T7791`)
+- Send to any phone number, even if they don't have a Autopayke account
+- Recipient gets an SMS with a claim link (e.g., `autopayke.com/claim/T7791`)
 - Funds held in escrow for 7 days; returned to sender if unclaimed
 
 ### Receive Money
-- TUMA Passport: a personal QR code + phone number display
+- Autopayke Passport: a personal QR code + phone number display
 - Anyone can scan or look up the number to send
 - Download QR for printing or sharing
 - Copy phone number to clipboard
@@ -98,7 +98,7 @@ Three methods to top up:
 
 ### QR Scanner
 - Full-screen scanner with animated corner markers
-- Handles four QR types: personal TUMA number, static merchant, dynamic checkout, invoice
+- Handles four QR types: personal Autopayke number, static merchant, dynamic checkout, invoice
 
 ---
 
@@ -127,7 +127,7 @@ Landing Page
             ├─ Step 1: Select country + enter phone number
             ├─ Step 2: Enter 6-digit OTP
             └─ Step 3: Wallet spinning up (Avalanche deploy)
-                 └─ Success: "Your TUMA number is ready"
+                 └─ Success: "Your Autopayke number is ready"
                       ├─ "Add money to wallet" → /fund
                       └─ "Skip" → /dashboard
 ```
@@ -148,14 +148,14 @@ Landing Page
             ├─ Step 2: Enter amount (USD → local FX, 30s rate lock)
             ├─ Step 3: Review (from/to, rail, rate, fee, ETA)
             └─ Step 4: Slide to confirm
-                 ├─ TUMA user → "Sent!" → /track/:id
-                 └─ Non-TUMA → "Link sent!" (SMS claim dispatched)
+                 ├─ Autopayke user → "Sent!" → /track/:id
+                 └─ Non-Autopayke → "Link sent!" (SMS claim dispatched)
 ```
 
 ### Recipient: Claim an Unclaimed Payment
 
 ```
-SMS: "Ama sent you GHS 380. Tap to claim: tuma.app/claim/T7791"
+SMS: "Ama sent you GHS 380. Tap to claim: autopayke.com/claim/T7791"
   └─ /claim/:ref
        ├─ Shows sender, amount, reference
        └─ "Claim my GHS 380"
@@ -193,7 +193,7 @@ frontend/
    │   ├─ signup.tsx          Phone + OTP + wallet creation
    │   ├─ dashboard.tsx       Balance, assets, quick actions
    │   ├─ send.tsx            4-step send flow
-   │   ├─ receive.tsx         TUMA Passport (QR + phone)
+   │   ├─ receive.tsx         Autopayke Passport (QR + phone)
    │   ├─ fund.tsx            Add money (card/bank/crypto)
    │   ├─ wallet.tsx          On-chain asset view
    │   ├─ merchant.tsx        Merchant dashboard + till
@@ -315,11 +315,11 @@ All contracts are in [contracts/src/](contracts/src/) and written in Solidity 0.
 
 | Contract | Description |
 | -------- | ----------- |
-| `TumaRegistry` | Maps hashed phone numbers → wallet addresses. Privacy-preserving on-chain phone book. |
-| `TumaSmartWallet` | ERC-4337 smart account per user. Owner + guardian model. Supports `execute`, `executeBatch`, `transferToken`. |
-| `TumaWalletFactory` | CREATE2 factory for `TumaSmartWallet`. Deterministic addresses — predict before deployment. |
-| `TumaEscrow` | Holds USDC for unclaimed payments. 7-day expiry with auto-refund. Claim requires backend signature. |
-| `TumaPaymaster` | ERC-4337 Paymaster. Sponsors gas for all TUMA wallet operations so users pay zero network fees. |
+| `AutopayRegistry` | Maps hashed phone numbers → wallet addresses. Privacy-preserving on-chain phone book. |
+| `AutopaySmartWallet` | ERC-4337 smart account per user. Owner + guardian model. Supports `execute`, `executeBatch`, `transferToken`. |
+| `AutopayWalletFactory` | CREATE2 factory for `AutopaySmartWallet`. Deterministic addresses — predict before deployment. |
+| `AutopayEscrow` | Holds USDC for unclaimed payments. 7-day expiry with auto-refund. Claim requires backend signature. |
+| `AutopayPaymaster` | ERC-4337 Paymaster. Sponsors gas for all Autopayke wallet operations so users pay zero network fees. |
 
 ### Build & test
 
@@ -343,10 +343,10 @@ forge script script/Deploy.s.sol --rpc-url fuji --broadcast --verify
 
 | Network | Contract | Address |
 | ------- | -------- | ------- |
-| Fuji Testnet | TumaRegistry | *(deploy and update)* |
-| Fuji Testnet | TumaWalletFactory | *(deploy and update)* |
-| Fuji Testnet | TumaEscrow | *(deploy and update)* |
-| Fuji Testnet | TumaPaymaster | *(deploy and update)* |
+| Fuji Testnet | AutopayRegistry | *(deploy and update)* |
+| Fuji Testnet | AutopayWalletFactory | *(deploy and update)* |
+| Fuji Testnet | AutopayEscrow | *(deploy and update)* |
+| Fuji Testnet | AutopayPaymaster | *(deploy and update)* |
 | Avalanche Mainnet | All | *(after audit)* |
 
 ---
@@ -357,9 +357,9 @@ Verification codes are sent via **Africa's Talking WhatsApp Business API**.
 
 Required Meta-approved templates:
 
-- `tuma_otp` — `"Your TUMA code is {{1}}. Valid for 5 minutes. Never share this."`
-- `tuma_claim_link` — `"{{1}} sent you {{2}} {{3}} on TUMA. Claim it here: {{4}}"`
-- `tuma_received` — `"You received {{1}} {{2}} from {{3}} on TUMA."`
+- `autopayke_otp` — `"Your Autopayke code is {{1}}. Valid for 5 minutes. Never share this."`
+- `autopayke_claim_link` — `"{{1}} sent you {{2}} {{3}} on Autopayke. Claim it here: {{4}}"`
+- `autopayke_received` — `"You received {{1}} {{2}} from {{3}} on Autopayke."`
 
 ---
 
@@ -390,7 +390,7 @@ flowchart LR
   db[("PostgreSQL\nusers, transactions, settlement_events, escrow_payments")]
   redis[("Redis\nOTP, sessions, FX cache, locks")]
   queues["BullMQ queues\nrail_disburse, whatsapp_notify, settlement_poll, escrow_expire"]
-  chain["Avalanche C-Chain\nTumaWallet, TumaEscrow, Paymaster"]
+  chain["Avalanche C-Chain\nAutopayWallet, AutopayEscrow, Paymaster"]
   fx["Open Exchange Rates"]
   whatsapp["Africa's Talking WhatsApp"]
   rails["Local rails\nM-Pesa, MoMo, Paystack, Wave"]
@@ -446,11 +446,11 @@ flowchart TD
   validate["Consume quote\nvalidate sender wallet and balance"]
   requestFail["Request fails\nno money moved"]
   tx["Create transaction\nstatus: initiated"]
-  recipient{"Recipient has TUMA wallet?"}
+  recipient{"Recipient has Autopayke wallet?"}
 
   directChain["Direct on-chain USDC transfer"]
   directOnchain["Store txHash\nrecord status: onchain"]
-  escrowDeposit["Approve + deposit into TumaEscrow"]
+  escrowDeposit["Approve + deposit into AutopayEscrow"]
   escrowOnchain["Store escrowRef + txHash\nrecord status: onchain"]
   claimLink["Queue WhatsApp claim link"]
   recipientClaim["Recipient verifies OTP\nclaims escrow on-chain"]
@@ -555,7 +555,7 @@ Remaining before production:
 - [ ] Deploy contracts to Fuji testnet + run integration tests
 - [ ] Register Africa's Talking WhatsApp templates with Meta
 - [ ] Complete Orange Money integration (Senegal/CI)
-- [ ] Fund TumaPaymaster with AVAX for gas sponsorship
+- [ ] Fund AutopayPaymaster with AVAX for gas sponsorship
 - [ ] Security audit of smart contracts
 - [ ] Deploy contracts to Avalanche mainnet
 - [ ] Replace wallet key derivation with passkey-based signing (Phase 6)
