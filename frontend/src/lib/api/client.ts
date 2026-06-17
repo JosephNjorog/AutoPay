@@ -248,8 +248,14 @@ export const api = {
         chainId: number;
         supportedTokens: string[];
         usdcAddress: string;
-        usdtAddress: string;
+        usdtAddress: string | null;
       }>("/api/fund/crypto", { token }),
+
+    confirmCrypto: (txHash: string, token: string) =>
+      request<{ transactionId: string; amountUsd?: number; token?: string; alreadyRecorded?: boolean }>(
+        "/api/fund/crypto/confirm",
+        { method: "POST", body: JSON.stringify({ txHash }), token }
+      ),
   },
 
   history: {
