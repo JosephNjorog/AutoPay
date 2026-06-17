@@ -76,8 +76,8 @@ export async function sendMomoTransfer(
       partyIdType: "MSISDN",
       partyId: msisdn,
     },
-    payerMessage: `TUMA transfer ${ref}`,
-    payeeNote: `TUMA payment ${ref}`,
+    payerMessage: `Autopayke transfer ${ref}`,
+    payeeNote: `Autopayke payment ${ref}`,
   };
 
   const res = await fetch(`${BASE_URL}/disbursement/v1_0/transfer`, {
