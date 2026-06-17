@@ -238,7 +238,31 @@ const SMART_WALLET_ABI = [
     ],
     outputs: [],
   },
+  {
+    name: "setGuardianDailyLimit",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "limit", type: "uint256" },
+    ],
+    outputs: [],
+  },
 ] as const;
+
+// Default cap on guardian-initiated (i.e. the relayer's, which today is
+// every send — see the contract audit notes) USDC movement per wallet per
+// day. Bounds worst-case exposure from a compromised relayer key to this
+// amount per wallet per day instead of the wallet's entire balance at once.
+// $2,000/day is generous for any realistic personal-remittance transfer in
+// the markets this app serves; raise/lower per wallet via
+// setGuardianDailyLimit if real usage patterns say otherwise (merchant
+// wallets settling daily revenue may legitimately need a higher cap).
+const DEFAULT_GUARDIAN_DAILY_USDC_LIMIT = (() => {
+  const override = process.env.GUARDIAN_DAILY_USDC_LIMIT;
+  const usd = override ? Number(override) : 2_000;
+  return parseUnits(String(usd), 6);
+})();
 
 // ── Wallet derivation ─────────────────────────────────────────────────────────
 
@@ -286,7 +310,35 @@ export async function deploySmartWallet(phoneHash: string): Promise<Address> {
 
   await publicClient.waitForTransactionReceipt({ hash });
 
-  return getSmartWalletAddress(phoneHash);
+  const walletAddress = await getSmartWalletAddress(phoneHash);
+  await setDefaultGuardianDailyLimit(walletAddress);
+
+  return walletAddress;
+}
+
+/**
+ * Sets the default guardian daily spend cap on a freshly created wallet.
+ * Best-effort — a failure here shouldn't block onboarding (the wallet still
+ * works, just without this particular defense-in-depth layer until it's set
+ * manually or retried), so this logs and swallows rather than throwing.
+ */
+async function setDefaultGuardianDailyLimit(walletAddress: Address): Promise<void> {
+  try {
+    const hash = await (await requireRelayer()).writeContract({
+      chain,
+      account: await requireRelayerAccount(),
+      address: walletAddress,
+      abi: SMART_WALLET_ABI,
+      functionName: "setGuardianDailyLimit",
+      args: [TOKEN_ADDRESSES.USDC, DEFAULT_GUARDIAN_DAILY_USDC_LIMIT],
+    });
+    await publicClient.waitForTransactionReceipt({ hash });
+  } catch (err) {
+    console.error(
+      `[Avalanche] Failed to set default guardian daily limit on ${walletAddress}:`,
+      err instanceof Error ? err.message : err
+    );
+  }
 }
 
 // ── Balance queries ───────────────────────────────────────────────────────────
