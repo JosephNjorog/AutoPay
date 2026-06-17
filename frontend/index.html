@@ -4,20 +4,70 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#080810" />
+
     <title>Autopayke — Phone-first money for Africa</title>
     <meta name="description" content="Send money to any phone number across Africa. Settles on M-Pesa, MoMo, Wave or bank — in seconds. No crypto knowledge needed." />
+    <meta name="keywords" content="send money Africa, M-Pesa transfer, mobile money, MTN MoMo, Wave money transfer, cross-border payments Africa, USDC payments, send money Kenya, send money Ghana, send money Nigeria, send money Senegal, send money Uganda, send money Tanzania, send money Côte d'Ivoire, remittance Africa, stablecoin payments" />
+    <meta name="robots" content="index, follow" />
+    <meta name="author" content="Autopayke" />
+    <link rel="canonical" href="https://autopayke.com/" />
+
+    <!-- Geo / regional targeting — Autopayke serves multiple African markets rather than
+         one fixed location, so areaServed in the JSON-LD below carries the real signal;
+         these legacy meta tags are kept too since some local-search crawlers still read them. -->
+    <meta name="geo.region" content="KE; GH; NG; SN; CI; TZ; UG" />
+    <meta name="geo.placename" content="Nairobi, Accra, Lagos, Dakar, Abidjan, Dar es Salaam, Kampala" />
+
+    <!-- Open Graph -->
     <meta property="og:title" content="Autopayke — Phone-first money for Africa" />
     <meta property="og:description" content="Type a phone number. Type an amount. Done. No bank account, no seed phrase." />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://autopayke.com/" />
+    <meta property="og:site_name" content="Autopayke" />
+    <meta property="og:image" content="https://autopayke.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Autopayke" />
-    <meta name="twitter:description" content="Phone-first money for Africa." />
+    <meta name="twitter:title" content="Autopayke — Phone-first money for Africa" />
+    <meta name="twitter:description" content="Type a phone number. Type an amount. Done. No bank account, no seed phrase." />
+    <meta name="twitter:image" content="https://autopayke.com/og-image.png" />
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/svg+xml" href="/autopay_iconlogo.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+
     <!-- PWA / Apple -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Autopayke" />
-    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FinancialService",
+        "name": "Autopayke",
+        "url": "https://autopayke.com/",
+        "logo": "https://autopayke.com/autopay_iconlogo.svg",
+        "image": "https://autopayke.com/og-image.png",
+        "description": "Phone-first cross-border payments for Africa. Send money to any phone number, settle instantly on M-Pesa, MTN MoMo, Wave, or bank.",
+        "areaServed": [
+          { "@type": "Country", "name": "Kenya" },
+          { "@type": "Country", "name": "Ghana" },
+          { "@type": "Country", "name": "Nigeria" },
+          { "@type": "Country", "name": "Senegal" },
+          { "@type": "Country", "name": "Côte d'Ivoire" },
+          { "@type": "Country", "name": "Tanzania" },
+          { "@type": "Country", "name": "Uganda" }
+        ],
+        "sameAs": []
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
