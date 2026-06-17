@@ -62,7 +62,7 @@ export async function sendB2C(
     Amount: Math.round(amount),
     PartyA: process.env.MPESA_SHORTCODE,
     PartyB: msisdn,
-    Remarks: `TUMA transfer ${ref}`,
+    Remarks: `Autopayke transfer ${ref}`,
     QueueTimeOutURL: `${process.env.API_BASE_URL}/webhooks/mpesa/timeout`,
     ResultURL: `${process.env.API_BASE_URL}/webhooks/mpesa/result`,
     Occasion: ref,
@@ -131,7 +131,7 @@ export async function initiateSTKPush(
     PhoneNumber: msisdn,
     CallBackURL: `${process.env.API_BASE_URL}/webhooks/mpesa/stk`,
     AccountReference: ref,
-    TransactionDesc: `TUMA fund ${ref}`,
+    TransactionDesc: `Autopayke fund ${ref}`,
   };
 
   const res = await fetch(`${BASE_URL}/mpesa/stkpush/v1/processrequest`, {
