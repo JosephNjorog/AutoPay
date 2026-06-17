@@ -136,4 +136,47 @@ contract AutopayRegistryTest is Test {
         vm.expectRevert();
         registry.registerWallet(PHONE_HASH_1, user1);
     }
+
+    // ── deactivateWallet ──────────────────────────────────────────────────────
+
+    function test_deactivateWallet_clearsBothMappings() public {
+        vm.prank(relayer);
+        registry.registerWallet(PHONE_HASH_1, user1);
+
+        vm.prank(relayer);
+        registry.deactivateWallet(PHONE_HASH_1);
+
+        assertEq(registry.getWallet(PHONE_HASH_1), address(0));
+        assertEq(registry.getPhoneHash(user1), bytes32(0));
+        assertFalse(registry.isRegistered(PHONE_HASH_1));
+    }
+
+    function test_deactivateWallet_revertsIfNotRegistered() public {
+        vm.prank(relayer);
+        vm.expectRevert(
+            abi.encodeWithSelector(AutopayRegistry.NotRegistered.selector, PHONE_HASH_1)
+        );
+        registry.deactivateWallet(PHONE_HASH_1);
+    }
+
+    function test_deactivateWallet_revertsForStranger() public {
+        vm.prank(relayer);
+        registry.registerWallet(PHONE_HASH_1, user1);
+
+        vm.prank(attacker);
+        vm.expectRevert();
+        registry.deactivateWallet(PHONE_HASH_1);
+    }
+
+    // ── isWalletRegistered ────────────────────────────────────────────────────
+
+    function test_isWalletRegistered_trueAfterRegister() public {
+        vm.prank(relayer);
+        registry.registerWallet(PHONE_HASH_1, user1);
+        assertTrue(registry.isWalletRegistered(user1));
+    }
+
+    function test_isWalletRegistered_falseForUnregistered() public {
+        assertFalse(registry.isWalletRegistered(user1));
+    }
 }
