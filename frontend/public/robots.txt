@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /
+Allow: /signup
+Allow: /login
+
+# Authenticated / personal / dynamic app screens — nothing useful to index,
+# and several carry phone numbers or transaction data in the URL.
+Disallow: /dashboard
+Disallow: /wallet
+Disallow: /send
+Disallow: /receive
+Disallow: /history
+Disallow: /fund
+Disallow: /merchant
+Disallow: /scan
+Disallow: /track/
+Disallow: /claim/
+Disallow: /pay
+
+Sitemap: https://autopayke.com/sitemap.xml
