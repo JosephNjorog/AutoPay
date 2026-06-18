@@ -15,7 +15,12 @@
     "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun run test:unit && bun run test:integration",
+    "test:unit": "bun test src test/unit",
+    "test:integration:prepare": "drizzle-kit migrate",
+    "test:integration": "bun run test:integration:prepare && bun test test/integration",
+    "test:ci": "bun run typecheck && bun run test"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.1071.0",
