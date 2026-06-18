@@ -7,7 +7,7 @@
  */
 
 import { Worker, type Job } from "bullmq";
-import { queueConnection, QUEUE_NAMES, type WhatsAppNotifyJob } from "../lib/queue";
+import { queueConnectionOptions, QUEUE_NAMES, type WhatsAppNotifyJob } from "../lib/queue";
 import {
   sendOtpWhatsApp,
   sendClaimLink,
@@ -21,81 +21,90 @@ import {
 
 const stopHeartbeat = startHeartbeatLoop("notify.worker");
 
-const worker = new Worker<WhatsAppNotifyJob>(
-  QUEUE_NAMES.WHATSAPP_NOTIFY,
-  async (job: Job<WhatsAppNotifyJob>) => {
-    const { to, templateName, params } = job.data;
+const worker = queueConnectionOptions
+  ? new Worker<WhatsAppNotifyJob>(
+      QUEUE_NAMES.WHATSAPP_NOTIFY,
+      async (job: Job<WhatsAppNotifyJob>) => {
+        const { to, templateName, params } = job.data;
 
-    switch (templateName) {
-      case "tuma_otp":
-        await sendOtpWhatsApp(to, params[0]);
-        break;
+        switch (templateName) {
+          case "tuma_otp":
+            await sendOtpWhatsApp(to, params[0]);
+            break;
 
-      case "tuma_claim_link":
-        // params: [senderName, amount, currency, claimUrl]
-        await sendClaimLink(to, params[0], params[1], params[2], params[3]);
-        break;
+          case "tuma_claim_link":
+            // params: [senderName, amount, currency, claimUrl]
+            await sendClaimLink(to, params[0], params[1], params[2], params[3]);
+            break;
 
-      case "tuma_received":
-        // params: [amount, currency, senderDisplay]
-        await sendReceivedNotification(to, params[0], params[1], params[2]);
-        break;
+          case "tuma_received":
+            // params: [amount, currency, senderDisplay]
+            await sendReceivedNotification(to, params[0], params[1], params[2]);
+            break;
 
-      default:
-        console.warn(`[NotifyWorker] Unknown template "${templateName}" for ${to}`);
+          default:
+            console.warn(`[NotifyWorker] Unknown template "${templateName}" for ${to}`);
+        }
+      },
+      {
+        connection: queueConnectionOptions,
+        concurrency: 10,
+      }
+    )
+  : null;
+
+if (worker) {
+  worker.on("ready", () => {
+    console.log("[NotifyWorker] Ready — consuming WhatsApp notification queue");
+    void recordHeartbeat({
+      component: "notify.worker",
+      kind: "worker",
+      metadata: { state: "ready" },
+    });
+  });
+
+  worker.on("completed", (job) => {
+    console.log(`[NotifyWorker] ✓ Sent ${job.data.templateName} to ${job.data.to}`);
+  });
+
+  worker.on("failed", async (job, err) => {
+    console.error(`[NotifyWorker] ✗ Job ${job?.id} failed:`, err.message);
+    await recordHeartbeat({
+      component: "notify.worker",
+      kind: "worker",
+      status: "error",
+      error: err.message,
+      metadata: {
+        jobId: job?.id,
+        templateName: job?.data.templateName,
+        transactionId: job?.data.transactionId,
+      },
+    });
+
+    const attempts = job?.opts.attempts ?? 1;
+    if (
+      job?.data.transactionId &&
+      job.attemptsMade >= attempts
+    ) {
+      await recordSettlementStep(job.data.transactionId, "requires_review", {
+        stage: job.data.failureStage ?? "whatsapp_notify",
+        error: err.message,
+      });
     }
-  },
-  {
-    connection: queueConnection,
-    concurrency: 10,
-    defaultJobOptions: {
-      attempts: 3,
-      backoff: { type: "exponential", delay: 5_000 },
-    },
-  }
-);
-
-worker.on("ready", () => {
-  console.log("[NotifyWorker] Ready — consuming WhatsApp notification queue");
+  });
+} else {
+  console.warn("[NotifyWorker] REDIS_URL not set — notification queue worker disabled");
   void recordHeartbeat({
     component: "notify.worker",
     kind: "worker",
-    metadata: { state: "ready" },
-  });
-});
-
-worker.on("completed", (job) => {
-  console.log(`[NotifyWorker] ✓ Sent ${job.data.templateName} to ${job.data.to}`);
-});
-
-worker.on("failed", async (job, err) => {
-  console.error(`[NotifyWorker] ✗ Job ${job?.id} failed:`, err.message);
-  await recordHeartbeat({
-    component: "notify.worker",
-    kind: "worker",
     status: "error",
-    error: err.message,
-    metadata: {
-      jobId: job?.id,
-      templateName: job?.data.templateName,
-      transactionId: job?.data.transactionId,
-    },
+    error: "REDIS_URL is not configured",
+    metadata: { state: "disabled" },
   });
-
-  const attempts = job?.opts.attempts ?? 1;
-  if (
-    job?.data.transactionId &&
-    job.attemptsMade >= attempts
-  ) {
-    await recordSettlementStep(job.data.transactionId, "requires_review", {
-      stage: job.data.failureStage ?? "whatsapp_notify",
-      error: err.message,
-    });
-  }
-});
+}
 
 process.on("SIGTERM", async () => {
   stopHeartbeat();
-  await worker.close();
+  await worker?.close();
   process.exit(0);
 });
