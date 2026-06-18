@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: tuma_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tuma_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      API_BASE_URL: http://localhost:3001
+      APP_URL: http://localhost:3000
+      AVALANCHE_FUJI_RPC_URL: http://127.0.0.1:8545
+      DATABASE_SSL: "false"
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tuma_test
+      JWT_ACCESS_SECRET: test-access-secret-with-enough-length
+      JWT_REFRESH_SECRET: test-refresh-secret-with-enough-length
+      NODE_ENV: test
+      OPERATIONS_API_TOKEN: test-ops-token
+      REDIS_URL: redis://localhost:6379
+      RELAYER_PRIVATE_KEY: "0x59c6995e998f97a5a0044966f094538d9b62c5e44c4257f1d9570abf2177d5c5"
+      SIGNER_PRIVATE_KEY: "0x8b3a350cf5c34c9194ca3a545d93be2e3d01893d4e1f4a7d48f34d8a5b89d5e"
+      TUMA_ESCROW_ADDRESS: "0x0000000000000000000000000000000000000001"
+      TUMA_FACTORY_ADDRESS: "0x0000000000000000000000000000000000000002"
+      TUMA_REGISTRY_ADDRESS: "0x0000000000000000000000000000000000000003"
+      USDC_ADDRESS: "0x0000000000000000000000000000000000000004"
+      WALLET_DERIVE_SECRET: test-wallet-derive-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run --cwd backend test:unit
+      - run: bun run --cwd backend test:integration
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run --cwd frontend build
+
+  contracts:
+    name: Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - run: forge build
+        working-directory: contracts
+      - run: forge test -vvv
+        working-directory: contracts

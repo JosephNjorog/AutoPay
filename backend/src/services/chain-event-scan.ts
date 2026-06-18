@@ -1,5 +1,4 @@
 import { eq, sql } from "drizzle-orm";
-import { formatUnits } from "viem";
 import type { Address, Hex } from "viem";
 import { db } from "../db";
 import {
@@ -11,6 +10,7 @@ import {
 } from "../db/schema";
 import { scheduleEscrowExpiry, type EscrowExpireJob } from "../lib/queue";
 import { publicClient } from "./avalanche";
+import { amountUsdc, bytes32ToString, expiryDate } from "./escrow-chain-event-utils";
 import {
   handoffClaimRailPayout,
   reconcileEscrowClaim,
@@ -101,19 +101,6 @@ function escrowAddress(): Address | null {
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
-}
-
-function bytes32ToString(value: Hex): string {
-  const hex = value.slice(2).replace(/(?:00)+$/, "");
-  return hex ? Buffer.from(hex, "hex").toString("utf8") : "";
-}
-
-function amountUsdc(amount: bigint): string {
-  return Number(formatUnits(amount, 6)).toFixed(6);
-}
-
-function expiryDate(expiry: bigint): Date {
-  return new Date(Number(expiry) * 1000);
 }
 
 async function getOrCreateCursor(currentBlock: bigint): Promise<bigint> {

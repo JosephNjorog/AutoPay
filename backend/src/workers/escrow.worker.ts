@@ -8,7 +8,7 @@
  */
 
 import { Worker, type Job } from "bullmq";
-import { queueConnection, QUEUE_NAMES, type EscrowExpireJob } from "../lib/queue";
+import { queueConnectionOptions, QUEUE_NAMES, type EscrowExpireJob } from "../lib/queue";
 import {
   markEscrowRefundRequiresReview,
   processEscrowExpiry,
@@ -37,7 +37,7 @@ let scannerRunning = false;
 let claimScannerRunning = false;
 let chainEventScannerRunning = false;
 
-const worker = queueConnection
+const worker = queueConnectionOptions
   ? new Worker<EscrowExpireJob>(
       QUEUE_NAMES.ESCROW_EXPIRE,
       async (job: Job<EscrowExpireJob>) => {
@@ -49,7 +49,7 @@ const worker = queueConnection
         }
       },
       {
-        connection: queueConnection,
+        connection: queueConnectionOptions,
         concurrency: 5,
       }
     )

@@ -310,6 +310,42 @@ Webhooks (no auth — signature-verified internally):
 
 ---
 
+## Testing And CI
+
+Common local checks:
+
+```bash
+# Shared + backend TypeScript
+bun run typecheck
+
+# Backend unit tests
+bun run --cwd backend test:unit
+
+# Backend integration tests (requires Postgres + Redis)
+DATABASE_URL=postgresql://tuma:password@localhost:5432/tuma_db \
+DATABASE_SSL=false \
+REDIS_URL=redis://localhost:6379 \
+JWT_ACCESS_SECRET=test-access-secret-with-enough-length \
+JWT_REFRESH_SECRET=test-refresh-secret-with-enough-length \
+OPERATIONS_API_TOKEN=test-ops-token \
+WALLET_DERIVE_SECRET=test-wallet-derive-secret \
+bun run --cwd backend test:integration
+
+# Frontend production build
+bun run --cwd frontend build
+```
+
+The GitHub Actions workflow in [.github/workflows/ci.yml](.github/workflows/ci.yml) runs backend typecheck, backend unit tests, backend integration tests with Postgres/Redis services, frontend build, and contract build/tests with Foundry.
+
+Tradeoffs and current gaps:
+
+- Integration tests run migrations and reset Postgres/Redis between specs, so they are slower but catch route, DB, and queue regressions together.
+- The first resilience integration clusters cover heartbeat alert visibility and rail dead-letter retry queue handoff.
+- Frontend lint is not yet a CI gate because the current frontend has a pre-existing Prettier baseline to clean up.
+- Local contract tests need Foundry installed; CI installs Foundry before running contract checks.
+
+---
+
 ## Smart Contracts
 
 All contracts are in [contracts/src/](contracts/src/) and written in Solidity 0.8.24.
@@ -558,6 +594,7 @@ Implemented guardrails:
 - Escrow expiry uses deterministic delayed jobs plus a periodic scanner in `escrow.worker`, so expired pending escrows are re-enqueued or refunded even if the original delayed job was missed.
 - `escrow.worker` also scans `TumaEscrow` `Deposited`, `Claimed`, and `Refunded` events using the persistent `chain_scan_cursors` table, repairing escrow deposits, claims, and refunds that succeeded on-chain before local review metadata could be written.
 - Workers and scanners write liveness rows to `worker_heartbeats`; operators can query `GET /api/ops/health/heartbeats` and use `failOnStale=true` for external monitors.
+- Backend resilience tests now include unit coverage for provider idempotency, heartbeat status, and escrow chain-event helpers, plus Postgres/Redis integration coverage for heartbeat health and rail dead-letter retry paths.
 - History and tracking APIs expose review metadata so the frontend can stop polling and show "Needs review" rather than spinning forever.
 
 Design decisions and tradeoffs are documented in [docs/adr/](docs/adr/). The current send/escrow failure matrix is in [docs/send-escrow-failure-scenarios.md](docs/send-escrow-failure-scenarios.md).
@@ -572,6 +609,7 @@ Main tradeoffs:
 - Chain-hash reconciliation is an operator assertion with receipt-success verification; broader direct-transfer event matching is still needed for full recovery.
 - Chain-event scanning is deterministic for escrow contract events with a known `claimRef`; direct ERC-20 sends without a stored hash still need a direct-transfer matcher, outbox, or operator lookup.
 - Inline queue fallback keeps local development usable without Redis, but it is not durable and should not be treated as production resilience.
+- CI does not yet gate on frontend lint because the frontend has a pre-existing formatting baseline; frontend build is gated now, and lint should become required after cleanup.
 
 ---
 
@@ -581,7 +619,8 @@ Main tradeoffs:
 
 Remaining before production:
 
-- [ ] Deploy contracts to Fuji testnet + run integration tests
+- [ ] Deploy contracts to Fuji testnet + run chain/provider integration tests
+- [ ] Clean frontend lint baseline and turn the lint gate on in CI
 - [ ] Register Africa's Talking WhatsApp templates with Meta
 - [ ] Complete Orange Money integration (Senegal/CI)
 - [ ] Fund AutopayPaymaster with AVAX for gas sponsorship

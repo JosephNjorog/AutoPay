@@ -10,12 +10,13 @@ if (!rawUrl) throw new Error("DATABASE_URL is not set");
 const url = new URL(rawUrl);
 url.searchParams.delete("channel_binding");
 const connectionString = url.toString();
+const databaseSsl = (process.env.DATABASE_SSL ?? "require").toLowerCase();
 
 const client = postgres(connectionString, {
   max: 10,
   idle_timeout: 20,
   connect_timeout: 10,
-  ssl: "require",
+  ssl: databaseSsl === "false" || databaseSsl === "disable" ? false : "require",
 });
 
 export const db = drizzle(client, { schema });
