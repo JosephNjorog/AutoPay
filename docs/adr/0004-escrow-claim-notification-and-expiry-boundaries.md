@@ -28,6 +28,7 @@ Current behavior:
 - Persist the escrow reference and on-chain transaction hash as soon as possible.
 - Queue the claim-link notification. If queueing is unavailable, send directly as a local fallback.
 - If claim-link delivery fails after funds are escrowed, mark the transaction `requires_review` instead of reporting the transfer as failed.
+- Operators can resend a failed escrow claim link through `/api/ops/review/:transactionId/resend-claim-link`.
 - On claim, acquire a short escrow-ref lock before signing and broadcasting the claim transaction.
 - After the on-chain claim succeeds, persist `claimTxHash`, attach the recipient wallet, record the on-chain claim, then queue the rail payout through the shared rail-disbursement path.
 - If the post-chain claim database update fails, record `escrow_claim_db_update` review metadata containing the claim hash and recipient context.
@@ -35,6 +36,7 @@ Current behavior:
 - Schedule an escrow-expiry job for refund after the claim window, using a deterministic job id and retry backoff.
 - Run a periodic expiry scanner in `escrow.worker` to find expired pending escrows whose delayed jobs were missed or lost, then re-enqueue or process them inline when queues are unavailable.
 - Mark refund failures as `requires_review` after the final queue retry.
+- Operators can retry an expired escrow refund through `/api/ops/review/:transactionId/refund-escrow`.
 
 ## Consequences
 
@@ -46,12 +48,14 @@ Positive:
 - Persisting `claimTxHash` gives reconciliation a concrete on-chain anchor.
 - Duplicate claim taps are serialized by the claim lock and replay the claimed state for the same recipient.
 - A successful chain claim followed by a local database failure can be retried without asking the recipient to claim again.
+- Claim-link and refund review states now have API-level recovery actions.
 - Expired pending escrows no longer rely only on a single delayed queue job.
 
 Tradeoffs:
 
 - A user can see a successful escrow deposit while the recipient has not received the claim link yet.
 - If claim-link delivery fails, operators need a resend or manual contact workflow.
+- The resend and refund tools are API-level actions; production still needs a dashboard, alerts, and runbooks.
 - Marking escrow claimed before rail payout prevents double claim, but means payout failure must be resolved operationally.
 - The claim lock is TTL-based and best-effort; the smart contract remains the final source of truth for duplicate-claim rejection.
 - The reconciliation lock is also TTL-based; provider-level rail idempotency is still needed as a final guard against duplicate payout submissions.
@@ -70,7 +74,5 @@ Tradeoffs:
 ## Follow-up Work
 
 - Add scanner heartbeat/alerting so a stopped expiry worker is visible.
-- Add an operator action to resend claim links.
-- Add an operator action to retry or manually resolve failed escrow refunds.
 - Add chain-event scanner coverage for claims that succeeded before review metadata could be written.
 - Add duplicate-tap and post-chain claim reconciliation tests.

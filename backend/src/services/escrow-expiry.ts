@@ -46,7 +46,8 @@ function buildExpiryJob(row: ExpiredEscrowScanRow): EscrowExpireJob | null {
 export async function markEscrowRefundRequiresReview(
   job: EscrowExpireJob,
   err: unknown,
-  source: string
+  source: string,
+  metadata: Record<string, unknown> = {}
 ): Promise<void> {
   await recordSettlementStep(job.transactionId, "requires_review", {
     stage: "escrow_refund",
@@ -54,12 +55,14 @@ export async function markEscrowRefundRequiresReview(
     escrowRef: job.escrowRef,
     onchainRef: job.onchainRef,
     source,
+    ...metadata,
   });
 }
 
 export async function processEscrowExpiry(
   job: EscrowExpireJob,
-  source = "queue"
+  source = "queue",
+  metadata: Record<string, unknown> = {}
 ): Promise<"refunded" | "skipped"> {
   const escrow = await db.query.escrowPayments.findFirst({
     where: eq(escrowPayments.ref, job.escrowRef),
@@ -95,6 +98,7 @@ export async function processEscrowExpiry(
     escrowRef: escrow.ref,
     onchainRef,
     source,
+    ...metadata,
   });
 
   return "refunded";
