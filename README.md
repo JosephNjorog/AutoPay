@@ -457,6 +457,7 @@ flowchart TD
   recipientClaim["Recipient verifies OTP\nclaims escrow on-chain"]
   claimRecorded["Store claimTxHash\nattach recipient wallet"]
   claimScan["Claim reconciliation scanner\nrepairs post-chain DB updates"]
+  chainEventScan["Escrow chain-event scanner\nDeposited + Claimed + Refunded"]
 
   railQueue["Queue rail_disburse job"]
   railWorker["rail.worker submits payout"]
@@ -490,21 +491,27 @@ flowchart TD
 
   recipient -->|no| escrowDeposit
   escrowDeposit -->|deposit fails or outcome unclear| review
+  escrowDeposit -->|DB unavailable after chain event| chainEventScan
   escrowDeposit -->|confirmed| escrowOnchain
+  chainEventScan -->|Deposited event repairs local anchor| escrowOnchain
   escrowOnchain --> claimLink
   claimLink -->|delivery fails after final retry| review
   reviewOps -->|resend claim link| claimLink
   claimLink -->|sent or queued| recipientClaim
   recipientClaim -->|invalid, expired, wrong phone, wallet not ready| requestFail
   recipientClaim -->|post-chain DB update unclear| review
+  recipientClaim -->|DB unavailable before review metadata| chainEventScan
   review -->|failureStage: escrow_claim_db_update| claimScan
   claimScan -->|replay local claim persistence| claimRecorded
+  chainEventScan -->|Claimed event replays local claim persistence| claimRecorded
   recipientClaim -->|confirmed| claimRecorded
   claimRecorded --> railQueue
   escrowOnchain -->|not claimed by expiry| expiry
   expiry -->|refund confirmed| expired
   expiry -->|refund retry exhausted| review
+  expiry -->|DB unavailable after refund event| chainEventScan
   reviewOps -->|retry escrow refund| expiry
+  chainEventScan -->|Refunded event repairs local refund| expired
   scanner -->|finds expired pending escrow| expiry
 
   railQueue -->|queue add fails| review
@@ -526,7 +533,7 @@ flowchart TD
   classDef failure fill:#fef2f2,stroke:#dc2626,color:#0f172a;
 
   class replay,directOnchain,escrowOnchain,claimLink,claimRecorded,routed,settled,expired success;
-  class start,lock,validate,tx,recipient,directChain,escrowDeposit,recipientClaim,claimScan,railQueue,railWorker,railDeadLetter,reviewOps,settleWait,scanner pending;
+  class start,lock,validate,tx,recipient,directChain,escrowDeposit,recipientClaim,claimScan,chainEventScan,railQueue,railWorker,railDeadLetter,reviewOps,settleWait,scanner pending;
   class retry,review warning;
   class requestFail,failed failure;
 ```
@@ -549,6 +556,7 @@ Implemented guardrails:
 - Escrow claims use a tokenized escrow-ref lock to serialize duplicate taps, then replay the claimed state for the same recipient after the first claim succeeds.
 - Claim retries and `escrow.worker` reconciliation both retry local claim persistence and rail handoff for `escrow_claim_db_update` review records after an on-chain claim has already succeeded.
 - Escrow expiry uses deterministic delayed jobs plus a periodic scanner in `escrow.worker`, so expired pending escrows are re-enqueued or refunded even if the original delayed job was missed.
+- `escrow.worker` also scans `TumaEscrow` `Deposited`, `Claimed`, and `Refunded` events using the persistent `chain_scan_cursors` table, repairing escrow deposits, claims, and refunds that succeeded on-chain before local review metadata could be written.
 - History and tracking APIs expose review metadata so the frontend can stop polling and show "Needs review" rather than spinning forever.
 
 Design decisions and tradeoffs are documented in [docs/adr/](docs/adr/). The current send/escrow failure matrix is in [docs/send-escrow-failure-scenarios.md](docs/send-escrow-failure-scenarios.md).
@@ -559,8 +567,8 @@ Main tradeoffs:
 - Returning after queue handoff improves request reliability, but users may see an `onchain` state while rail payout finishes asynchronously.
 - Provider idempotency semantics still vary by rail; sandbox checks and provider-specific tests are needed before treating duplicate prevention as complete.
 - The dead-letter surface is an API, not a full dashboard; production needs alerts and an operator runbook.
-- Chain-hash reconciliation is an operator assertion with receipt-success verification; automated event scanners are still needed for full recovery.
-- Claim reconciliation depends on the backend recording review metadata after the chain claim; a full DB outage at that instant still needs chain-event reconciliation or operator lookup.
+- Chain-hash reconciliation is an operator assertion with receipt-success verification; broader direct-transfer event matching is still needed for full recovery.
+- Chain-event scanning is deterministic for escrow contract events with a known `claimRef`; direct ERC-20 sends without a stored hash still need a direct-transfer matcher, outbox, or operator lookup.
 - Inline queue fallback keeps local development usable without Redis, but it is not durable and should not be treated as production resilience.
 
 ---
