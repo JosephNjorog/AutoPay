@@ -3,7 +3,8 @@
  * Consumes delayed expiry jobs and periodically scans for expired pending
  * escrows whose delayed jobs were missed or lost. It also retries local
  * reconciliation for claims that succeeded on-chain but failed during the
- * post-chain database update.
+ * post-chain database update, including chain-event repairs when review
+ * metadata could not be written.
  */
 
 import { Worker, type Job } from "bullmq";
@@ -14,6 +15,7 @@ import {
   scanExpiredEscrows,
 } from "../services/escrow-expiry";
 import { scanEscrowClaimReconciliations } from "../services/escrow-claim";
+import { scanEscrowChainEvents } from "../services/chain-event-scan";
 
 function intEnv(name: string, fallback: number): number {
   const value = parseInt(process.env[name] ?? "", 10);
@@ -28,6 +30,7 @@ const SCAN_LIMIT = intEnv("ESCROW_EXPIRY_SCAN_LIMIT", 100);
 
 let scannerRunning = false;
 let claimScannerRunning = false;
+let chainEventScannerRunning = false;
 
 const worker = queueConnection
   ? new Worker<EscrowExpireJob>(
@@ -100,11 +103,37 @@ async function runClaimReconciliationScan(): Promise<void> {
   }
 }
 
+async function runChainEventScan(): Promise<void> {
+  if (chainEventScannerRunning) return;
+  chainEventScannerRunning = true;
+
+  try {
+    const result = await scanEscrowChainEvents();
+    if (
+      result.scanned > 0 ||
+      result.depositsReconciled > 0 ||
+      result.claimsReconciled > 0 ||
+      result.refundsReconciled > 0 ||
+      result.failed > 0
+    ) {
+      console.log(
+        `[EscrowWorker] Scan escrow chain events: from=${result.fromBlock ?? "-"} to=${result.toBlock ?? "-"} scanned=${result.scanned} deposits=${result.depositsReconciled} claims=${result.claimsReconciled} refunds=${result.refundsReconciled} skipped=${result.skipped} failed=${result.failed}`
+      );
+    }
+  } catch (err) {
+    console.error("[EscrowWorker] Chain event scan failed:", (err as Error).message);
+  } finally {
+    chainEventScannerRunning = false;
+  }
+}
+
 void runExpiredEscrowScan();
 void runClaimReconciliationScan();
+void runChainEventScan();
 const scannerTimer = setInterval(() => {
   void runExpiredEscrowScan();
   void runClaimReconciliationScan();
+  void runChainEventScan();
 }, SCAN_INTERVAL_MS);
 
 process.on("SIGTERM", async () => {
