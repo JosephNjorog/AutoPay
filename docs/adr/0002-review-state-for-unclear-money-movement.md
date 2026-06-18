@@ -29,6 +29,14 @@ When the backend cannot confidently mark a transaction as settled, failed, expir
 
 History and tracking APIs expose this metadata. The frontend stops polling and shows "Needs review" instead of leaving the transfer in an indefinite pending state.
 
+Operator recovery endpoints are exposed under `/api/ops/*` and protected by
+`X-Operations-Token`:
+
+- Rail dead letters can be listed and retried.
+- Escrow claim links can be resent after notification failure.
+- Confirmed on-chain transaction hashes can be attached to reviewed transactions.
+- Expired escrow refunds can be retried.
+
 ## Consequences
 
 Positive:
@@ -37,6 +45,7 @@ Positive:
 - Users get an honest status instead of a spinner.
 - Failure context is stored close to the transaction and in the settlement event trail.
 - The model supports different recovery actions per stage, such as resend claim link, reconcile chain state, or retry rail payout.
+- Common review states now have API-level recovery actions instead of only manual database edits.
 
 Tradeoffs:
 
@@ -44,6 +53,7 @@ Tradeoffs:
 - More statuses increase frontend and support complexity.
 - Some failures may generate duplicate settlement events if the same stage is retried repeatedly.
 - `requires_review` does not itself resolve money state. It is a stop sign, not a repair tool.
+- Chain-hash reconciliation is still an operator assertion, even though the receipt is checked for success.
 
 ## Alternatives Considered
 
@@ -53,6 +63,6 @@ Tradeoffs:
 
 ## Follow-up Work
 
-- Build an operator dashboard filtered by `requires_review`.
-- Add recovery actions for known stages: resend claim link, retry rail payout, reconcile on-chain hash, refund escrow.
+- Build an operator dashboard over the existing review and dead-letter APIs.
+- Add automated chain-event scanners for reviewed transactions that lack local anchors.
 - Add alerting when `requires_review` transactions are created or remain unresolved past an SLA.
