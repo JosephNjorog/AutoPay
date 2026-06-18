@@ -184,6 +184,17 @@ export const settlementEvents = pgTable(
   (t) => [index("settlement_events_tx_id_idx").on(t.transactionId)]
 );
 
+// ── Chain Scan Cursors ───────────────────────────────────────────────────────
+
+export const chainScanCursors = pgTable("chain_scan_cursors", {
+  name: text("name").primaryKey(),
+  lastScannedBlock: bigint("last_scanned_block", { mode: "number" })
+    .default(0)
+    .notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // ── Escrow Payments ───────────────────────────────────────────────────────────
 
 export const escrowPayments = pgTable(

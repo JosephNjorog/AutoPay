@@ -37,6 +37,11 @@ Operator recovery endpoints are exposed under `/api/ops/*` and protected by
 - Confirmed on-chain transaction hashes can be attached to reviewed transactions.
 - Expired escrow refunds can be retried.
 
+For escrow contract events, `escrow.worker` also runs a chain-event scanner with
+a persisted cursor in `chain_scan_cursors`. It scans `Deposited`, `Claimed`, and
+`Refunded` events to repair local state when the chain transaction succeeded
+before the backend could write review metadata.
+
 ## Consequences
 
 Positive:
@@ -46,6 +51,7 @@ Positive:
 - Failure context is stored close to the transaction and in the settlement event trail.
 - The model supports different recovery actions per stage, such as resend claim link, reconcile chain state, or retry rail payout.
 - Common review states now have API-level recovery actions instead of only manual database edits.
+- Escrow deposits, claims, and refunds can be repaired from deterministic contract events even when no review event was written.
 
 Tradeoffs:
 
@@ -54,6 +60,7 @@ Tradeoffs:
 - Some failures may generate duplicate settlement events if the same stage is retried repeatedly.
 - `requires_review` does not itself resolve money state. It is a stop sign, not a repair tool.
 - Chain-hash reconciliation is still an operator assertion, even though the receipt is checked for success.
+- Chain-event repair depends on a local anchor such as `escrowRef`; direct ERC-20 sends without a stored hash still need separate matching or an outbox.
 
 ## Alternatives Considered
 
@@ -64,5 +71,5 @@ Tradeoffs:
 ## Follow-up Work
 
 - Build an operator dashboard over the existing review and dead-letter APIs.
-- Add automated chain-event scanners for reviewed transactions that lack local anchors.
+- Add a direct-transfer matcher or outbox for sends that lack local chain anchors.
 - Add alerting when `requires_review` transactions are created or remain unresolved past an SLA.
