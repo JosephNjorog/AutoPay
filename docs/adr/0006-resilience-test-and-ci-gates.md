@@ -57,4 +57,3 @@ The resilience integration clusters now cover:
 - Add contract-backed or mock-injected success-path tests for operator refund retry and full on-chain claim/send flows.
 - Add provider sandbox tests for duplicate rail submissions.
 - Clean up frontend formatting/lint baseline, then turn frontend lint into a required CI gate.
-- Add external monitor configuration for `GET /api/ops/health/heartbeats?failOnStale=true`.
