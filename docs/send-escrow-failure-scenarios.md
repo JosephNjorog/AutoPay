@@ -80,9 +80,9 @@ This matrix tracks the current resilience posture for the send and escrow flows.
 
 | Stage | Failure scenario | Current handling | Status | Tradeoff / residual risk | Next hardening |
 | --- | --- | --- | --- | --- | --- |
-| Worker liveness | Settlement, rail, notification, or escrow worker stops | Workers write rows to `worker_heartbeats`; `GET /api/ops/health/heartbeats` reports missing/stale/error components and can return `503` with `failOnStale=true`. | Implemented | The endpoint is an alert signal, not a pager by itself. | Wire an external monitor or Render alert to poll with `failOnStale=true`. |
-| Scanner liveness | Expiry, claim-reconciliation, or chain-event scanner stops running | Each scanner writes success/failure heartbeats with result metadata after every scan loop. | Implemented | A database outage can prevent heartbeat writes and make the monitor report stale rather than the exact root cause. | Add dashboard panels and log/metric correlation. |
-| Scanner failure | Scanner catches an exception but worker process remains alive | Scanner heartbeat status becomes `error` with the latest error message until the next successful scan. | Implemented | A later success clears the active error; detailed history remains in logs, not in heartbeat rows. | Add historical heartbeat events or metrics if needed. |
+| Worker liveness | Settlement, rail, notification, or escrow worker stops | Workers write rows to `worker_heartbeats`; `GET /api/ops/health/heartbeats` reports missing/stale/error components. The Render Blueprint runs `autopayke-heartbeat-monitor` every two minutes and fails the cron run when the endpoint returns `503` or an invalid response. | Implemented | Render email/Slack failure notifications must be enabled manually; alert delivery can lag the stale threshold by up to two minutes. | Sync the Blueprint, enable failure notifications, and verify one manual run in production. |
+| Scanner liveness | Expiry, claim-reconciliation, or chain-event scanner stops running | Each scanner writes success/failure heartbeats with result metadata after every scan loop; the same Render cron monitor alerts on missing or stale scanner rows. | Implemented | A database outage can prevent heartbeat writes and make the monitor report stale rather than the exact root cause. | Add dashboard panels and log/metric correlation. |
+| Scanner failure | Scanner catches an exception but worker process remains alive | Scanner heartbeat status becomes `error`; the Render cron monitor treats that component as unhealthy and exits non-zero. | Implemented | A later success clears the active error; detailed history remains in logs, not in heartbeat rows. | Add historical heartbeat events or metrics if needed. |
 
 ## Test And CI Coverage
 
@@ -94,8 +94,8 @@ This matrix tracks the current resilience posture for the send and escrow flows.
 
 ## Current Priority Order
 
-1. Wire an external monitor or Render alert to poll the heartbeat endpoint.
-2. Add a direct-transfer matcher or DB outbox for direct sends whose tx hash was never stored.
-3. Add contract-backed or mock-injected success-path tests for on-chain send/claim/refund flows.
-4. Add an operator dashboard over the existing dead-letter/review APIs.
-5. Add provider-specific duplicate-behavior sandbox tests.
+1. Add a direct-transfer matcher or DB outbox for direct sends whose tx hash was never stored.
+2. Add contract-backed or mock-injected success-path tests for on-chain send/claim/refund flows.
+3. Add an operator dashboard over the existing dead-letter/review APIs.
+4. Add provider-specific duplicate-behavior sandbox tests.
+5. Add a third-party monitor if Render-wide outage coverage is required.

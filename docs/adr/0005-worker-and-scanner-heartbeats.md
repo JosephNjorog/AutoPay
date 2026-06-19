@@ -38,8 +38,9 @@ The protected operations API exposes:
 - `GET /api/ops/health/heartbeats?failOnStale=true`
 
 `failOnStale=true` returns HTTP `503` when any expected component is missing,
-stale, or in error. This makes the endpoint suitable for Render health checks,
-UptimeRobot, PagerDuty, or another external monitor.
+stale, or in error. A separate Render cron monitor calls this endpoint and exits
+non-zero so Render can send failure notifications. The API's native Render
+health check remains `/health` because worker failure should not restart the API.
 
 ## Consequences
 
@@ -52,7 +53,7 @@ Positive:
 
 Tradeoffs:
 
-- This is API-level alerting, not paging by itself. Production still needs an external monitor to poll the endpoint.
+- Render email or Slack failure notifications must be enabled manually; the Blueprint cannot enforce workspace notification settings.
 - A database outage can prevent heartbeat writes, so stale status may indicate DB trouble, worker trouble, or both.
 - `worker_heartbeats` stores only the latest status. Detailed history still lives in logs unless metrics/history are added later.
 - Transient worker job failures may be cleared by the next successful heartbeat.
@@ -65,6 +66,7 @@ Tradeoffs:
 
 ## Follow-up Work
 
-- Configure an external monitor to call the heartbeat endpoint with `failOnStale=true`.
+- Sync the Render Blueprint, enable failure notifications, and trigger a manual monitor run in each deployed environment.
+- Consider a third-party monitor if Render-wide outage coverage is required.
 - Add dashboard views for stale components and latest scanner metadata.
 - Add historical metrics or heartbeat events if incident reviews need a timeline.
