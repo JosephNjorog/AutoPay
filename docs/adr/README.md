@@ -18,7 +18,9 @@ Current ADRs:
 | [0004](0004-escrow-claim-notification-and-expiry-boundaries.md) | Treat escrow notification, claim, and expiry as separate recoverable steps | Accepted |
 | [0005](0005-worker-and-scanner-heartbeats.md) | Record worker and scanner liveness for operational alerting | Accepted |
 | [0006](0006-resilience-test-and-ci-gates.md) | Gate resilience changes with unit and integration CI | Accepted |
+| [0007](0007-render-cron-heartbeat-alerting.md) | Use a failing Render cron run for heartbeat notifications | Accepted |
 
 Related operational doc:
 
 - [Send/escrow failure-scenario matrix](../send-escrow-failure-scenarios.md)
+- [Heartbeat monitoring runbook](../heartbeat-monitoring-runbook.md)
