@@ -196,11 +196,13 @@ export const api = {
         token,
       }),
 
-    rates: (token: string) =>
-      request<{ currency: string; mid: number; tuma: number; savings: string }[]>(
-        "/api/fx/rates",
-        { token }
-      ),
+    rates: async (token: string) => {
+      // Backend wraps the array as { rates: [...] } inside the data envelope.
+      const { rates } = await request<{
+        rates: { currency: string; mid: number; tuma: number; savings: string }[];
+      }>("/api/fx/rates", { token });
+      return rates;
+    },
   },
 
   send: {
