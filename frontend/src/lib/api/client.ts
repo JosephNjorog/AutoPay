@@ -206,6 +206,12 @@ export const api = {
   },
 
   send: {
+    lookup: (phone: string, token: string) =>
+      request<{ registered: boolean }>(
+        `/api/send/lookup?phone=${encodeURIComponent(phone)}`,
+        { token }
+      ),
+
     send: (
       body: {
         quoteId: string;
