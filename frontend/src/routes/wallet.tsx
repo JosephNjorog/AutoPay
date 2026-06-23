@@ -2,12 +2,17 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Copy, Check, ExternalLink, ShieldCheck, Wallet2, Unlink, Loader2, AlertCircle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAccount, useDisconnect } from "wagmi";
+import { useAccount, useDisconnect, useSwitchChain } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
+import { avalanche } from "@reown/appkit/networks";
 import { MobileFrame } from "@/components/MobileFrame";
 import { BottomNav } from "@/components/BottomNav";
+import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { api, type WalletAsset, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
+import { useCurrencyStore } from "@/lib/currency-store";
+import { useKesRate } from "@/hooks/use-kes-rate";
+import { formatMoney } from "@/lib/tuma-data";
 
 export const Route = createFileRoute("/wallet")({
   head: () => ({ meta: [{ title: "Wallet · Autopayke" }, { name: "description", content: "Your non-custodial smart wallet on Avalanche." }] }),
@@ -24,14 +29,18 @@ function assetColor(symbol: string) {
 function Wallet() {
   const navigate = useNavigate();
   const { accessToken, user, isLoggedIn } = useAuthStore();
+  const { displayCurrency } = useCurrencyStore();
+  const kesRate = useKesRate();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [extCopied, setExtCopied] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
 
   const { open } = useAppKit();
-  const { address: wagmiAddress, isConnected } = useAccount();
+  const { address: wagmiAddress, isConnected, chainId } = useAccount();
   const { disconnect } = useDisconnect();
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
+  const wrongChain = isConnected && chainId !== undefined && chainId !== avalanche.id;
 
   useEffect(() => {
     if (!isLoggedIn()) navigate({ to: "/signup" });
@@ -75,10 +84,14 @@ function Wallet() {
   });
 
   useEffect(() => {
-    if (isConnected && wagmiAddress && accessToken) {
-      connectMutation.mutate({ address: wagmiAddress, walletType: "walletconnect" });
-    }
-  }, [isConnected, wagmiAddress, accessToken]);
+    if (!isConnected || !wagmiAddress || !accessToken) return;
+    // Avoid redundant calls if this address is already linked, or a link
+    // request for it is already in flight — mobile wallets can emit the
+    // connection event more than once in quick succession.
+    if (wallet?.externalWalletAddress === wagmiAddress) return;
+    if (connectMutation.isPending) return;
+    connectMutation.mutate({ address: wagmiAddress, walletType: "walletconnect" });
+  }, [isConnected, wagmiAddress, accessToken, wallet?.externalWalletAddress]);
 
   const tumaAddress = wallet?.walletAddress;
   const assets: WalletAsset[] = wallet?.assets ?? [];
@@ -152,10 +165,11 @@ function Wallet() {
 
         {/* On-chain balance */}
         <div className="px-5 mt-4">
-          <div className="flex items-baseline justify-between">
+          <div className="flex items-center justify-between">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">On-chain total</p>
-            <p className="text-2xl font-black">${totalUsd.toFixed(2)}</p>
+            <CurrencyToggle />
           </div>
+          <p className="mt-1 text-2xl font-black text-right">{formatMoney(totalUsd, displayCurrency, kesRate)}</p>
         </div>
 
         <div className="px-5 mt-3 space-y-2">
@@ -172,7 +186,7 @@ function Wallet() {
               </div>
               <div className="text-right">
                 <p className="text-sm font-bold">{parseFloat(a.balance).toFixed(4)}</p>
-                <p className="text-[11px] text-muted-foreground">${a.balanceUsd.toFixed(2)}</p>
+                <p className="text-[11px] text-muted-foreground">{formatMoney(a.balanceUsd, displayCurrency, kesRate)}</p>
               </div>
             </div>
           ))}
@@ -191,10 +205,10 @@ function Wallet() {
           </div>
 
           {!extAddress ? (
-            <button onClick={() => open()}
-              className="w-full flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3.5 text-sm font-semibold hover:bg-muted/50 transition">
-              <Wallet2 className="h-4 w-4 text-primary" />
-              Connect MetaMask / Core / WalletConnect
+            <button onClick={() => open()} disabled={connectMutation.isPending}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3.5 text-sm font-semibold hover:bg-muted/50 transition disabled:opacity-60">
+              {connectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Wallet2 className="h-4 w-4 text-primary" />}
+              {connectMutation.isPending ? "Linking wallet…" : "Connect MetaMask / Core / WalletConnect"}
             </button>
           ) : (
             <div className="rounded-3xl border border-border bg-card p-4">
@@ -210,19 +224,32 @@ function Wallet() {
                 </button>
               </div>
 
+              {wrongChain && (
+                <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl border border-warning/30 bg-warning-soft px-3 py-2 text-xs text-warning-foreground">
+                  <span>Wrong network — switch to Avalanche to see your balance.</span>
+                  <button
+                    onClick={() => switchChain({ chainId: avalanche.id })}
+                    disabled={isSwitchingChain}
+                    className="shrink-0 rounded-full bg-warning-foreground/10 px-2.5 py-1 font-semibold disabled:opacity-50"
+                  >
+                    {isSwitchingChain ? "Switching…" : "Switch"}
+                  </button>
+                </div>
+              )}
+
               {extLoading && <div className="mt-3 h-16 rounded-2xl bg-muted animate-pulse" />}
 
               {extBalances && (
                 <div className="mt-3 pt-3 border-t border-border">
                   <div className="flex items-baseline justify-between mb-2">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">On-chain balance</p>
-                    <p className="text-sm font-black">${extBalances.totalUsd.toFixed(2)}</p>
+                    <p className="text-sm font-black">{formatMoney(extBalances.totalUsd, displayCurrency, kesRate)}</p>
                   </div>
                   <div className="space-y-1.5">
                     {extBalances.assets.map((a) => (
                       <div key={a.symbol} className="flex items-center justify-between text-xs">
                         <span className="font-semibold">{a.symbol}</span>
-                        <span className="text-muted-foreground">{parseFloat(a.balance).toFixed(4)} · ${a.balanceUsd.toFixed(2)}</span>
+                        <span className="text-muted-foreground">{parseFloat(a.balance).toFixed(4)} · {formatMoney(a.balanceUsd, displayCurrency, kesRate)}</span>
                       </div>
                     ))}
                   </div>
