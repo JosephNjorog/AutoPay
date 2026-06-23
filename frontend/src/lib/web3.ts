@@ -2,8 +2,9 @@ import { createAppKit } from "@reown/appkit/react";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import { avalanche, avalancheFuji } from "@reown/appkit/networks";
 
-// Get your project ID from https://cloud.reown.com (free)
-const projectId = (import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined) ?? "ae6289fc8d000412d06e7633f239d1c5";
+// Reown Cloud project for Autopayke — set VITE_WALLETCONNECT_PROJECT_ID in
+// every deploy environment; this fallback only covers a missing env var.
+const projectId = (import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined) ?? "1348491e6acf0fa944e3272935f96a94";
 
 const networks = [avalancheFuji, avalanche] as const;
 
