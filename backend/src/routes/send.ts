@@ -34,7 +34,7 @@ import {
   scheduleEscrowExpiry,
   type RailDisburseJob,
 } from "../lib/queue";
-import { del, setnxTtl } from "../lib/redis";
+import { del, setnxTtl, setex, getJson } from "../lib/redis";
 import { parseUnits } from "viem";
 import type { Address } from "viem";
 
@@ -126,6 +126,30 @@ async function releaseSendIdempotencyLock(lockKey: string | null): Promise<void>
     console.error(`[Send] Failed to release idempotency lock ${lockKey}:`, errorMessage(err));
   }
 }
+
+// GET /api/send/lookup?phone=+254...
+// Fast check: is this phone number a registered Autopayke user?
+// Cached in Redis for 60 s so repeated keystrokes don't hammer the DB.
+sendRouter.get("/lookup", async (c) => {
+  const phone = (c.req.query("phone") ?? "").trim();
+  if (!/^\+[1-9]\d{6,18}$/.test(phone)) {
+    throw new ValidationError("phone must be E.164 format e.g. +254712345678");
+  }
+
+  const phoneHash = hashPhone(phone);
+  const cacheKey = `lookup:phone:${phoneHash}`;
+  const cached = await getJson<{ registered: boolean }>(cacheKey);
+  if (cached !== null) return c.json({ ok: true, data: cached });
+
+  const user = await db.query.users.findFirst({
+    where: eq(users.phoneHash, phoneHash),
+    columns: { id: true, walletAddress: true },
+  });
+
+  const result = { registered: !!(user?.walletAddress) };
+  await setex(cacheKey, 60, result);
+  return c.json({ ok: true, data: result });
+});
 
 // POST /api/send
 sendRouter.post(
