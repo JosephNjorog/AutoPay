@@ -7,6 +7,7 @@ export type Contact = {
   country: string;
   flag: string;
   rail: string;
+  registered?: boolean;
 };
 
 export const countries = [
