@@ -1,3 +1,5 @@
+import type { DisplayCurrency } from "./currency-store";
+
 export type Contact = {
   id: string;
   name: string;
@@ -29,3 +31,13 @@ export const midRates: Record<string, { ccy: string; rate: number; flag: string;
   TZ: { ccy: "TZS", rate: 2640, flag: "🇹🇿", rail: "M-Pesa" },
   UG: { ccy: "UGX", rate: 3720, flag: "🇺🇬", rail: "MTN MoMo" },
 };
+
+// Formats a USD amount for display, converting to KES when requested.
+export function formatMoney(usd: number, currency: DisplayCurrency, kesRate: number): string {
+  if (currency === "USD") return `$${usd.toFixed(2)}`;
+  return new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+    maximumFractionDigits: 0,
+  }).format(usd * kesRate);
+}
