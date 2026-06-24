@@ -14,6 +14,7 @@ import {
   sessions,
 } from "../db/schema";
 import { opsAuthMiddleware } from "../middleware/ops";
+import { verifyPassword } from "../lib/crypto";
 import {
   listRailDeadLetters,
   retryRailDeadLetter,
@@ -33,6 +34,42 @@ import {
 } from "../lib/queue";
 
 export const opsRouter = new Hono();
+
+// ── Public: admin login ──────────────────────────────────────────────────────
+// POST /api/ops/login — verify email + password, return the ops token.
+// This route intentionally sits before the opsAuthMiddleware blanket guard.
+opsRouter.post(
+  "/login",
+  zValidator(
+    "json",
+    z.object({
+      email: z.string().email(),
+      password: z.string().min(1),
+    })
+  ),
+  async (c) => {
+    const { email, password } = c.req.valid("json");
+
+    const expectedEmail = process.env.ADMIN_EMAIL;
+    const passwordHash = process.env.ADMIN_PASSWORD_HASH;
+    const opsToken = process.env.OPERATIONS_API_TOKEN;
+
+    if (!expectedEmail || !passwordHash || !opsToken) {
+      return c.json({ ok: false, error: "Admin credentials not configured" }, 503);
+    }
+
+    const emailMatch = email.toLowerCase() === expectedEmail.toLowerCase();
+    const passwordMatch = await verifyPassword(password, passwordHash);
+
+    if (!emailMatch || !passwordMatch) {
+      return c.json({ ok: false, error: "Invalid credentials" }, 401);
+    }
+
+    return c.json({ ok: true, data: { token: opsToken } });
+  }
+);
+
+// All routes below this line require a valid x-operations-token header.
 opsRouter.use("*", opsAuthMiddleware);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
