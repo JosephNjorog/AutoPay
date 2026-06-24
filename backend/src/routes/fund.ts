@@ -353,7 +353,9 @@ fundRouter.post(
 );
 
 // ── POST /webhooks/paystack — Paystack payment webhook ────────────────────────
-// Handles both card (charge.success) and mobile money (charge.success) payments.
+// Handles inbound charges (charge.success) AND outbound disbursements
+// (transfer.success / transfer.failed). All mobile money rails route through
+// Paystack Transfer, so both legs are confirmed here.
 // NOTE: mounted at /webhooks/paystack in index.ts — NOT behind authMiddleware.
 
 export const paystackWebhookRouter = new Hono();
@@ -369,7 +371,8 @@ paystackWebhookRouter.post("/", async (c) => {
   const event = JSON.parse(rawBody) as {
     event: string;
     data: {
-      reference: string;
+      reference?: string;
+      transfer_code?: string;
       status: string;
       amount: number;
       currency: string;
@@ -377,16 +380,45 @@ paystackWebhookRouter.post("/", async (c) => {
     };
   };
 
+  // ── Inbound: card or mobile money collection ──────────────────────────────
   if (event.event === "charge.success") {
     const { reference, channel } = event.data;
+    if (reference) {
+      const tx = await db.query.transactions.findFirst({
+        where: eq(transactions.reference, reference),
+        with: { recipient: true },
+      });
+      if (tx && tx.status === "initiated") {
+        await settleFundingCharge(tx, channel);
+      }
+    }
+  }
+
+  // ── Outbound: Paystack Transfer settled (M-Pesa / MoMo / bank payout) ────
+  if (event.event === "transfer.success" || event.event === "transfer.failed") {
+    const transferCode = event.data.transfer_code;
+    if (!transferCode) return c.json({ received: true });
 
     const tx = await db.query.transactions.findFirst({
-      where: eq(transactions.reference, reference),
-      with: { recipient: true },
+      where: eq(transactions.railReference, transferCode),
     });
 
-    if (tx && tx.status === "initiated") {
-      await settleFundingCharge(tx, channel);
+    if (!tx || tx.status === "settled" || tx.status === "failed") {
+      return c.json({ received: true });
+    }
+
+    if (event.event === "transfer.success") {
+      await recordSettlementStep(tx.id, "settled", {
+        transferCode,
+        paystackStatus: event.data.status,
+      });
+      console.log(`[Webhook:Paystack] ✓ Transfer settled TX=${tx.id} code=${transferCode}`);
+    } else {
+      await recordSettlementStep(tx.id, "failed", {
+        transferCode,
+        paystackStatus: event.data.status,
+      });
+      console.error(`[Webhook:Paystack] ✗ Transfer failed TX=${tx.id} code=${transferCode}`);
     }
   }
 
