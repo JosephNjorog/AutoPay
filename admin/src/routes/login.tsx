@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/lib/auth-store";
-import { opsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -10,26 +9,46 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+const API_BASE =
+  (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:3001";
+
+async function adminLogin(
+  email: string,
+  password: string
+): Promise<{ token: string }> {
+  const res = await fetch(`${API_BASE}/api/ops/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const json = (await res.json()) as { ok: boolean; data?: { token: string }; error?: string };
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error ?? "Login failed");
+  }
+  return json.data!;
+}
+
 function LoginPage() {
-  const [token, setToken] = useState("");
-  const [operator, setOperator] = useState("ops");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const setAuth = useAuthStore((s) => s.setToken);
+  const setToken = useAuthStore((s) => s.setToken);
   const navigate = useNavigate();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!token.trim()) return;
+    if (!email.trim() || !password.trim()) return;
 
     setLoading(true);
     try {
-      setAuth(token.trim(), operator.trim() || "ops");
-      await opsApi.overview();
-      toast.success("Authenticated");
+      const { token } = await adminLogin(email.trim(), password);
+      // Derive a display name from the email local-part
+      const operator = email.split("@")[0];
+      setToken(token, operator);
+      toast.success("Signed in");
       navigate({ to: "/" });
-    } catch {
-      useAuthStore.getState().logout();
-      toast.error("Invalid operations token");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Login failed");
     } finally {
       setLoading(false);
     }
@@ -52,31 +71,38 @@ function LoginPage() {
           className="rounded-xl border border-border bg-card p-6 space-y-4 shadow-sm"
         >
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Operations Token</label>
+            <label className="text-sm font-medium" htmlFor="email">
+              Email
+            </label>
             <Input
-              type="password"
-              placeholder="Enter OPERATIONS_API_TOKEN"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
+              id="email"
+              type="email"
+              placeholder="admin@autopayke.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
               autoFocus
+              autoComplete="email"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Operator Name</label>
+            <label className="text-sm font-medium" htmlFor="password">
+              Password
+            </label>
             <Input
-              placeholder="e.g. alice, ops-team"
-              value={operator}
-              onChange={(e) => setOperator(e.target.value)}
+              id="password"
+              type="password"
+              placeholder="••••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
             />
-            <p className="text-xs text-muted-foreground">
-              Used as an audit identifier for all ops actions
-            </p>
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Verifying…" : "Sign in"}
+            {loading ? "Signing in…" : "Sign in"}
           </Button>
         </form>
       </div>
