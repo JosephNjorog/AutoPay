@@ -190,6 +190,15 @@ function Dashboard() {
   const short = walletAddress ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` : isDeploying ? "Deploying…" : "—";
   const phoneHint = user?.phone ? user.phone.slice(-4) : "";
 
+  function greetingName() {
+    if (user?.email) {
+      const local = user.email.split("@")[0];
+      const first = local.split(/[._\-+]/)[0];
+      return first.charAt(0).toUpperCase() + first.slice(1);
+    }
+    return `…${phoneHint}`;
+  }
+
   return (
     <MobileFrame>
       <div className="flex min-h-full flex-col">
@@ -198,7 +207,7 @@ function Dashboard() {
             <img src="/autopay_iconlogo.svg" alt="Autopayke" className="h-9 w-9 rounded-xl" />
             <div>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">Hello</p>
-              <p className="text-sm font-bold leading-tight">…{phoneHint}</p>
+              <p className="text-sm font-bold leading-tight">{greetingName()}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
