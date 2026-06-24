@@ -37,6 +37,7 @@ async function request<T>(
 export type AuthUser = {
   id: string;
   phone: string;
+  email: string | null;
   walletAddress: string | null;
   isMerchant: boolean;
 };
