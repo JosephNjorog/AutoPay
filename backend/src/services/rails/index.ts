@@ -1,8 +1,6 @@
 import { dialCodeToCountry, type Rail } from "@tuma/shared";
-import { sendB2C } from "./mpesa";
-import { sendMomoTransfer } from "./momo";
-import { createTransferRecipient, sendTransfer } from "./paystack";
-import { sendWavePayout } from "./wave";
+import { createTransferRecipient, sendTransfer, getTransferStatus } from "./paystack";
+import { sendWavePayout, getWavePayoutStatus } from "./wave";
 import { RailError } from "../../lib/errors";
 
 export type DisburseParams = {
@@ -19,9 +17,22 @@ export type DisburseResult = {
   status: "pending" | "settled";
 };
 
+// Paystack bank codes for mobile money by currency.
+// Retrieve the full list via GET https://api.paystack.co/bank?type=mobile_money&country=XX
+const PAYSTACK_MOBILE_CODES: Record<string, string> = {
+  KES: "MPS",   // M-Pesa Kenya
+  TZS: "MPS",   // M-Pesa Tanzania
+  GHS: "MTN",   // MTN MoMo Ghana
+  UGX: "MTN",   // MTN MoMo Uganda
+};
+
 /**
  * Auto-selects the correct payment rail from the recipient's phone number
  * and dispatches the disbursement.
+ *
+ * All mobile money rails (mpesa, momo, paystack) go through Paystack's
+ * Transfer API so the same Paystack float that collects inbound payments
+ * is used to pay out — no separate Safaricom B2C or MTN MoMo credentials needed.
  */
 export async function disburseToRail(params: DisburseParams): Promise<DisburseResult> {
   const country = dialCodeToCountry(params.recipientPhone);
@@ -32,38 +43,29 @@ export async function disburseToRail(params: DisburseParams): Promise<DisburseRe
   const rail = country.primaryRail as Rail;
 
   switch (rail) {
-    case "mpesa": {
-      const result = await sendB2C(
-        params.recipientPhone,
-        params.amountLocal,
-        params.reference,
-        params.providerIdempotencyKey
-      );
-      return { rail, ...result };
-    }
-
-    case "momo": {
-      const currency = country.currency as "GHS" | "UGX";
-      const result = await sendMomoTransfer(
-        params.recipientPhone,
-        params.amountLocal,
-        currency,
-        params.reference,
-        params.providerIdempotencyKey
-      );
-      return { rail, ...result };
-    }
-
+    case "mpesa":
+    case "momo":
     case "paystack": {
-      // For Paystack, we need a recipient code first.
-      // In production this would be cached per phone number.
+      const bankCode = PAYSTACK_MOBILE_CODES[params.localCurrency]
+        ?? (params.localCurrency === "NGN" ? "999992" : null);
+
+      if (!bankCode) {
+        throw new RailError(rail, `No Paystack mobile money code configured for ${params.localCurrency}`);
+      }
+
+      // For Nigeria, Paystack expects the local format (0XXXXXXXXXX); others use E.164.
+      const accountNumber = params.localCurrency === "NGN"
+        ? params.recipientPhone.replace("+234", "0")
+        : params.recipientPhone;
+
       const recipientCode = await createTransferRecipient(
         "mobile_money",
         "Autopayke Recipient",
-        params.recipientPhone.replace("+234", "0"),
-        "999992", // MTN Nigeria bank code — adjust per recipient bank
-        "NGN"
+        accountNumber,
+        bankCode,
+        params.localCurrency
       );
+
       const result = await sendTransfer(
         params.amountLocal,
         recipientCode,
@@ -83,11 +85,8 @@ export async function disburseToRail(params: DisburseParams): Promise<DisburseRe
       return { rail, ...result };
     }
 
-    case "orange_money": {
-      // Orange Money Senegal/CI — same Wave-style API, routed via fallback
-      // Placeholder until Orange Money API credentials are configured
+    case "orange_money":
       throw new RailError("orange_money", "Orange Money integration pending");
-    }
 
     default:
       throw new RailError(rail, `Rail not implemented`);
@@ -100,21 +99,15 @@ export async function pollRailStatus(
   railReference: string
 ): Promise<"pending" | "settled" | "failed"> {
   switch (rail) {
-    case "momo": {
-      const { getMomoTransferStatus } = await import("./momo");
-      return getMomoTransferStatus(railReference);
-    }
-    case "paystack": {
-      const { getTransferStatus } = await import("./paystack");
-      return getTransferStatus(railReference);
-    }
-    case "wave": {
-      const { getWavePayoutStatus } = await import("./wave");
-      return getWavePayoutStatus(railReference);
-    }
+    // All mobile money rails now disburse via Paystack Transfer — poll Paystack.
     case "mpesa":
-      // M-Pesa uses webhooks (ResultURL); status comes in asynchronously.
-      return "pending";
+    case "momo":
+    case "paystack":
+      return getTransferStatus(railReference);
+
+    case "wave":
+      return getWavePayoutStatus(railReference);
+
     default:
       return "pending";
   }
