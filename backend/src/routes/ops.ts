@@ -10,6 +10,7 @@ import {
   reconcileChainHash,
   resendClaimLink,
   retryEscrowRefund,
+  retryRailDisbursement,
 } from "../services/review-recovery";
 import { listHeartbeatStatus } from "../services/worker-heartbeat";
 
@@ -109,6 +110,19 @@ opsRouter.post(
         note: body.note,
       }
     );
+    return c.json({ ok: true, data });
+  }
+);
+
+// POST /api/ops/review/:transactionId/retry-disbursement
+// Retries the M-Pesa / MoMo payout leg for direct transactions stuck at
+// "onchain" or "routed" — routes through Paystack Transfer.
+opsRouter.post(
+  "/review/:transactionId/retry-disbursement",
+  zValidator("param", RetryParamSchema),
+  async (c) => {
+    const { transactionId } = c.req.valid("param");
+    const data = await retryRailDisbursement(transactionId, operator(c));
     return c.json({ ok: true, data });
   }
 );

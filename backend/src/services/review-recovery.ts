@@ -9,8 +9,10 @@ import {
 } from "../db/schema";
 import {
   enqueueWhatsAppNotify,
+  enqueueRailDisburse,
   type EscrowExpireJob,
 } from "../lib/queue";
+import { processRailDisbursement, railProviderIdempotencyKey } from "./rail-disbursement";
 import {
   ConflictError,
   NotFoundError,
@@ -202,6 +204,73 @@ export async function reconcileChainHash(
     status: "requires_review",
     receiptStatus: "success",
     reviewStillRequired: true,
+  };
+}
+
+export type DisbursementRetryResult = {
+  transactionId: string;
+  rail: string;
+  railReference: string;
+  status: string;
+  queued: boolean;
+};
+
+/**
+ * Retries the local-rail disbursement leg for a direct (non-escrow) transaction
+ * that is stuck at "onchain" or "routed" — e.g. because the original B2C call
+ * failed or never fired. All disbursements now go through Paystack Transfer.
+ */
+export async function retryRailDisbursement(
+  transactionId: string,
+  requestedBy: string
+): Promise<DisbursementRetryResult> {
+  const tx = await loadTransaction(transactionId);
+
+  if (tx.isEscrow) {
+    throw new ConflictError("Use resend-claim-link for escrow transactions.");
+  }
+
+  if (tx.status !== "onchain" && tx.status !== "routed" && tx.status !== "requires_review") {
+    throw new ConflictError(
+      `Transaction status is "${tx.status}" — only onchain/routed/requires_review can be retried.`
+    );
+  }
+
+  const job = {
+    transactionId: tx.id,
+    rail: tx.rail,
+    recipientPhone: tx.recipientPhone,
+    amountLocal: parseFloat(tx.amountLocal),
+    localCurrency: tx.localCurrency,
+    reference: tx.reference,
+    providerIdempotencyKey: railProviderIdempotencyKey(tx.id, "disbursement_retry"),
+    failureStage: "disbursement_retry",
+    metadata: { retriedBy: requestedBy, retriedAt: new Date().toISOString() },
+  };
+
+  await recordSettlementStep(tx.id, "routed", {
+    note: "Disbursement retry initiated via ops",
+    retriedBy: requestedBy,
+  });
+
+  const queued = await enqueueRailDisburse(job);
+  if (!queued) {
+    const result = await processRailDisbursement(job);
+    return {
+      transactionId: tx.id,
+      rail: result.rail,
+      railReference: result.railReference,
+      status: result.status,
+      queued: false,
+    };
+  }
+
+  return {
+    transactionId: tx.id,
+    rail: tx.rail,
+    railReference: tx.railReference ?? "queued",
+    status: "pending",
+    queued: true,
   };
 }
 
