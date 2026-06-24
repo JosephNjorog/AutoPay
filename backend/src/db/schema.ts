@@ -281,6 +281,13 @@ export const merchantSettings = pgTable(
 
 // ── Relations ─────────────────────────────────────────────────────────────────
 
+export const merchantSettingsRelations = relations(merchantSettings, ({ one }) => ({
+  user: one(users, {
+    fields: [merchantSettings.userId],
+    references: [users.id],
+  }),
+}));
+
 export const usersRelations = relations(users, ({ many, one }) => ({
   sessions: many(sessions),
   sentTransactions: many(transactions, { relationName: "sender" }),
