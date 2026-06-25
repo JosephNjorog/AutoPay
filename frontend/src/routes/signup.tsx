@@ -1,341 +1,256 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, ShieldCheck, ChevronDown, Check, Loader2, Sparkles, AlertCircle, Mail, Lock } from "lucide-react";
-import { MobileFrame } from "@/components/MobileFrame";
-import { countries } from "@/lib/tuma-data";
-import { api, ApiError } from "@/lib/api/client";
-import { useAuthStore } from "@/lib/auth-store";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { ArrowRight, ChevronLeft, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ProgressBar } from "@/components/ProgressBar";
+import { TrustBadge } from "@/components/TrustBadge";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { apiClient, ApiError } from "@/lib/api";
+import { useSignupStore } from "@/stores/signupStore";
+import { SUPPORTED_COUNTRIES } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/signup")({
-  head: () => ({ meta: [{ title: "Sign up · Autopayke" }, { name: "description", content: "Your number becomes your wallet. No seed phrases." }] }),
-  component: Signup,
+  head: () => ({ meta: [{ title: "AutoPayKe - Sign up" }] }),
+  component: SignupStep1,
 });
 
-type Step = "phone" | "otp" | "creating" | "secure" | "done";
+const SignupStep1Schema = z
+  .object({
+    country_code: z.string().min(2).max(2),
+    phone: z
+      .string()
+      .min(9, "Phone number too short")
+      .max(10, "Phone number too long")
+      .regex(/^[0-9]+$/, "Digits only"),
+    email: z.string().email("Enter a valid email address"),
+  })
+  .refine(
+    (data) => {
+      const country = SUPPORTED_COUNTRIES.find((c) => c.code === data.country_code);
+      if (!country) return true;
+      return data.phone.length === country.phoneLength;
+    },
+    { message: "Phone number length is incorrect for the selected country", path: ["phone"] }
+  );
 
-function Signup() {
+type FormValues = z.infer<typeof SignupStep1Schema>;
+
+function SignupStep1() {
   const navigate = useNavigate();
-  const { setAuth, accessToken } = useAuthStore();
-  const [step, setStep] = useState<Step>("phone");
-  const [country, setCountry] = useState(countries[0]);
-  const [open, setOpen] = useState(false);
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [resendIn, setResendIn] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const fullPhone = `${country.dial}${phone.replace(/\D/g, "")}`;
-  const validEmail = /^\S+@\S+\.\S+$/.test(email);
-  const valid = phone.replace(/\D/g, "").length >= 9 && validEmail;
-  const otpComplete = otp.every((c) => c !== "");
+  const { setPhone, setOtpId } = useSignupStore();
 
   useEffect(() => {
-    if (step !== "otp") return;
-    setResendIn(30);
-    const t = setInterval(() => setResendIn((s) => (s > 0 ? s - 1 : 0)), 1000);
-    return () => clearInterval(t);
-  }, [step]);
+    document.title = "AutoPayKe - Sign up";
+  }, []);
 
-  useEffect(() => {
-    if (step !== "creating") return;
-    const t = setTimeout(() => setStep("secure"), 2200);
-    return () => clearTimeout(t);
-  }, [step]);
+  const {
+    register,
+    control,
+    handleSubmit,
+    watch,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<FormValues>({
+    resolver: zodResolver(SignupStep1Schema),
+    defaultValues: { country_code: "KE", phone: "", email: "" },
+  });
 
-  async function handleSetPassword() {
-    setError(null);
-    setLoading(true);
+  const selectedCode = watch("country_code");
+  const selectedCountry = SUPPORTED_COUNTRIES.find((c) => c.code === selectedCode);
+
+  const onSubmit = async (values: FormValues) => {
+    const fullPhone = `${selectedCountry?.dial ?? ""}${values.phone}`;
     try {
-      await api.auth.setPassword(email, password, accessToken!);
-      setStep("done");
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Failed to set password. Try again.");
-    } finally {
-      setLoading(false);
+      const res = await apiClient.post<{ otp_id: string; expires_in: number }>(
+        "/api/auth/send-otp",
+        { phone: fullPhone, email: values.email, channel: "email" }
+      );
+      setPhone(values.country_code, fullPhone, values.email);
+      setOtpId(res.otp_id);
+      void navigate({ to: "/signup/verify" });
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.code === 409) {
+          setError("phone", { message: "This number is already registered." });
+        } else if (err.code === 422) {
+          setError("phone", { message: "Invalid phone number for the selected country." });
+        } else if (err.code === 429) {
+          toast.error("Too many attempts. Please wait before trying again.");
+        } else {
+          toast.error("Something went wrong. Please try again.");
+        }
+      } else {
+        toast.error("Something went wrong. Please try again.");
+      }
     }
-  }
-
-  async function handleSendOtp() {
-    setError(null);
-    setLoading(true);
-    try {
-      await api.auth.sendOtp(fullPhone, email);
-      setStep("otp");
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Failed to send OTP. Try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleVerifyOtp() {
-    setError(null);
-    setLoading(true);
-    try {
-      const code = otp.join("");
-      const result = await api.auth.verifyOtp(fullPhone, code);
-      setAuth({ accessToken: result.accessToken, refreshToken: result.refreshToken }, result.user);
-      setStep("creating");
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Incorrect code. Try again.");
-      setOtp(["", "", "", "", "", ""]);
-      otpRefs.current[0]?.focus();
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleResend() {
-    setError(null);
-    try {
-      await api.auth.sendOtp(fullPhone, email);
-      setResendIn(30);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Failed to resend OTP.");
-    }
-  }
-
-  function handleOtp(i: number, v: string) {
-    const ch = v.replace(/\D/g, "").slice(-1);
-    const next = [...otp];
-    next[i] = ch;
-    setOtp(next);
-    if (ch && i < 5) otpRefs.current[i + 1]?.focus();
-  }
+  };
 
   return (
-    <MobileFrame>
-      <div className="flex min-h-full flex-col p-6 pb-10">
-        <div className="flex items-center justify-between">
-          <Link to="/" className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="flex gap-1.5">
-            {(["phone", "otp", "done"] as const).map((s, i) => {
-              const idx = ["phone", "otp", "creating", "secure", "done"].indexOf(step);
-              const active = i <= [0, 1, 2, 2, 2][idx];
-              return <span key={s} className={`h-1.5 w-6 rounded-full transition ${active ? "bg-primary" : "bg-border"}`} />;
-            })}
-          </div>
-        </div>
+    <div className="min-h-screen bg-auth-gradient relative">
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-white/30" />
 
-        {error && (
-          <div className="mt-4 flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {error}
-          </div>
-        )}
+      <div className="relative z-10 px-5 pt-6 pb-8 max-w-97.5 mx-auto min-h-screen flex flex-col">
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/" })}
+          className="w-9 h-9 rounded-xl bg-white/50 border border-white/60 flex items-center justify-center cursor-pointer mb-6 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+          aria-label="Go back"
+        >
+          <ChevronLeft size={16} strokeWidth={2} />
+        </button>
 
-        {step === "phone" && (
-          <>
-            <div className="mt-10">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Step 1 of 3</p>
-              <h1 className="mt-3 text-4xl font-black tracking-tight leading-[1.05]">What's your<br />number?</h1>
-              <p className="mt-3 text-sm text-muted-foreground">It becomes your global wallet ID. We'll email you a 6-digit code.</p>
-            </div>
+        <ProgressBar currentStep={1} className="mb-7" />
 
-            <div className="mt-8 space-y-3">
-              <div className="relative">
-                <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left">
-                  <span className="text-2xl">{country.flag}</span>
-                  <div className="flex-1">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Country</p>
-                    <p className="font-semibold text-sm">{country.name} <span className="text-muted-foreground font-normal">({country.dial})</span></p>
-                  </div>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </button>
-                {open && (
-                  <div className="absolute z-20 mt-2 w-full max-h-64 overflow-y-auto rounded-2xl border border-border bg-card shadow-(--shadow-card)">
-                    {countries.map((c) => (
-                      <button key={c.code} onClick={() => { setCountry(c); setOpen(false); }} className="w-full flex items-center gap-3 p-3 hover:bg-muted text-left">
-                        <span className="text-xl">{c.flag}</span>
-                        <span className="flex-1 text-sm font-medium">{c.name}</span>
-                        <span className="text-xs text-muted-foreground">{c.dial}</span>
-                      </button>
+        <p className="text-[11px] font-semibold tracking-widest text-black/40 uppercase mb-1.5">
+          STEP 1 OF 4
+        </p>
+        <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-navy mb-2">
+          What is your number?
+        </h1>
+        <p className="text-[13px] text-black/50 leading-relaxed mb-6">
+          It becomes your global wallet ID. No account number, no email login required.
+        </p>
+
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col flex-1">
+          {/* Country */}
+          <div className="bg-white/85 backdrop-blur-sm border border-white/90 rounded-2xl px-4 py-3.5 mb-2.5">
+            <span className="text-[10px] font-semibold tracking-widest text-black/40 uppercase block mb-1">
+              COUNTRY
+            </span>
+            <Controller
+              name="country_code"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className="bg-transparent border-none shadow-none p-0 h-auto focus:ring-0 focus:ring-offset-0 text-[15px] font-semibold text-navy">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUPPORTED_COUNTRIES.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        <span className="flex items-center gap-2">
+                          <span className="inline-flex items-center justify-center w-6 h-4 rounded-sm bg-navy/10 text-[9px] font-bold text-navy/60 tracking-wider">
+                            {c.code}
+                          </span>
+                          {c.name} ({c.dial})
+                        </span>
+                      </SelectItem>
                     ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Phone number</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="font-bold text-lg">{country.dial}</span>
-                  <input
-                    type="tel" inputMode="tel" placeholder="24 567 8910"
-                    value={phone} onChange={(e) => setPhone(e.target.value)}
-                    className="flex-1 bg-transparent text-lg font-bold outline-none placeholder:text-muted-foreground/40"
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"><Mail className="h-3 w-3" /> Email</p>
-                <input
-                  type="email" inputMode="email" placeholder="you@example.com"
-                  value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 w-full bg-transparent text-lg font-bold outline-none placeholder:text-muted-foreground/40"
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">We'll send your verification code here.</p>
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-2xl bg-primary-soft p-4 flex gap-3">
-              <ShieldCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold">No seed phrase. Ever.</p>
-                <p className="text-xs text-muted-foreground mt-1">A smart wallet is derived from your number on Avalanche. Recover by re-verifying your SIM.</p>
-              </div>
-            </div>
-
-            <div className="mt-auto pt-8">
-              <button disabled={!valid || loading} onClick={handleSendOtp}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground transition disabled:opacity-40 disabled:cursor-not-allowed shadow-(--shadow-elegant)"
-                style={{ background: "var(--gradient-portfolio)" }}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {loading ? "Sending code…" : "Send verification code"}
-                {!loading && <ArrowRight className="h-4 w-4" />}
-              </button>
-              <p className="mt-3 text-center text-[11px] text-muted-foreground">By continuing you agree to Autopayke's Terms.</p>
-            </div>
-          </>
-        )}
-
-        {step === "otp" && (
-          <>
-            <div className="mt-10">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Step 2 of 3</p>
-              <h1 className="mt-3 text-4xl font-black tracking-tight leading-[1.05]">Enter the<br />6-digit code</h1>
-              <p className="mt-3 text-sm text-muted-foreground">Sent to <span className="font-semibold text-foreground">{email}</span></p>
-            </div>
-
-            <div className="mt-8 grid grid-cols-6 gap-2">
-              {otp.map((d, i) => (
-                <input
-                  key={i}
-                  ref={(el) => { otpRefs.current[i] = el; }}
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={d}
-                  onChange={(e) => handleOtp(i, e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Backspace" && !d && i > 0) otpRefs.current[i - 1]?.focus(); }}
-                  className="aspect-square rounded-2xl border-2 border-border bg-card text-center text-2xl font-black outline-none focus:border-primary focus:bg-primary-soft transition"
-                />
-              ))}
-            </div>
-
-            <div className="mt-6 text-center text-xs text-muted-foreground">
-              {resendIn > 0
-                ? `Resend code in ${resendIn}s`
-                : <button className="text-primary font-semibold" onClick={handleResend}>Resend code</button>
-              }
-            </div>
-
-            <div className="mt-auto pt-8">
-              <button disabled={!otpComplete || loading} onClick={handleVerifyOtp}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground transition disabled:opacity-40 shadow-(--shadow-elegant)"
-                style={{ background: "var(--gradient-portfolio)" }}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {loading ? "Verifying…" : "Verify"} {!loading && <ArrowRight className="h-4 w-4" />}
-              </button>
-              <button onClick={() => { setStep("phone"); setError(null); }} className="mt-3 w-full text-center text-[11px] text-muted-foreground">Change number</button>
-            </div>
-          </>
-        )}
-
-        {step === "creating" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <div className="relative h-24 w-24">
-              <div className="absolute inset-0 rounded-full opacity-40 blur-2xl" style={{ background: "var(--gradient-portfolio)" }} />
-              <div className="relative h-full w-full rounded-full flex items-center justify-center text-primary-foreground" style={{ background: "var(--gradient-portfolio)" }}>
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
-            </div>
-            <h2 className="mt-6 text-2xl font-black">Spinning up your wallet</h2>
-            <ul className="mt-6 space-y-2 text-left text-xs text-muted-foreground">
-              <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-success" /> Number verified</li>
-              <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-success" /> Smart account deployed on Avalanche</li>
-              <li className="flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> Linking to your local rail…</li>
-            </ul>
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
-        )}
 
-        {step === "secure" && (
-          <>
-            <div className="mt-10">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Step 3 of 3</p>
-              <h1 className="mt-3 text-4xl font-black tracking-tight leading-[1.05]">Skip the code<br />next time</h1>
-              <p className="mt-3 text-sm text-muted-foreground">Set an email and password so you can log in instantly on any device — no waiting on a text message.</p>
-            </div>
-
-            <div className="mt-8 space-y-3">
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"><Mail className="h-3 w-3" /> Email</p>
-                <input
-                  type="email" inputMode="email" placeholder="you@example.com"
-                  value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 w-full bg-transparent text-lg font-bold outline-none placeholder:text-muted-foreground/40"
-                />
-              </div>
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"><Lock className="h-3 w-3" /> Password</p>
-                <input
-                  type="password" placeholder="At least 8 characters"
-                  value={password} onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 w-full bg-transparent text-lg font-bold outline-none placeholder:text-muted-foreground/40"
-                />
-              </div>
-            </div>
-
-            <div className="mt-auto pt-8 space-y-2">
-              <button
-                disabled={!email || password.length < 8 || loading}
-                onClick={handleSetPassword}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground transition disabled:opacity-40 disabled:cursor-not-allowed shadow-(--shadow-elegant)"
-                style={{ background: "var(--gradient-portfolio)" }}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {loading ? "Saving…" : "Set it up"} {!loading && <ArrowRight className="h-4 w-4" />}
-              </button>
-              <button onClick={() => { setError(null); setStep("done"); }} className="w-full text-center text-[11px] text-muted-foreground py-2">Skip for now</button>
-            </div>
-          </>
-        )}
-
-        {step === "done" && (
-          <div className="flex-1 flex flex-col">
-            <div className="mt-10 flex flex-col items-center text-center">
-              <div className="h-20 w-20 rounded-full bg-success-soft flex items-center justify-center">
-                <Check className="h-10 w-10 text-success" />
-              </div>
-              <h2 className="mt-6 text-3xl font-black tracking-tight">You're in.</h2>
-              <p className="mt-2 text-sm text-muted-foreground max-w-xs">Your Autopayke wallet is live. Fund it to start sending across Africa.</p>
-            </div>
-
-            <div className="mt-8 rounded-3xl p-5 text-primary-foreground shadow-(--shadow-elegant)" style={{ background: "var(--gradient-portfolio)" }}>
-              <div className="flex items-center gap-2 text-xs opacity-90">
-                <Sparkles className="h-3.5 w-3.5" /> Your Autopayke number
-              </div>
-              <p className="mt-1 text-2xl font-black">{country.dial} {phone || "24 567 8910"}</p>
-              <p className="mt-1 text-[11px] opacity-80">Smart wallet linked · ready to receive</p>
-            </div>
-
-            <div className="mt-auto pt-8 space-y-2">
-              <button onClick={() => navigate({ to: "/fund" })}
-                className="w-full rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant)"
-                style={{ background: "var(--gradient-portfolio)" }}>
-                Add money to wallet
-              </button>
-              <button onClick={() => navigate({ to: "/dashboard" })}
-                className="w-full rounded-2xl border border-border bg-card py-4 text-sm font-semibold">
-                Skip for now
-              </button>
-            </div>
+          {/* Phone */}
+          <div
+            className={cn(
+              "bg-white/85 backdrop-blur-sm border rounded-2xl px-4 py-3.5 mb-2.5 flex items-center gap-2",
+              errors.phone ? "border-danger" : "border-white/90"
+            )}
+          >
+            <span className="text-[16px] font-bold text-navy shrink-0 select-none">
+              {selectedCountry?.dial ?? "+254"}
+            </span>
+            <input
+              {...register("phone")}
+              type="tel"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="706848263"
+              autoComplete="tel-national"
+              className="bg-transparent border-none outline-none text-[16px] font-semibold text-navy placeholder-black/30 flex-1 w-full"
+            />
           </div>
-        )}
+          {errors.phone && (
+            <p className="text-[12px] text-danger mb-2 px-1">
+              {errors.phone.message}
+              {errors.phone.message?.includes("already registered") && (
+                <>
+                  {" "}
+                  <Link to="/login" className="underline font-semibold">
+                    Sign in instead.
+                  </Link>
+                </>
+              )}
+            </p>
+          )}
+
+          {/* Email */}
+          <div
+            className={cn(
+              "bg-white/85 backdrop-blur-sm border rounded-2xl px-4 py-3.5 mb-3",
+              errors.email ? "border-danger" : "border-white/90"
+            )}
+          >
+            <span className="text-[10px] font-semibold tracking-widest text-black/40 uppercase block mb-1">
+              EMAIL
+            </span>
+            <input
+              {...register("email")}
+              type="email"
+              placeholder="you@example.com"
+              autoComplete="email"
+              className="bg-transparent border-none outline-none text-[14px] font-medium text-navy placeholder-black/30 w-full"
+            />
+            <p className="text-[11px] text-black/40 mt-1.5 leading-relaxed">
+              We will send your 6-digit code here. This is not your login credential.
+            </p>
+          </div>
+          {errors.email && (
+            <p className="text-[12px] text-danger mb-2 px-1">{errors.email.message}</p>
+          )}
+
+          <TrustBadge
+            title="No seed phrase. Ever."
+            body="Your wallet is derived from your number. Recover by re-verifying your SIM. Nothing to write down."
+            icon={<ShieldCheck size={18} strokeWidth={2.5} className="text-success" />}
+          />
+
+          <div className="flex-1" />
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={cn(
+              "w-full py-4 mt-4 rounded-2xl bg-orange-gradient text-white font-display font-bold text-[15px]",
+              "shadow-[0_6px_20px_rgba(249,115,22,0.35)] flex items-center justify-center gap-2",
+              "disabled:opacity-60 disabled:cursor-not-allowed",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2"
+            )}
+          >
+            {isSubmitting ? (
+              <>
+                <LoadingSpinner size={16} color="white" />
+                Sending code
+              </>
+            ) : (
+              <>
+                Send verification code
+                <ArrowRight size={16} strokeWidth={2} />
+              </>
+            )}
+          </button>
+
+          <p className="text-[11px] text-black/40 text-center mt-3 leading-relaxed">
+            By continuing you agree to the{" "}
+            <span className="underline text-orange cursor-pointer">Terms of Service</span>
+            {" "}and{" "}
+            <span className="underline text-orange cursor-pointer">Privacy Policy.</span>
+          </p>
+        </form>
       </div>
-    </MobileFrame>
+    </div>
   );
 }
