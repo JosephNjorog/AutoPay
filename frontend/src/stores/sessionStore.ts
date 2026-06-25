@@ -2,6 +2,28 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { UserSession } from "@/types";
 
+const SESSION_UNLOCK_KEY = "autopayke_unlocked";
+
+function readUnlockFromSession(): boolean {
+  try {
+    return sessionStorage.getItem(SESSION_UNLOCK_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeUnlockToSession(val: boolean) {
+  try {
+    if (val) {
+      sessionStorage.setItem(SESSION_UNLOCK_KEY, "1");
+    } else {
+      sessionStorage.removeItem(SESSION_UNLOCK_KEY);
+    }
+  } catch {
+    // sessionStorage unavailable (private browsing edge cases)
+  }
+}
+
 type SessionState = {
   access_token: string | null;
   refresh_token: string | null;
@@ -12,7 +34,8 @@ type SessionState = {
   kes_rate: number;
   pin_hash: string | null;
 
-  // not persisted — resets to false (locked) on every page load
+  // Mirrors sessionStorage — survives in-session page reloads (PWA navigation),
+  // but resets to false when the PWA is closed/killed (sessionStorage is cleared).
   is_unlocked: boolean;
 
   setSession: (session: UserSession) => void;
@@ -36,9 +59,11 @@ export const useSessionStore = create<SessionState>()(
       wallet_address: null,
       kes_rate: 130,
       pin_hash: null,
-      is_unlocked: false,
+      // Initialise from sessionStorage so in-session page reloads don't re-ask for PIN
+      is_unlocked: readUnlockFromSession(),
 
-      setSession: (session) =>
+      setSession: (session) => {
+        writeUnlockToSession(true);
         set({
           access_token: session.access_token,
           refresh_token: session.refresh_token,
@@ -47,7 +72,8 @@ export const useSessionStore = create<SessionState>()(
           display_name: session.display_name,
           wallet_address: session.wallet_address,
           is_unlocked: true,
-        }),
+        });
+      },
 
       setPinHash: (pin_hash) => set({ pin_hash }),
 
@@ -55,9 +81,13 @@ export const useSessionStore = create<SessionState>()(
 
       setKesRate: (kes_rate) => set({ kes_rate }),
 
-      setUnlocked: (is_unlocked) => set({ is_unlocked }),
+      setUnlocked: (is_unlocked) => {
+        writeUnlockToSession(is_unlocked);
+        set({ is_unlocked });
+      },
 
-      clearSession: () =>
+      clearSession: () => {
+        writeUnlockToSession(false);
         set({
           access_token: null,
           refresh_token: null,
@@ -67,7 +97,8 @@ export const useSessionStore = create<SessionState>()(
           wallet_address: null,
           pin_hash: null,
           is_unlocked: false,
-        }),
+        });
+      },
 
       isAuthenticated: () => get().access_token !== null,
 
@@ -97,7 +128,7 @@ export const useSessionStore = create<SessionState>()(
           wallet_address: s.wallet_address,
           kes_rate: s.kes_rate,
           pin_hash: s.pin_hash,
-          // is_unlocked intentionally excluded — always starts locked after reload
+          // is_unlocked excluded from localStorage — sessionStorage handles it
         }) as SessionState,
     }
   )
