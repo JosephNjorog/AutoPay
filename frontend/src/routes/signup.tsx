@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowRight, ChevronLeft, ShieldCheck } from "lucide-react";
+import { ArrowRight, ChevronLeft, ShieldCheck, CheckSquare, Square } from "lucide-react";
 import { toast } from "sonner";
 import {
   Select,
@@ -17,6 +17,7 @@ import { TrustBadge } from "@/components/TrustBadge";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { apiClient, ApiError } from "@/lib/api";
 import { useSignupStore } from "@/stores/signupStore";
+import { TERMS_VERSION } from "@/lib/constants";
 import { SUPPORTED_COUNTRIES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -49,7 +50,8 @@ type FormValues = z.infer<typeof SignupStep1Schema>;
 
 function SignupStep1() {
   const navigate = useNavigate();
-  const { setPhone } = useSignupStore();
+  const { setPhone, setTermsAccepted } = useSignupStore();
+  const [termsChecked, setTermsChecked] = useState(false);
 
   useEffect(() => {
     document.title = "AutoPayKe - Sign up";
@@ -79,6 +81,7 @@ function SignupStep1() {
         { phone: fullPhone, email: values.email, channel: "email" }
       );
       setPhone(values.country_code, fullPhone, values.email);
+      setTermsAccepted(termsChecked);
       void navigate({ to: "/signup/verify" });
     } catch (err) {
       if (err instanceof ApiError) {
@@ -221,11 +224,49 @@ function SignupStep1() {
 
           <div className="flex-1" />
 
+          {/* T&C checkbox */}
+          <button
+            type="button"
+            onClick={() => setTermsChecked((v) => !v)}
+            className="flex items-start gap-3 text-left mb-4 focus-visible:outline-none group"
+            aria-checked={termsChecked}
+            role="checkbox"
+          >
+            <span className="mt-0.5 shrink-0 text-orange">
+              {termsChecked
+                ? <CheckSquare size={18} strokeWidth={2} />
+                : <Square size={18} strokeWidth={2} className="text-black/30 group-hover:text-orange transition-colors" />}
+            </span>
+            <span className="text-[12px] text-black/50 leading-relaxed">
+              I have read and agree to the{" "}
+              <Link
+                to="/legal/terms"
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-orange underline font-semibold"
+              >
+                Terms of Service
+              </Link>
+              {" "}and{" "}
+              <Link
+                to="/legal/privacy"
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-orange underline font-semibold"
+              >
+                Privacy Policy
+              </Link>
+              . I confirm I am 18 years of age or older.
+            </span>
+          </button>
+
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !termsChecked}
             className={cn(
-              "w-full py-4 mt-4 rounded-2xl bg-orange-gradient text-white font-display font-bold text-[15px]",
+              "w-full py-4 rounded-2xl bg-orange-gradient text-white font-display font-bold text-[15px]",
               "shadow-[0_6px_20px_rgba(249,115,22,0.35)] flex items-center justify-center gap-2",
               "disabled:opacity-60 disabled:cursor-not-allowed",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2"
@@ -243,13 +284,6 @@ function SignupStep1() {
               </>
             )}
           </button>
-
-          <p className="text-[11px] text-black/40 text-center mt-3 leading-relaxed">
-            By continuing you agree to the{" "}
-            <span className="underline text-orange cursor-pointer">Terms of Service</span>
-            {" "}and{" "}
-            <span className="underline text-orange cursor-pointer">Privacy Policy.</span>
-          </p>
         </form>
       </div>
     </div>
