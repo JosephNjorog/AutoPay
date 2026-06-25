@@ -35,7 +35,7 @@ const LoginPhoneSchema = z
     (data) => {
       const country = SUPPORTED_COUNTRIES.find((c) => c.code === data.country_code);
       if (!country) return true;
-      return data.phone.length === country.phoneLength;
+      return data.phone.replace(/^0/, "").length === country.phoneLength;
     },
     { message: "Phone number length is incorrect for the selected country", path: ["phone"] }
   );
@@ -62,14 +62,16 @@ function LoginPhone() {
   const selectedCountry = SUPPORTED_COUNTRIES.find((c) => c.code === selectedCode);
 
   const onSubmit = async (values: FormValues) => {
-    const fullPhone = `${selectedCountry?.dial ?? ""}${values.phone}`;
+    const normalised = values.phone.replace(/^0/, "");
+    const fullPhone = `${selectedCountry?.dial ?? ""}${normalised}`;
     try {
-      const res = await apiClient.post<{ otp_id: string; expires_in: number }>(
+      const res = await apiClient.post<{ otp_id?: string; id?: string; expires_in?: number }>(
         "/api/auth/send-otp",
         { phone: fullPhone, channel: "email" }
       );
+      const otpId = res.otp_id ?? res.id ?? "";
       setPhone(fullPhone);
-      setOtpId(res.otp_id);
+      setOtpId(otpId);
       void navigate({ to: "/login/verify" });
     } catch (err) {
       if (err instanceof ApiError) {
