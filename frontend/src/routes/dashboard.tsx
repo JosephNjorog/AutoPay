@@ -1,4 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, redirect } from "@tanstack/react-router";
+import { useSessionStore } from "@/stores/sessionStore";
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Copy, Send, QrCode, Plus, Store, ArrowUpRight, ArrowDownLeft, Bell, Check, Loader2, LogOut, Inbox, BadgeCheck, XCircle, Sun, Moon } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -124,6 +125,12 @@ function NotificationBell({ accessToken }: { accessToken: string | null }) {
 }
 
 export const Route = createFileRoute("/dashboard")({
+  beforeLoad: () => {
+    if (!useSessionStore.getState().isAuthenticated()) {
+      sessionStorage.setItem("autopayke_redirect_to", "/dashboard");
+      throw redirect({ to: "/login", replace: true });
+    }
+  },
   head: () => ({ meta: [{ title: "Home · Autopayke" }, { name: "description", content: "Your Autopayke wallet — balance, assets, send & receive." }] }),
   component: Dashboard,
 });
