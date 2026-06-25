@@ -13,10 +13,10 @@ export const TransactionRow = memo(function TransactionRow({
   transaction,
   className,
 }: TransactionRowProps) {
-  const isReceived = transaction.type === "received";
+  const isReceived = transaction.direction === "in";
   const label = resolveTransactionLabel(transaction);
 
-  const date = new Date(transaction.created_at);
+  const date = new Date(transaction.createdAt);
   const relativeDate = new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(
     Math.round((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
     "day"
@@ -57,9 +57,9 @@ export const TransactionRow = memo(function TransactionRow({
       {/* Amounts — KES primary, USD secondary */}
       <div className="text-right ml-auto shrink-0">
         <p className={cn("text-[14px] font-extrabold", isReceived ? "text-success" : "text-danger")}>
-          {isReceived ? "+" : "-"}{formatKES(transaction.amount_kes)}
+          {isReceived ? "+" : "-"}{formatKES(transaction.amountLocal)}
         </p>
-        <p className="text-[11px] text-white/30 mt-0.5">{formatUSD(transaction.amount_usd)}</p>
+        <p className="text-[11px] text-white/30 mt-0.5">{formatUSD(transaction.amountUsd)}</p>
       </div>
     </div>
   );
