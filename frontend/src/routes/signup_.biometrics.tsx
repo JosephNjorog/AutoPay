@@ -38,12 +38,12 @@ function SignupBiometrics() {
         "/api/auth/webauthn/register/begin",
         { signup_token }
       );
-      const credential = await startRegistration({ optionsJSON: opts });
+      const credential = await startRegistration(opts);
       await apiClient.post("/api/auth/webauthn/register/complete", {
         signup_token,
         credential,
       });
-      setPasskeyRegistered(true);
+      setPasskeyRegistered();
       setStage("done");
       setTimeout(() => void navigate({ to: "/signup/complete" }), 800);
     } catch (err) {
@@ -166,4 +166,4 @@ function SignupBiometrics() {
   );
 }
 
-type PublicKeyCredentialCreationOptionsJSON = Parameters<typeof startRegistration>[0]["optionsJSON"];
+type PublicKeyCredentialCreationOptionsJSON = Parameters<typeof startRegistration>[0];
