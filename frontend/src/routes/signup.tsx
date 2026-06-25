@@ -74,12 +74,13 @@ function SignupStep1() {
     const normalised = values.phone.replace(/^0/, "");
     const fullPhone = `${selectedCountry?.dial ?? ""}${normalised}`;
     try {
-      const res = await apiClient.post<{ otp_id: string; expires_in: number }>(
+      const res = await apiClient.post<{ otp_id?: string; id?: string; expires_in?: number }>(
         "/api/auth/send-otp",
         { phone: fullPhone, email: values.email, channel: "email" }
       );
+      const otpId = res.otp_id ?? res.id ?? "";
       setPhone(values.country_code, fullPhone, values.email);
-      setOtpId(res.otp_id);
+      setOtpId(otpId);
       void navigate({ to: "/signup/verify" });
     } catch (err) {
       if (err instanceof ApiError) {
