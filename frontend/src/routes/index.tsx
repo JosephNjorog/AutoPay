@@ -1,276 +1,177 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Download, Phone, Globe2, Zap, ShieldCheck, ArrowRight, Share, MoreVertical } from "lucide-react";
-import { useState, useEffect } from "react";
-import { usePwaInstall } from "../lib/use-pwa-install";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useRef, useEffect, useState } from "react";
+import { Phone, Globe, Zap, ShieldCheck, ArrowRight, Download } from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "AutoPayKe - Phone-first money for Africa" },
+      { name: "description", content: "Send to any phone number. Settles on M-Pesa, MoMo, Wave or bank in seconds." },
+    ],
+  }),
+  component: LandingPage,
 });
 
-const VALUE_PROPS = [
+const FEATURES = [
   {
     icon: Phone,
-    title: "Phone = Identity",
-    body: "Your number is your address. No seed phrases, no wallet setup.",
+    title: "Phone is your wallet",
+    description: "Your number is your address. No seed phrases, no wallet setup.",
   },
   {
-    icon: Globe2,
+    icon: Globe,
     title: "Borderless",
-    body: "Settle on M-Pesa, MoMo, Wave, or bank — across 5 African countries.",
+    description: "Settle on M-Pesa, MoMo, Wave across 5 African countries.",
   },
   {
     icon: Zap,
-    title: "Seconds, not days",
-    body: "Avalanche C-Chain under the hood. Transfers confirm in under 2 s.",
+    title: "About 12 seconds",
+    description: "Transfers confirm fast. No bank processing delays.",
   },
   {
     icon: ShieldCheck,
     title: "You own it",
-    body: "Smart wallet you control. We can't touch your funds.",
+    description: "Self-custodial wallet. We cannot touch your funds.",
   },
-];
+] as const;
 
-function IOSInstructions({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
-      <div
-        className="w-full rounded-t-2xl bg-card border-t border-border p-6"
-        style={{ paddingBottom: "calc(2.5rem + env(safe-area-inset-bottom))" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted-foreground/30" />
-        <h3 className="text-base font-semibold text-foreground mb-1">Add Autopayke to Home Screen</h3>
-        <p className="text-sm text-muted-foreground mb-4">Follow these steps in Safari:</p>
-        <ol className="space-y-3 text-sm text-foreground/80">
-          <li className="flex items-start gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">1</span>
-            <span>Tap the <Share className="inline h-4 w-4 -mt-0.5" /> Share button at the bottom of Safari</span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">2</span>
-            <span>Scroll down and tap <strong className="text-foreground">Add to Home Screen</strong></span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">3</span>
-            <span>Tap <strong className="text-foreground">Add</strong> in the top-right corner</span>
-          </li>
-        </ol>
-        <button
-          onClick={onClose}
-          className="mt-6 w-full rounded-xl bg-muted py-3 text-sm font-semibold text-foreground hover:bg-muted/70 transition"
-        >
-          Done
-        </button>
-      </div>
-    </div>
-  );
-}
+function LandingPage() {
+  const navigate = useNavigate();
+  const pwaPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
+  const [pwaAvailable, setPwaAvailable] = useState(false);
 
-function AndroidInstructions({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
-      <div
-        className="w-full rounded-t-2xl bg-card border-t border-border p-6"
-        style={{ paddingBottom: "calc(2.5rem + env(safe-area-inset-bottom))" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted-foreground/30" />
-        <h3 className="text-base font-semibold text-foreground mb-1">Add Autopayke to Home Screen</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Your browser didn't offer an install prompt — add it manually from Chrome:
-        </p>
-        <ol className="space-y-3 text-sm text-foreground/80">
-          <li className="flex items-start gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">1</span>
-            <span>Tap the <MoreVertical className="inline h-4 w-4 -mt-0.5" /> menu in the top-right corner</span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">2</span>
-            <span>Tap <strong className="text-foreground">Add to Home screen</strong> (or <strong className="text-foreground">Install app</strong>)</span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">3</span>
-            <span>Confirm by tapping <strong className="text-foreground">Add</strong> or <strong className="text-foreground">Install</strong></span>
-          </li>
-        </ol>
-        <p className="mt-4 text-xs text-muted-foreground">
-          Only Chrome and other Chromium-based browsers support installing Autopayke on Android — Firefox and in-app browsers (Instagram, WhatsApp, etc.) don't.
-        </p>
-        <button
-          onClick={onClose}
-          className="mt-6 w-full rounded-xl bg-muted py-3 text-sm font-semibold text-foreground hover:bg-muted/70 transition"
-        >
-          Done
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function Index() {
-  const { canInstall, install, installed, isIOS, isAndroid } = usePwaInstall();
-  const [showIOSSheet, setShowIOSSheet] = useState(false);
-  const [showAndroidSheet, setShowAndroidSheet] = useState(false);
-  const [showBanner, setShowBanner] = useState(false);
-
-  // Show install banner after 2.5 seconds if not already installed
   useEffect(() => {
-    if (installed) return;
-    const t = setTimeout(() => setShowBanner(true), 2500);
-    return () => clearTimeout(t);
-  }, [installed]);
+    document.title = "AutoPayKe - Phone-first money for Africa";
 
-  const handleGetApp = () => {
-    if (canInstall && !isIOS) {
-      // Real beforeinstallprompt available (Chrome/Chromium on Android or desktop)
-      install();
-    } else if (isIOS) {
-      setShowIOSSheet(true);
-    } else if (isAndroid) {
-      // Android but no beforeinstallprompt fired (already dismissed, non-Chromium
-      // browser, or in-app webview) — give Chrome's manual menu steps instead of
-      // the iOS Safari instructions.
-      setShowAndroidSheet(true);
+    const handler = (e: Event) => {
+      pwaPromptRef.current = e as BeforeInstallPromptEvent;
+      setPwaAvailable(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handler);
+    // pick up the prompt captured before React mounted
+    if (window.__pwaInstallPrompt) {
+      pwaPromptRef.current = window.__pwaInstallPrompt;
+      setPwaAvailable(true);
+    }
+
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (pwaPromptRef.current) {
+      await pwaPromptRef.current.prompt();
+      pwaPromptRef.current = null;
+      setPwaAvailable(false);
     } else {
-      // Desktop browser without native install support
-      setShowIOSSheet(true);
+      toast.info("Open autopayke.com in your browser to install the app.");
     }
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      {/* Nav */}
-      <nav className="flex items-center justify-between px-6 py-5 max-w-2xl mx-auto w-full">
-        <div className="flex items-center gap-2">
-          <img src="/autopay_iconlogo.svg" alt="Autopayke" className="h-8 w-8 rounded-xl" />
-          <span className="font-black tracking-tight text-base">Autopayke</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {!installed && (
-            <button
-              onClick={handleGetApp}
-              className="flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Get App
-            </button>
-          )}
-          <Link
-            to="/login"
-            className="rounded-full px-4 py-1.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
-            style={{ background: "var(--gradient-portfolio)" }}
+    <div className="min-h-screen bg-[#FDF8F2] relative overflow-hidden">
+      {/* Radial glow */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(249,115,22,0.12)_0%,transparent_70%)]" />
+
+      <div className="relative z-10 max-w-[390px] mx-auto px-5 pt-5 pb-10">
+        {/* Navbar */}
+        <div className="flex items-center justify-between mb-6 sticky top-0 bg-[#FDF8F2]/90 backdrop-blur-sm py-3 -mx-5 px-5 z-10">
+          <div className="flex items-center gap-2">
+            <div className="w-[30px] h-[30px] rounded-lg bg-orange-gradient flex items-center justify-center text-white font-bold text-sm font-display">
+              A
+            </div>
+            <span className="font-display font-extrabold text-[16px] text-navy">AutoPayKe</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/login" })}
+            className="border border-orange text-orange text-[13px] font-semibold rounded-full px-4 py-1.5 bg-transparent hover:bg-orange/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-1"
           >
             Sign in
-          </Link>
+          </button>
         </div>
-      </nav>
 
-      {/* Hero */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-12 max-w-2xl mx-auto w-full text-center">
-        {/* Badge */}
-        <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground mb-8">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inset-0 rounded-full bg-success animate-ping opacity-75" />
-            <span className="relative h-1.5 w-1.5 rounded-full bg-success" />
+        {/* Live badge */}
+        <div className="inline-flex items-center gap-1.5 bg-orange/10 border border-orange/25 rounded-full px-3.5 py-1.5 mb-5">
+          <span className="w-1.5 h-1.5 rounded-full bg-success motion-safe:animate-pulse-dot" />
+          <span className="text-[11px] font-semibold text-orange">
+            Live on Avalanche - 5 countries - 5 rails
           </span>
-          Live on Avalanche · 5 countries · 5 rails
-        </span>
+        </div>
 
-        {/* Headline */}
-        <h1 className="text-5xl font-black tracking-tight leading-none mb-4 sm:text-6xl">
-          <span
-            className="bg-clip-text text-transparent"
-            style={{ backgroundImage: "var(--gradient-portfolio)" }}
-          >
-            Autopayke
-          </span>
+        {/* Hero */}
+        <h1 className="font-display font-black text-[34px] leading-[1.1] tracking-tight text-navy mb-2">
+          Phone-first money for{" "}
+          <span className="text-orange">Africa.</span>
         </h1>
-        <p className="text-xl font-semibold text-foreground/80 mb-3 leading-snug">
-          Phone-first money for Africa.
-        </p>
-        <p className="text-base text-muted-foreground max-w-sm leading-relaxed mb-12">
-          Send to any phone number. Settles on M-Pesa, MoMo, Wave or bank —
-          in seconds. No crypto knowledge required.
+        <p className="text-[13px] text-gray-500 leading-relaxed mb-6">
+          Send to any phone number. Settles on M-Pesa, MoMo, Wave or bank in seconds. No technical knowledge required.
         </p>
 
-        {/* Value props */}
-        <div className="grid grid-cols-2 gap-3 w-full mb-12">
-          {VALUE_PROPS.map(({ icon: Icon, title, body }) => (
-            <div
-              key={title}
-              className="rounded-2xl border border-border bg-card p-4 text-left"
-            >
-              <Icon className="h-5 w-5 text-primary mb-2" />
-              <p className="text-sm font-semibold text-foreground mb-0.5">{title}</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">{body}</p>
+        {/* Feature cards */}
+        <div className="grid grid-cols-2 gap-2.5 mb-6">
+          {FEATURES.map(({ icon: Icon, title, description }) => (
+            <div key={title} className="bg-white border border-black/[0.06] rounded-2xl p-3.5 shadow-sm">
+              <div className="w-8 h-8 rounded-lg bg-orange/10 flex items-center justify-center mb-2">
+                <Icon size={18} strokeWidth={title === "You own it" ? 2 : 1.5} className="text-orange" />
+              </div>
+              <p className="text-[12px] font-bold text-navy mb-1">{title}</p>
+              <p className="text-[11px] text-gray-400 leading-[1.4]">{description}</p>
             </div>
           ))}
         </div>
 
-        {/* CTAs */}
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <Link
-            to="/signup"
-            className="flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold text-primary-foreground transition hover:opacity-90 shadow-(--shadow-elegant)"
-            style={{ background: "var(--gradient-portfolio)" }}
+        {/* CTA stack */}
+        <div className="flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/signup" })}
+            className={cn(
+              "w-full py-4 rounded-2xl bg-orange-gradient text-white font-display font-bold text-[15px]",
+              "shadow-[0_4px_20px_rgba(249,115,22,0.35)] hover:shadow-[0_6px_28px_rgba(249,115,22,0.5)]",
+              "transition-shadow flex items-center justify-center gap-2",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2"
+            )}
           >
             Continue with phone number
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
-            to="/dashboard"
-            className="flex items-center justify-center gap-2 rounded-2xl border border-border py-4 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-foreground/20 transition"
+            <ArrowRight size={16} strokeWidth={2} />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleInstall}
+            className={cn(
+              "w-full py-4 rounded-2xl bg-orange/[0.08] border border-orange/20 text-orange",
+              "font-display font-bold text-[14px] flex items-center justify-center gap-2",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2"
+            )}
           >
-            Skip — try demo account
-          </Link>
-          {!installed && (
-            <button
-              onClick={handleGetApp}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary-soft py-3 text-sm font-medium text-primary hover:bg-primary-soft/70 transition"
-            >
-              <Download className="h-4 w-4" />
-              Get the app
-            </button>
-          )}
+            <Download size={16} strokeWidth={1.5} />
+            Get the app
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/login" })}
+            className="w-full py-3 text-gray-400 text-[13px] font-medium bg-transparent border-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2 rounded-lg"
+          >
+            Try demo account
+          </button>
         </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="text-center py-6 px-6 text-xs text-muted-foreground">
-        Powered by Avalanche · Secured by your phone
-      </footer>
-
-      {/* Install banner — slides up after 2.5s */}
-      {showBanner && !installed && !showIOSSheet && !showAndroidSheet && (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-40 flex justify-center pointer-events-none"
-          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-        >
-          <div className="pointer-events-auto w-full max-w-sm mx-4 mb-4 rounded-2xl border border-border bg-card/95 backdrop-blur-xl p-4 shadow-2xl flex items-center gap-3">
-            <img src="/autopay_iconlogo.svg" alt="Autopayke" className="h-12 w-12 rounded-xl shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-foreground">Add Autopayke to Home Screen</p>
-              <p className="text-xs text-muted-foreground">Use it like a native app — instant access</p>
-            </div>
-            <div className="flex flex-col gap-1.5 shrink-0">
-              <button
-                onClick={handleGetApp}
-                className="rounded-xl px-3 py-1.5 text-xs font-bold text-primary-foreground transition hover:opacity-90"
-                style={{ background: "var(--gradient-portfolio)" }}
-              >
-                Install
-              </button>
-              <button onClick={() => setShowBanner(false)} className="rounded-xl bg-muted px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/70 transition">
-                Later
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* iOS / Desktop instructions sheet */}
-      {showIOSSheet && <IOSInstructions onClose={() => setShowIOSSheet(false)} />}
-      {showAndroidSheet && <AndroidInstructions onClose={() => setShowAndroidSheet(false)} />}
+      </div>
     </div>
   );
+}
+
+// Extend window with PWA types
+declare global {
+  interface Window {
+    __pwaInstallPrompt: BeforeInstallPromptEvent | null;
+  }
+  interface BeforeInstallPromptEvent extends Event {
+    prompt(): Promise<void>;
+    userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+  }
 }
