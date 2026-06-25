@@ -44,7 +44,7 @@ type FormValues = z.infer<typeof LoginPhoneSchema>;
 
 function LoginPhone() {
   const navigate = useNavigate();
-  const { setPhone, setOtpId } = useLoginStore();
+  const { setPhone } = useLoginStore();
 
   const {
     register,
@@ -65,13 +65,11 @@ function LoginPhone() {
     const normalised = values.phone.replace(/^0/, "");
     const fullPhone = `${selectedCountry?.dial ?? ""}${normalised}`;
     try {
-      const res = await apiClient.post<{ otp_id?: string; id?: string; expires_in?: number }>(
+      await apiClient.post<{ message: string }>(
         "/api/auth/send-otp",
         { phone: fullPhone, channel: "email" }
       );
-      const otpId = res.otp_id ?? res.id ?? "";
       setPhone(fullPhone);
-      setOtpId(otpId);
       void navigate({ to: "/login/verify" });
     } catch (err) {
       if (err instanceof ApiError) {
