@@ -26,6 +26,7 @@ import { Route as SignupVerifyRouteImport } from './routes/signup_.verify'
 import { Route as SignupPinRouteImport } from './routes/signup_.pin'
 import { Route as SignupCompleteRouteImport } from './routes/signup_.complete'
 import { Route as SignupBiometricsRouteImport } from './routes/signup_.biometrics'
+import { Route as SettingsProfileRouteImport } from './routes/settings_.profile'
 import { Route as SettingsPinRouteImport } from './routes/settings_.pin'
 import { Route as LoginVerifyRouteImport } from './routes/login_.verify'
 import { Route as LoginPhoneRouteImport } from './routes/login_.phone'
@@ -116,6 +117,11 @@ const SignupBiometricsRoute = SignupBiometricsRouteImport.update({
   path: '/signup/biometrics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsProfileRoute = SettingsProfileRouteImport.update({
+  id: '/settings_/profile',
+  path: '/settings/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsPinRoute = SettingsPinRouteImport.update({
   id: '/settings_/pin',
   path: '/settings/pin',
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/login/phone': typeof LoginPhoneRoute
   '/login/verify': typeof LoginVerifyRoute
   '/settings/pin': typeof SettingsPinRoute
+  '/settings/profile': typeof SettingsProfileRoute
   '/signup/biometrics': typeof SignupBiometricsRoute
   '/signup/complete': typeof SignupCompleteRoute
   '/signup/pin': typeof SignupPinRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/login/phone': typeof LoginPhoneRoute
   '/login/verify': typeof LoginVerifyRoute
   '/settings/pin': typeof SettingsPinRoute
+  '/settings/profile': typeof SettingsProfileRoute
   '/signup/biometrics': typeof SignupBiometricsRoute
   '/signup/complete': typeof SignupCompleteRoute
   '/signup/pin': typeof SignupPinRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   '/login_/phone': typeof LoginPhoneRoute
   '/login_/verify': typeof LoginVerifyRoute
   '/settings_/pin': typeof SettingsPinRoute
+  '/settings_/profile': typeof SettingsProfileRoute
   '/signup_/biometrics': typeof SignupBiometricsRoute
   '/signup_/complete': typeof SignupCompleteRoute
   '/signup_/pin': typeof SignupPinRoute
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/login/phone'
     | '/login/verify'
     | '/settings/pin'
+    | '/settings/profile'
     | '/signup/biometrics'
     | '/signup/complete'
     | '/signup/pin'
@@ -249,6 +259,7 @@ export interface FileRouteTypes {
     | '/login/phone'
     | '/login/verify'
     | '/settings/pin'
+    | '/settings/profile'
     | '/signup/biometrics'
     | '/signup/complete'
     | '/signup/pin'
@@ -272,6 +283,7 @@ export interface FileRouteTypes {
     | '/login_/phone'
     | '/login_/verify'
     | '/settings_/pin'
+    | '/settings_/profile'
     | '/signup_/biometrics'
     | '/signup_/complete'
     | '/signup_/pin'
@@ -296,6 +308,7 @@ export interface RootRouteChildren {
   LoginPhoneRoute: typeof LoginPhoneRoute
   LoginVerifyRoute: typeof LoginVerifyRoute
   SettingsPinRoute: typeof SettingsPinRoute
+  SettingsProfileRoute: typeof SettingsProfileRoute
   SignupBiometricsRoute: typeof SignupBiometricsRoute
   SignupCompleteRoute: typeof SignupCompleteRoute
   SignupPinRoute: typeof SignupPinRoute
@@ -424,6 +437,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupBiometricsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings_/profile': {
+      id: '/settings_/profile'
+      path: '/settings/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof SettingsProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings_/pin': {
       id: '/settings_/pin'
       path: '/settings/pin'
@@ -472,6 +492,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginPhoneRoute: LoginPhoneRoute,
   LoginVerifyRoute: LoginVerifyRoute,
   SettingsPinRoute: SettingsPinRoute,
+  SettingsProfileRoute: SettingsProfileRoute,
   SignupBiometricsRoute: SignupBiometricsRoute,
   SignupCompleteRoute: SignupCompleteRoute,
   SignupPinRoute: SignupPinRoute,
