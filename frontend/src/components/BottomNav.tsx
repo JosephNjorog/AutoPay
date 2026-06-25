@@ -1,54 +1,74 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Home, Send, QrCode, Clock, Wallet } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const tabs = [
-  { to: "/dashboard", label: "Home", icon: Home },
-  { to: "/send", label: "Send", icon: Send },
-  { to: "/history", label: "History", icon: Clock },
-  { to: "/wallet", label: "Wallet", icon: Wallet },
-] as const;
-
-export function BottomNav() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  return (
-    <div
-      className="sticky bottom-0 left-0 right-0 z-40 pointer-events-none"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-    >
-      <div className="pointer-events-auto relative mx-3 mb-3 rounded-3xl bg-card/95 backdrop-blur border border-border shadow-[0_-4px_24px_-8px_oklch(0.18_0.02_50/0.15)]">
-        <div className="grid grid-cols-5 items-end px-2 pt-2 pb-3">
-          {tabs.slice(0, 2).map((t) => (
-            <NavItem key={t.to} {...t} active={pathname === t.to} />
-          ))}
-          <div className="flex justify-center -mt-7">
-            <Link
-              to="/scan"
-              className="flex h-14 w-14 items-center justify-center rounded-2xl text-primary-foreground shadow-[var(--shadow-elegant)] transition-transform active:scale-95"
-              style={{ background: "var(--gradient-portfolio)" }}
-              aria-label="Scan"
-            >
-              <QrCode className="h-6 w-6" />
-            </Link>
-          </div>
-          {tabs.slice(2).map((t) => (
-            <NavItem key={t.to} {...t} active={pathname === t.to} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+export interface BottomNavProps {
+  className?: string;
 }
 
-function NavItem({ to, label, icon: Icon, active }: { to: string; label: string; icon: typeof Home; active: boolean }) {
+const NAV_ITEMS = [
+  { label: "Home", icon: Home, route: "/dashboard", isCenter: false },
+  { label: "Send", icon: Send, route: "/send", isCenter: false },
+  { label: "", icon: QrCode, route: "/receive", isCenter: true },
+  { label: "History", icon: Clock, route: "/history", isCenter: false },
+  { label: "Wallet", icon: Wallet, route: "/wallet", isCenter: false },
+] as const;
+
+export function BottomNav({ className }: BottomNavProps) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
   return (
-    <Link
-      to={to}
-      className={`flex flex-col items-center gap-1 py-1.5 text-[10px] font-medium transition-colors ${
-        active ? "text-primary" : "text-muted-foreground"
-      }`}
+    <nav
+      className={cn(
+        "fixed bottom-0 inset-x-0 bg-[#0D111E]/95 backdrop-blur-xl border-t border-navy-border",
+        "flex items-center justify-around py-2.5 max-w-[390px] mx-auto z-50",
+        className
+      )}
+      style={{ paddingBottom: "calc(0.625rem + env(safe-area-inset-bottom, 10px))" }}
     >
-      <Icon className={`h-5 w-5 ${active ? "stroke-[2.5]" : ""}`} />
-      <span>{label}</span>
-    </Link>
+      {NAV_ITEMS.map((item) => {
+        const isActive = pathname === item.route;
+        const Icon = item.icon;
+
+        if (item.isCenter) {
+          return (
+            <Link
+              key={item.route}
+              to={item.route}
+              aria-label="Scan QR code"
+              className={cn(
+                "w-[52px] h-[52px] rounded-[18px] bg-orange-gradient flex items-center justify-center",
+                "shadow-[0_4px_20px_rgba(249,115,22,0.5)] border-2 border-white/10 mt-[-14px]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D111E]"
+              )}
+            >
+              <Icon size={22} strokeWidth={1.5} className="text-white" />
+            </Link>
+          );
+        }
+
+        return (
+          <Link
+            key={item.route}
+            to={item.route}
+            className={cn(
+              "flex flex-col items-center gap-1 flex-1 min-h-[44px] justify-center cursor-pointer",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-1 focus-visible:ring-offset-[#0D111E] rounded-lg"
+            )}
+          >
+            <Icon
+              size={20}
+              strokeWidth={1.5}
+              className={isActive ? "text-orange" : "text-white/30"}
+            />
+            {item.label && (
+              <span className={cn("text-[10px] font-semibold", isActive ? "text-orange" : "text-white/30")}>
+                {item.label}
+              </span>
+            )}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
