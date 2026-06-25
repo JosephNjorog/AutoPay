@@ -30,7 +30,7 @@ export function useTransactionSocket() {
       ws.onmessage = (event) => {
         try {
           const tx = JSON.parse(event.data as string) as Transaction;
-          if (!tx?.id || !tx?.amount_usdc) return;
+          if (!tx?.id || !tx?.amountUsd) return;
 
           queryClient.setQueryData<{ transactions: Transaction[] }>(
             ["transactions", "recent"],
