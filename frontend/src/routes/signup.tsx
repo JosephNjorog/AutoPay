@@ -39,7 +39,8 @@ const SignupStep1Schema = z
     (data) => {
       const country = SUPPORTED_COUNTRIES.find((c) => c.code === data.country_code);
       if (!country) return true;
-      return data.phone.length === country.phoneLength;
+      // strip leading zero to accept both local (0738...) and international (738...) formats
+      return data.phone.replace(/^0/, "").length === country.phoneLength;
     },
     { message: "Phone number length is incorrect for the selected country", path: ["phone"] }
   );
@@ -70,7 +71,8 @@ function SignupStep1() {
   const selectedCountry = SUPPORTED_COUNTRIES.find((c) => c.code === selectedCode);
 
   const onSubmit = async (values: FormValues) => {
-    const fullPhone = `${selectedCountry?.dial ?? ""}${values.phone}`;
+    const normalised = values.phone.replace(/^0/, "");
+    const fullPhone = `${selectedCountry?.dial ?? ""}${normalised}`;
     try {
       const res = await apiClient.post<{ otp_id: string; expires_in: number }>(
         "/api/auth/send-otp",
