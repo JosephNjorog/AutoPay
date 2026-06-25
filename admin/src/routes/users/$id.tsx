@@ -130,6 +130,33 @@ export default function UserDetailPage() {
               )}
               <Field label="Joined" value={fmtDate(user.createdAt)} />
               {user.suspendedAt && <Field label="Suspended At" value={fmtDate(user.suspendedAt)} />}
+              <Field
+                label="T&C Accepted"
+                value={
+                  (user as any).termsAccepted ? (
+                    <span className="inline-flex flex-col gap-0.5">
+                      <span className="text-green-600 font-semibold text-xs">✓ Accepted</span>
+                      {(user as any).termsAcceptedAt && (
+                        <span className="text-xs text-muted-foreground">
+                          {fmtDate((user as any).termsAcceptedAt)}
+                        </span>
+                      )}
+                      {(user as any).termsVersion && (
+                        <span className="text-xs text-muted-foreground font-mono">
+                          v{(user as any).termsVersion}
+                        </span>
+                      )}
+                      {(user as any).termsAcceptedIp && (
+                        <span className="text-xs text-muted-foreground font-mono">
+                          IP: {(user as any).termsAcceptedIp}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="text-yellow-600 text-xs font-semibold">Not recorded</span>
+                  )
+                }
+              />
             </dl>
           </CardContent>
         </Card>
