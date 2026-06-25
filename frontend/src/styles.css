@@ -223,10 +223,37 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  html {
+    /* Prevent font size inflation on orientation change (iOS Safari) */
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: "Inter", sans-serif;
+    /* Prevent over-scroll bounce from revealing the background on iOS */
+    overscroll-behavior-y: none;
+  }
+
+  /* Prevent 300ms click delay on mobile — keeps taps snappy */
+  button,
+  [role="button"],
+  a,
+  label,
+  select {
+    touch-action: manipulation;
+  }
+
+  /* iOS Safari zooms in when a focused input has font-size < 16px.
+     Setting 16px as the floor here prevents that without changing desktop visuals
+     because Tailwind utilities (text-sm, text-xs) are applied at component level
+     and override this base value on desktop. On mobile we accept 16px minimums. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: max(16px, 1em);
   }
 
   input[type="number"]::-webkit-inner-spin-button,
