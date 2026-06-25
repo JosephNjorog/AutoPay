@@ -8,6 +8,7 @@ import { BiometricRing } from "@/components/BiometricRing";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { apiClient, ApiError } from "@/lib/api";
 import { useSignupStore } from "@/stores/signupStore";
+import { useSessionStore } from "@/stores/sessionStore";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/signup_/biometrics")({
@@ -19,16 +20,17 @@ type Stage = "prompt" | "registering" | "done" | "error";
 
 function SignupBiometrics() {
   const navigate = useNavigate();
-  const { signup_token, pin_hash, setPasskeyRegistered } = useSignupStore();
+  const { pin_hash, setPasskeyRegistered } = useSignupStore();
+  const { isAuthenticated, access_token } = useSessionStore();
 
   const [stage, setStage] = useState<Stage>("prompt");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!signup_token || !pin_hash) {
+    if (!isAuthenticated() || !pin_hash) {
       void navigate({ to: "/signup" });
     }
-  }, [signup_token, pin_hash, navigate]);
+  }, []);
 
   const handleRegister = async () => {
     setStage("registering");
@@ -36,11 +38,10 @@ function SignupBiometrics() {
     try {
       const opts = await apiClient.post<PublicKeyCredentialCreationOptionsJSON>(
         "/api/auth/webauthn/register/begin",
-        { signup_token }
+        { token: access_token }
       );
       const credential = await startRegistration(opts);
       await apiClient.post("/api/auth/webauthn/register/complete", {
-        signup_token,
         credential,
       });
       localStorage.setItem("autopayke_credential_id", credential.id);
