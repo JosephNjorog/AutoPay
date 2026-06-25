@@ -87,15 +87,26 @@ function RootComponent() {
   const setUnlocked = useSessionStore((s) => s.setUnlocked);
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated());
 
-  // Lock the app whenever the tab/window goes to background
+  // Lock the app when it goes to background.
+  // 2s grace period avoids false locks from brief visibility changes some mobile
+  // browsers fire during in-app navigation transitions.
   useEffect(() => {
+    let lockTimer: ReturnType<typeof setTimeout> | null = null;
+
     const handleVisibilityChange = () => {
       if (document.hidden && isAuthenticated) {
-        setUnlocked(false);
+        lockTimer = setTimeout(() => setUnlocked(false), 2000);
+      } else if (!document.hidden && lockTimer !== null) {
+        clearTimeout(lockTimer);
+        lockTimer = null;
       }
     };
+
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (lockTimer !== null) clearTimeout(lockTimer);
+    };
   }, [isAuthenticated, setUnlocked]);
 
   return (
