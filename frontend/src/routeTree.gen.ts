@@ -30,6 +30,8 @@ import { Route as SettingsProfileRouteImport } from './routes/settings_.profile'
 import { Route as SettingsPinRouteImport } from './routes/settings_.pin'
 import { Route as LoginVerifyRouteImport } from './routes/login_.verify'
 import { Route as LoginPhoneRouteImport } from './routes/login_.phone'
+import { Route as LegalTermsRouteImport } from './routes/legal_.terms'
+import { Route as LegalPrivacyRouteImport } from './routes/legal_.privacy'
 import { Route as ClaimRefRouteImport } from './routes/claim.$ref'
 
 const WalletRoute = WalletRouteImport.update({
@@ -137,6 +139,16 @@ const LoginPhoneRoute = LoginPhoneRouteImport.update({
   path: '/login/phone',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalTermsRoute = LegalTermsRouteImport.update({
+  id: '/legal_/terms',
+  path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
+  id: '/legal_/privacy',
+  path: '/legal/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClaimRefRoute = ClaimRefRouteImport.update({
   id: '/claim/$ref',
   path: '/claim/$ref',
@@ -157,6 +169,8 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/wallet': typeof WalletRoute
   '/claim/$ref': typeof ClaimRefRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/login/phone': typeof LoginPhoneRoute
   '/login/verify': typeof LoginVerifyRoute
   '/settings/pin': typeof SettingsPinRoute
@@ -181,6 +195,8 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/wallet': typeof WalletRoute
   '/claim/$ref': typeof ClaimRefRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/login/phone': typeof LoginPhoneRoute
   '/login/verify': typeof LoginVerifyRoute
   '/settings/pin': typeof SettingsPinRoute
@@ -206,6 +222,8 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/wallet': typeof WalletRoute
   '/claim/$ref': typeof ClaimRefRoute
+  '/legal_/privacy': typeof LegalPrivacyRoute
+  '/legal_/terms': typeof LegalTermsRoute
   '/login_/phone': typeof LoginPhoneRoute
   '/login_/verify': typeof LoginVerifyRoute
   '/settings_/pin': typeof SettingsPinRoute
@@ -232,6 +250,8 @@ export interface FileRouteTypes {
     | '/signup'
     | '/wallet'
     | '/claim/$ref'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/login/phone'
     | '/login/verify'
     | '/settings/pin'
@@ -256,6 +276,8 @@ export interface FileRouteTypes {
     | '/signup'
     | '/wallet'
     | '/claim/$ref'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/login/phone'
     | '/login/verify'
     | '/settings/pin'
@@ -280,6 +302,8 @@ export interface FileRouteTypes {
     | '/signup'
     | '/wallet'
     | '/claim/$ref'
+    | '/legal_/privacy'
+    | '/legal_/terms'
     | '/login_/phone'
     | '/login_/verify'
     | '/settings_/pin'
@@ -305,6 +329,8 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   WalletRoute: typeof WalletRoute
   ClaimRefRoute: typeof ClaimRefRoute
+  LegalPrivacyRoute: typeof LegalPrivacyRoute
+  LegalTermsRoute: typeof LegalTermsRoute
   LoginPhoneRoute: typeof LoginPhoneRoute
   LoginVerifyRoute: typeof LoginVerifyRoute
   SettingsPinRoute: typeof SettingsPinRoute
@@ -465,6 +491,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginPhoneRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal_/terms': {
+      id: '/legal_/terms'
+      path: '/legal/terms'
+      fullPath: '/legal/terms'
+      preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal_/privacy': {
+      id: '/legal_/privacy'
+      path: '/legal/privacy'
+      fullPath: '/legal/privacy'
+      preLoaderRoute: typeof LegalPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/claim/$ref': {
       id: '/claim/$ref'
       path: '/claim/$ref'
@@ -489,6 +529,8 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   WalletRoute: WalletRoute,
   ClaimRefRoute: ClaimRefRoute,
+  LegalPrivacyRoute: LegalPrivacyRoute,
+  LegalTermsRoute: LegalTermsRoute,
   LoginPhoneRoute: LoginPhoneRoute,
   LoginVerifyRoute: LoginVerifyRoute,
   SettingsPinRoute: SettingsPinRoute,
