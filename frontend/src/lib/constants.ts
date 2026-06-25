@@ -16,3 +16,4 @@ export const MAX_PIN_ATTEMPTS = 5;
 export const WALLET_POLL_INTERVAL_MS = 3000;
 export const BALANCE_STALE_TIME_MS = 30000;
 export const TRANSACTIONS_STALE_TIME_MS = 10000;
+export const TERMS_VERSION = "2026-06-25";
