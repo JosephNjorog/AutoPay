@@ -44,11 +44,13 @@ function SignupVerify() {
   const otpRef = useRef<OtpInputRef>(null);
   const timerRef = useRef<CountdownTimerRef>(null);
 
+  // Run only on mount — phone clears after successful login, which must not re-trigger this
   useEffect(() => {
     if (!phone) {
       void navigate({ to: "/signup" });
     }
-  }, [phone, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleComplete = async (otp: string) => {
     setError(null);
