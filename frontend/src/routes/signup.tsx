@@ -49,7 +49,7 @@ type FormValues = z.infer<typeof SignupStep1Schema>;
 
 function SignupStep1() {
   const navigate = useNavigate();
-  const { setPhone, setOtpId } = useSignupStore();
+  const { setPhone } = useSignupStore();
 
   useEffect(() => {
     document.title = "AutoPayKe - Sign up";
@@ -74,13 +74,11 @@ function SignupStep1() {
     const normalised = values.phone.replace(/^0/, "");
     const fullPhone = `${selectedCountry?.dial ?? ""}${normalised}`;
     try {
-      const res = await apiClient.post<{ otp_id?: string; id?: string; expires_in?: number }>(
+      await apiClient.post<{ message: string }>(
         "/api/auth/send-otp",
         { phone: fullPhone, email: values.email, channel: "email" }
       );
-      const otpId = res.otp_id ?? res.id ?? "";
       setPhone(values.country_code, fullPhone, values.email);
-      setOtpId(otpId);
       void navigate({ to: "/signup/verify" });
     } catch (err) {
       if (err instanceof ApiError) {
