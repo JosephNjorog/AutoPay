@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
+import { useSessionStore } from "@/stores/sessionStore";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -63,6 +64,12 @@ function friendlyPayError(e: unknown): string {
 }
 
 export const Route = createFileRoute("/fund")({
+  beforeLoad: () => {
+    if (!useSessionStore.getState().isAuthenticated()) {
+      sessionStorage.setItem("autopayke_redirect_to", "/fund");
+      throw redirect({ to: "/login", replace: true });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Add money · Autopayke" },
