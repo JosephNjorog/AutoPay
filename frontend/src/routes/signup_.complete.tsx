@@ -1,13 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { ArrowRight, Check } from "lucide-react";
-import { apiClient, ApiError } from "@/lib/api";
 import { useSignupStore } from "@/stores/signupStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/signup_/complete")({
   head: () => ({ meta: [{ title: "AutoPayKe - Welcome!" }] }),
@@ -23,76 +21,45 @@ const STEPS = [
 
 function SignupComplete() {
   const navigate = useNavigate();
-  const { phone, email, signup_token, pin_hash, clearSignupStore } = useSignupStore();
-  const { setSession, setPinHash } = useSessionStore();
+  const { pin_hash, clearSignupStore } = useSignupStore();
+  const { setPinHash, isAuthenticated } = useSessionStore();
 
-  const [activating, setActivating] = useState(false);
   const [done, setDone] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const activatedRef = useRef(false);
+  const ranRef = useRef(false);
 
   useEffect(() => {
-    if (!signup_token || !pin_hash) {
+    if (!isAuthenticated() || !pin_hash) {
       void navigate({ to: "/signup" });
       return;
     }
 
-    if (activatedRef.current) return;
-    activatedRef.current = true;
+    if (ranRef.current) return;
+    ranRef.current = true;
 
-    const activate = async () => {
-      setActivating(true);
-      try {
-        const res = await apiClient.post<{
-          access_token: string;
-          refresh_token: string;
-          user_id: string;
-          phone: string;
-          display_name: string;
-          wallet_address: string;
-        }>("/api/auth/activate", { signup_token, pin_hash });
+    // persist pin_hash so the lock screen can verify locally
+    setPinHash(pin_hash);
 
-        setSession({
-          access_token: res.access_token,
-          refresh_token: res.refresh_token,
-          user_id: res.user_id,
-          phone: res.phone,
-          display_name: res.display_name,
-          wallet_address: res.wallet_address,
-        });
+    // brief animation pause, then mark done
+    const t = setTimeout(() => {
+      clearSignupStore();
+      setDone(true);
+    }, 1400);
 
-        // persist pin_hash so the lock screen can verify locally next time
-        if (pin_hash) setPinHash(pin_hash);
-
-        clearSignupStore();
-        setDone(true);
-      } catch (err) {
-        if (err instanceof ApiError) {
-          setError("Account activation failed. Please try again or contact support.");
-        } else {
-          setError("Something went wrong during activation.");
-        }
-        toast.error("Activation failed. Please try again.");
-      } finally {
-        setActivating(false);
-      }
-    };
-
-    void activate();
-  }, [signup_token, pin_hash, navigate, setSession, clearSignupStore]);
+    return () => clearTimeout(t);
+  }, []);
 
   const handleContinue = () => {
     void navigate({ to: "/dashboard" });
   };
 
+  const activating = !done;
+
   return (
     <div className="min-h-screen bg-dark-gradient relative flex flex-col items-center justify-center px-5">
-      {/* Background glows */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_60%,rgba(249,115,22,0.18)_0%,transparent_70%)]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_40%_30%_at_50%_25%,rgba(249,115,22,0.08)_0%,transparent_70%)]" />
 
       <div className="relative z-10 w-full max-w-97.5 flex flex-col items-center text-center">
-        {/* Status icon */}
         <div
           className={cn(
             "w-20 h-20 rounded-3xl flex items-center justify-center mb-7 transition-colors duration-500",
@@ -101,17 +68,13 @@ function SignupComplete() {
         >
           {activating ? (
             <LoadingSpinner size={28} color="orange" />
-          ) : done ? (
-            <Check size={32} strokeWidth={2.5} className="text-success" />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-danger/30 border border-danger/50" />
+            <Check size={32} strokeWidth={2.5} className="text-success" />
           )}
         </div>
 
         <h1 className="font-display font-black text-[32px] leading-[1.1] text-white mb-3">
-          {activating && "Setting up your wallet…"}
-          {done && "You're all set."}
-          {error && "Activation failed"}
+          {activating ? "Setting up your wallet…" : "You're all set."}
         </h1>
 
         {activating && (
@@ -126,11 +89,6 @@ function SignupComplete() {
           </p>
         )}
 
-        {error && (
-          <p className="text-[13px] text-danger/80 leading-relaxed max-w-70">{error}</p>
-        )}
-
-        {/* Steps checklist */}
         <div className="w-full bg-white/5 border border-white/8 rounded-2xl px-5 py-4 mt-8 mb-8 text-left">
           {STEPS.map((step, i) => {
             const checked = done || (activating && i < 2);
