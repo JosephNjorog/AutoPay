@@ -1,10 +1,18 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useRef, useEffect, useState } from "react";
 import { Phone, Globe, Zap, ShieldCheck, ArrowRight, Download } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useSessionStore } from "@/stores/sessionStore";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    const s = useSessionStore.getState();
+    if (s.isAuthenticated()) {
+      // Authenticated users go to the lock/PIN screen, not the landing page
+      throw redirect({ to: "/login", replace: true });
+    }
+  },
   head: () => ({
     meta: [
       { title: "AutoPayKe - Phone-first money for Africa" },
