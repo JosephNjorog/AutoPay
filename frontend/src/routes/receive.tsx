@@ -12,7 +12,8 @@ import { buildPayUrl } from "@/lib/pay-link";
 
 export const Route = createFileRoute("/receive")({
   beforeLoad: () => {
-    if (!useSessionStore.getState().isAuthenticated()) {
+    const s = useSessionStore.getState();
+    if (!s.isAuthenticated() || !s.is_unlocked) {
       sessionStorage.setItem("autopayke_redirect_to", "/receive");
       throw redirect({ to: "/login", replace: true });
     }
