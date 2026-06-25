@@ -1,4 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, redirect } from "@tanstack/react-router";
+import { useSessionStore } from "@/stores/sessionStore";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft, Search, UserPlus, Check, ArrowRight, Sparkles,
@@ -13,6 +14,12 @@ import { useAuthStore } from "@/lib/auth-store";
 type SendSearch = { to?: string; amount?: string };
 
 export const Route = createFileRoute("/send")({
+  beforeLoad: () => {
+    if (!useSessionStore.getState().isAuthenticated()) {
+      sessionStorage.setItem("autopayke_redirect_to", "/send");
+      throw redirect({ to: "/login", replace: true });
+    }
+  },
   head: () => ({ meta: [{ title: "Send · Autopayke" }, { name: "description", content: "Send money to any African phone number." }] }),
   validateSearch: (search: Record<string, unknown>): SendSearch => ({
     to: typeof search.to === "string" ? search.to : undefined,
