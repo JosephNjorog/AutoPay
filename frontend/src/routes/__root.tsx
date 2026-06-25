@@ -11,6 +11,7 @@ import { Toaster } from "sonner";
 
 import { reportError } from "../lib/error-reporting";
 import { wagmiConfig } from "../lib/web3";
+import { useSessionStore } from "../stores/sessionStore";
 
 // Side-effect: initialises Reown AppKit modal
 import "../lib/web3";
@@ -83,6 +84,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const setUnlocked = useSessionStore((s) => s.setUnlocked);
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated());
+
+  // Lock the app whenever the tab/window goes to background
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && isAuthenticated) {
+        setUnlocked(false);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [isAuthenticated, setUnlocked]);
 
   return (
     <WagmiProvider config={wagmiConfig}>
