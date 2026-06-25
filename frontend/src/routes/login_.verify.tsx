@@ -8,9 +8,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { apiClient, ApiError } from "@/lib/api";
 import { useLoginStore } from "@/stores/loginStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { maskEmail } from "@/lib/utils";
 import { OTP_LENGTH, OTP_RESEND_SECONDS } from "@/lib/constants";
-import type { UserSession } from "@/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/login_/verify")({
@@ -18,9 +16,22 @@ export const Route = createFileRoute("/login_/verify")({
   component: LoginVerify,
 });
 
+type BackendAuthResponse = {
+  isNewUser?: boolean;
+  accessToken: string;
+  refreshToken: string;
+  user: {
+    id: string;
+    phone: string;
+    email: string | null;
+    walletAddress: string | null;
+    isMerchant: boolean;
+  };
+};
+
 function LoginVerify() {
   const navigate = useNavigate();
-  const { phone, otp_id, setOtpId, clearLoginStore } = useLoginStore();
+  const { phone, clearLoginStore } = useLoginStore();
   const { setSession } = useSessionStore();
 
   const [error, setError] = useState<string | null>(null);
@@ -31,10 +42,10 @@ function LoginVerify() {
   const timerRef = useRef<CountdownTimerRef>(null);
 
   useEffect(() => {
-    if (!phone || !otp_id) {
+    if (!phone) {
       void navigate({ to: "/login/phone" });
     }
-  }, [phone, otp_id, navigate]);
+  }, [phone, navigate]);
 
   const navigateAfterLogin = () => {
     const redirect = sessionStorage.getItem("autopayke_redirect_to");
@@ -47,25 +58,40 @@ function LoginVerify() {
   };
 
   const handleComplete = async (otp: string) => {
-    if (!otp_id) return;
     setError(null);
     setVerifying(true);
     try {
-      const res = await apiClient.post<UserSession>("/api/auth/verify-login-otp", {
-        otp_id,
+      const res = await apiClient.post<BackendAuthResponse>("/api/auth/verify-otp", {
+        phone,
         code: otp,
       });
-      setSession(res);
+
+      const emailLocal = res.user.email
+        ? res.user.email.split("@")[0]?.replace(/[._\-+]/g, " ").split(" ")[0]
+        : null;
+      const displayName = emailLocal
+        ? emailLocal.charAt(0).toUpperCase() + emailLocal.slice(1)
+        : null;
+
+      setSession({
+        access_token: res.accessToken,
+        refresh_token: res.refreshToken,
+        user_id: res.user.id,
+        phone: res.user.phone,
+        display_name: displayName,
+        wallet_address: res.user.walletAddress,
+      });
+
       clearLoginStore();
       navigateAfterLogin();
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.code === 422) {
-          setError("Incorrect code. Check your email and try again.");
+        if (err.code === 422 || err.code === 400) {
+          setError(err.message || "Incorrect code. Check your email and try again.");
         } else if (err.code === 410) {
           setError("This code has expired. Request a new one.");
         } else {
-          setError("Verification failed. Please try again.");
+          setError(err.message || "Verification failed. Please try again.");
         }
       } else {
         setError("Verification failed. Please try again.");
@@ -81,11 +107,10 @@ function LoginVerify() {
     setResending(true);
     setError(null);
     try {
-      const res = await apiClient.post<{ otp_id?: string; id?: string; expires_in?: number }>(
-        "/api/auth/send-otp",
-        { phone, channel: "email" }
-      );
-      setOtpId(res.otp_id ?? res.id ?? "");
+      await apiClient.post<{ message: string }>("/api/auth/send-otp", {
+        phone,
+        channel: "email",
+      });
       otpRef.current?.reset();
       timerRef.current?.reset();
       toast.success("A new code has been sent to your email.");
