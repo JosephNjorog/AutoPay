@@ -1,45 +1,35 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { useSessionStore } from "@/stores/sessionStore";
 import type { AuthUser } from "./api/client";
 
-type AuthState = {
-  accessToken: string | null;
-  refreshToken: string | null;
-  user: AuthUser | null;
+/**
+ * Bridge hook — reads tokens from sessionStore (the new OTP-based auth store)
+ * so all older routes using useAuthStore() automatically get the correct token.
+ *
+ * The old "autopayke-auth" localStorage key is no longer written.
+ * Existing persisted values in that key are simply ignored.
+ */
+export function useAuthStore() {
+  const accessToken = useSessionStore((s) => s.access_token);
+  const refreshToken = useSessionStore((s) => s.refresh_token);
+  const userId = useSessionStore((s) => s.user_id);
+  const phone = useSessionStore((s) => s.phone);
+  const walletAddress = useSessionStore((s) => s.wallet_address);
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const clearSession = useSessionStore((s) => s.clearSession);
 
-  setAuth: (tokens: { accessToken: string; refreshToken: string }, user: AuthUser) => void;
-  setAccessToken: (token: string) => void;
-  updateUser: (patch: Partial<AuthUser>) => void;
-  logout: () => void;
-  isLoggedIn: () => boolean;
-};
+  const user: AuthUser | null = userId
+    ? { id: userId, phone: phone ?? "", email: null, walletAddress, isMerchant: false }
+    : null;
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      accessToken: null,
-      refreshToken: null,
-      user: null,
-
-      setAuth: ({ accessToken, refreshToken }, user) =>
-        set({ accessToken, refreshToken, user }),
-
-      setAccessToken: (accessToken) => set({ accessToken }),
-
-      updateUser: (patch) =>
-        set((s) => ({ user: s.user ? { ...s.user, ...patch } : null })),
-
-      logout: () => set({ accessToken: null, refreshToken: null, user: null }),
-
-      isLoggedIn: () => !!get().accessToken,
-    }),
-    {
-      name: "autopayke-auth",
-      partialize: (s) => ({
-        accessToken: s.accessToken,
-        refreshToken: s.refreshToken,
-        user: s.user,
-      }),
-    }
-  )
-);
+  return {
+    accessToken,
+    refreshToken,
+    user,
+    isLoggedIn: isAuthenticated,
+    logout: clearSession,
+    // No-ops retained for API compatibility with older routes
+    setAuth: (_tokens: unknown, _user: unknown) => {},
+    setAccessToken: (_token: string) => {},
+    updateUser: (_patch: Partial<AuthUser>) => {},
+  };
+}
