@@ -10,7 +10,8 @@ import { useAuthStore } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/history")({
   beforeLoad: () => {
-    if (!useSessionStore.getState().isAuthenticated()) {
+    const s = useSessionStore.getState();
+    if (!s.isAuthenticated() || !s.is_unlocked) {
       sessionStorage.setItem("autopayke_redirect_to", "/history");
       throw redirect({ to: "/login", replace: true });
     }
