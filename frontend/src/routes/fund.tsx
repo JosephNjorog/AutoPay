@@ -65,7 +65,8 @@ function friendlyPayError(e: unknown): string {
 
 export const Route = createFileRoute("/fund")({
   beforeLoad: () => {
-    if (!useSessionStore.getState().isAuthenticated()) {
+    const s = useSessionStore.getState();
+    if (!s.isAuthenticated() || !s.is_unlocked) {
       sessionStorage.setItem("autopayke_redirect_to", "/fund");
       throw redirect({ to: "/login", replace: true });
     }
