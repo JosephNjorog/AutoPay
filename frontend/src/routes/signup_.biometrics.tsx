@@ -43,6 +43,7 @@ function SignupBiometrics() {
         signup_token,
         credential,
       });
+      localStorage.setItem("autopayke_credential_id", credential.id);
       setPasskeyRegistered();
       setStage("done");
       setTimeout(() => void navigate({ to: "/signup/complete" }), 800);
