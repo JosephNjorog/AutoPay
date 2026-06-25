@@ -8,7 +8,7 @@ import { SendOtpSchema, VerifyOtpSchema, SetPasswordSchema, LoginSchema } from "
 import { generateOtp, hashPhone, hashToken, hashPassword, verifyPassword } from "../lib/crypto";
 import { setex, getJson, del, incr, keys } from "../lib/redis";
 import { sendOtpSms } from "../services/sms";
-import { sendOtpEmail } from "../services/email";
+import { sendOtpEmail, sendWelcomeEmail } from "../services/email";
 import {
   signAccessToken,
   signRefreshToken,
@@ -99,8 +99,18 @@ authRouter.post("/send-otp", otpSendLimiter, zValidator("json", SendOtpSchema), 
 });
 
 // POST /api/auth/verify-otp
-authRouter.post("/verify-otp", otpVerifyLimiter, zValidator("json", VerifyOtpSchema), async (c) => {
-  const { phone, code } = c.req.valid("json");
+authRouter.post(
+  "/verify-otp",
+  otpVerifyLimiter,
+  zValidator(
+    "json",
+    VerifyOtpSchema.extend({
+      termsAccepted: z.boolean().optional(),
+      termsVersion: z.string().optional(),
+    })
+  ),
+  async (c) => {
+  const { phone, code, termsAccepted, termsVersion } = c.req.valid("json");
 
   const stored = await getJson<{ otp: string; attempts: number; email?: string | null }>(keys.otp(phone));
 
@@ -128,6 +138,8 @@ authRouter.post("/verify-otp", otpVerifyLimiter, zValidator("json", VerifyOtpSch
   let user = await db.query.users.findFirst({ where: eq(users.phone, phone) });
   const isNewUser = !user;
 
+  const clientIp = c.req.header("x-forwarded-for") ?? c.req.header("cf-connecting-ip") ?? null;
+
   if (!user) {
     let email = stored.email ?? null;
     if (email) {
@@ -136,9 +148,29 @@ authRouter.post("/verify-otp", otpVerifyLimiter, zValidator("json", VerifyOtpSch
     }
     const [created] = await db
       .insert(users)
-      .values({ phone, phoneHash, countryCode, email })
+      .values({
+        phone,
+        phoneHash,
+        countryCode,
+        email,
+        ...(termsAccepted
+          ? {
+              termsAcceptedAt: new Date(),
+              termsAcceptedIp: clientIp,
+              termsVersion: termsVersion ?? "2026-06-25",
+            }
+          : {}),
+      })
       .returning();
     user = created;
+
+    // Send welcome email non-blocking — failure must not block login
+    if (email) {
+      const firstName = email.split("@")[0] ?? "";
+      sendWelcomeEmail(email, firstName).catch((err: Error) =>
+        console.error(`[Auth] Welcome email failed for ${email}:`, err.message)
+      );
+    }
   }
 
   // Deploy smart wallet if missing (non-blocking — we return immediately).
