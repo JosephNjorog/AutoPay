@@ -10,6 +10,7 @@ import {
   Store,
   Activity,
   AlertCircle,
+  ShieldAlert,
 } from "lucide-react";
 import { BalanceCard } from "@/components/BalanceCard";
 import { TransactionRow } from "@/components/TransactionRow";
@@ -21,7 +22,7 @@ import { useWalletStore } from "@/stores/walletStore";
 import { getGreeting, usdcToKes, formatUSD } from "@/lib/utils";
 import { BALANCE_STALE_TIME_MS, TRANSACTIONS_STALE_TIME_MS } from "@/lib/constants";
 import { useTransactionSocket } from "@/hooks/useTransactionSocket";
-import type { WalletBalance, Transaction } from "@/types";
+import type { WalletBalance, Transaction, AssetBalance } from "@/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard")({
@@ -47,7 +48,7 @@ function Dashboard() {
 
   const walletQuery = useQuery({
     queryKey: ["wallet", "balance"],
-    queryFn: () => apiClient.get<WalletBalance>("/api/wallet/balance"),
+    queryFn: () => apiClient.get<WalletBalance>("/api/wallet"),
     staleTime: BALANCE_STALE_TIME_MS,
     refetchInterval: 30000,
     retry: 1,
@@ -56,20 +57,19 @@ function Dashboard() {
   const transactionsQuery = useQuery({
     queryKey: ["transactions", "recent"],
     queryFn: () =>
-      apiClient.get<{ transactions: Transaction[] }>("/api/transactions?limit=5"),
+      apiClient.get<{ transactions: Transaction[] }>("/api/history?limit=5"),
     staleTime: TRANSACTIONS_STALE_TIME_MS,
     retry: 1,
   });
 
   useEffect(() => {
     if (walletQuery.data) {
-      sessionStore.setKesRate(walletQuery.data.kes_rate);
       setBalance(walletQuery.data);
     }
-  }, [walletQuery.data, sessionStore, setBalance]);
+  }, [walletQuery.data, setBalance]);
 
   const kesRate = sessionStore.kes_rate || 130;
-  const totalUsd = walletQuery.data?.total_usd ?? "0";
+  const totalUsd = walletQuery.data?.totalUsd?.toFixed(2) ?? "0";
   const totalKes = useMemo(() => usdcToKes(totalUsd, kesRate), [totalUsd, kesRate]);
 
   const handleLogout = () => {
@@ -181,6 +181,26 @@ function Dashboard() {
           />
         </div>
 
+        {/* PIN setup prompt for users who haven't set one yet */}
+        {!sessionStore.pin_hash && (
+          <div className="px-4 mb-4">
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/settings/pin" })}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-orange/10 border border-orange/25 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+            >
+              <ShieldAlert size={20} strokeWidth={1.5} className="text-orange shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-bold text-orange">Set up your lock PIN</p>
+                <p className="text-[11px] text-orange/60 leading-tight mt-0.5">
+                  Protect your account when you leave the app
+                </p>
+              </div>
+              <ArrowUpRight size={16} strokeWidth={2} className="text-orange/60 shrink-0" />
+            </button>
+          </div>
+        )}
+
         {/* Assets */}
         <AssetsSection
           data={walletQuery.data}
@@ -220,6 +240,12 @@ interface AssetChipData {
   secondaryAmount: string;
 }
 
+const ASSET_META: Record<string, { color: string; letter: string }> = {
+  USDC: { color: "#2775CA", letter: "U" },
+  USDT: { color: "#26A17B", letter: "U" },
+  AVAX: { color: "#E84142", letter: "A" },
+};
+
 const AssetsSection = memo(function AssetsSection({
   data,
   isLoading,
@@ -230,37 +256,19 @@ const AssetsSection = memo(function AssetsSection({
   onViewAll: () => void;
 }) {
   const chips = useMemo<AssetChipData[]>(() => {
-    if (!data) return [];
-    const avaxUsd = Math.max(
-      0,
-      parseFloat(data.total_usd) - parseFloat(data.usdc) - parseFloat(data.usdt)
-    ).toFixed(2);
-    return [
-      {
-        key: "usdc",
-        name: "USDC",
-        color: "#2775CA",
-        letter: "U",
-        primaryAmount: formatUSD(data.usdc),
-        secondaryAmount: `${parseFloat(data.usdc).toFixed(2)} USDC`,
-      },
-      {
-        key: "usdt",
-        name: "USDT",
-        color: "#26A17B",
-        letter: "U",
-        primaryAmount: formatUSD(data.usdt),
-        secondaryAmount: `${parseFloat(data.usdt).toFixed(2)} USDT`,
-      },
-      {
-        key: "avax",
-        name: "AVAX",
-        color: "#E84142",
-        letter: "A",
-        primaryAmount: formatUSD(avaxUsd),
-        secondaryAmount: `${parseFloat(data.avax).toFixed(4)} AVAX`,
-      },
-    ];
+    if (!data?.assets?.length) return [];
+    return data.assets.map((asset) => {
+      const meta = ASSET_META[asset.symbol] ?? { color: "#888", letter: asset.symbol[0] ?? "?" };
+      const decimals = asset.symbol === "AVAX" ? 4 : 2;
+      return {
+        key: asset.symbol.toLowerCase(),
+        name: asset.symbol,
+        color: meta.color,
+        letter: meta.letter,
+        primaryAmount: formatUSD(asset.balanceUsd),
+        secondaryAmount: `${parseFloat(asset.balance).toFixed(decimals)} ${asset.symbol}`,
+      };
+    });
   }, [data]);
 
   return (
