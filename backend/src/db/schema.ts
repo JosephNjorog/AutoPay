@@ -75,6 +75,10 @@ export const users = pgTable(
     // crypto deposits made outside the app (sent directly to the wallet
     // address) get backfilled into transaction history.
     lastCryptoScanBlock: bigint("last_crypto_scan_block", { mode: "number" }),
+    // Legal consent — recorded at the time the user accepts during signup
+    termsAcceptedAt: timestamp("terms_accepted_at"),
+    termsAcceptedIp: text("terms_accepted_ip"),
+    termsVersion: text("terms_version"),
     suspendedAt: timestamp("suspended_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
