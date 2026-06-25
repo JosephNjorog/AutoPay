@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
-import { ChevronLeft, Key, Phone } from "lucide-react";
+import { Key, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { BiometricRing } from "@/components/BiometricRing";
@@ -14,11 +14,11 @@ import type { UserSession } from "@/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({ meta: [{ title: "AutoPayKe - Sign in" }] }),
+  head: () => ({ meta: [{ title: "AutoPayKe - Unlock" }] }),
   component: LoginPage,
 });
 
-type LoginView = "biometric" | "pin";
+type LockView = "biometric" | "pin";
 type PinStatus = "idle" | "error" | "success";
 
 type PasskeyChallengeResponse = {
@@ -34,7 +34,11 @@ function LoginPage() {
       ? localStorage.getItem("autopayke_credential_id")
       : null;
 
-  const [view, setView] = useState<LoginView>(credentialId ? "biometric" : "pin");
+  const isAuthenticated = sessionStore.isAuthenticated();
+  const is_unlocked = sessionStore.is_unlocked;
+  const pin_hash = sessionStore.pin_hash;
+
+  const [view, setView] = useState<LockView>(credentialId ? "biometric" : "pin");
   const [isLoading, setIsLoading] = useState(false);
   const [bioError, setBioError] = useState<string | null>(null);
   const [pinStatus, setPinStatus] = useState<PinStatus>("idle");
@@ -42,6 +46,7 @@ function LoginPage() {
   const [pinAttempts, setPinAttempts] = useState(0);
   const [accountLocked, setAccountLocked] = useState(false);
   const autoTriggered = useRef(false);
+  const redirectChecked = useRef(false);
 
   const phone = sessionStore.phone;
   const displayName = sessionStore.display_name;
@@ -55,21 +60,31 @@ function LoginPage() {
 
   const nameDisplay = displayName
     ? displayName.split(" ")[0] ?? displayName
-    : phone
-    ? phone
-    : "Welcome back";
+    : phone ?? "Welcome back";
 
-  const navigateAfterLogin = () => {
+  const navigateAfterUnlock = () => {
     const redirect = sessionStorage.getItem("autopayke_redirect_to");
     if (redirect) {
       sessionStorage.removeItem("autopayke_redirect_to");
-      void navigate({ to: redirect as "/" });
+      void navigate({ to: redirect as "/", replace: true });
     } else {
-      void navigate({ to: "/dashboard" });
+      void navigate({ to: "/dashboard", replace: true });
     }
   };
 
-  const handleBiometricLogin = async () => {
+  // Redirect: if no session → phone OTP; if already unlocked → dashboard
+  useEffect(() => {
+    if (redirectChecked.current) return;
+    redirectChecked.current = true;
+
+    if (!isAuthenticated) {
+      void navigate({ to: "/login/phone", replace: true });
+    } else if (is_unlocked) {
+      navigateAfterUnlock();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleBiometricUnlock = async () => {
     setIsLoading(true);
     setBioError(null);
     try {
@@ -80,8 +95,9 @@ function LoginPage() {
       const res = await apiClient.post<UserSession>("/api/auth/verify-passkey", {
         assertion,
       });
+      // setSession auto-sets is_unlocked = true
       sessionStore.setSession(res);
-      navigateAfterLogin();
+      navigateAfterUnlock();
     } catch (err) {
       if (err instanceof DOMException) {
         if (err.name === "NotAllowedError") {
@@ -90,66 +106,54 @@ function LoginPage() {
           setView("pin");
           toast("Please use your PIN instead.");
         } else {
-          toast.error("Connection failed. Check your internet and try again.");
+          setBioError("Connection failed. Check your internet and try again.");
         }
       } else if (err instanceof ApiError) {
-        toast.error("Authentication failed. Please try again.");
+        setBioError("Authentication failed. Please try again.");
       } else {
-        toast.error("Connection failed. Check your internet and try again.");
+        setBioError("Connection failed. Check your internet and try again.");
       }
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Auto-trigger biometric on mount for returning users
   useEffect(() => {
+    if (!isAuthenticated || is_unlocked) return;
     if (view === "biometric" && !autoTriggered.current) {
       autoTriggered.current = true;
-      const t = setTimeout(() => void handleBiometricLogin(), 300);
+      const t = setTimeout(() => void handleBiometricUnlock(), 300);
       return () => clearTimeout(t);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handlePinLogin = async (pin: string) => {
-    if (!phone) {
-      toast.error("Phone number not found. Please log in with your phone number.");
+  const handlePinUnlock = async (pin: string) => {
+    if (!pin_hash) {
+      // No PIN stored — redirect to phone OTP flow to re-authenticate
+      toast("Please verify with your phone number to unlock.");
       void navigate({ to: "/login/phone" });
       return;
     }
-    setIsLoading(true);
-    try {
-      const pin_hash = await hashPin(pin);
-      const res = await apiClient.post<UserSession>("/api/auth/verify-pin", {
-        phone,
-        pin_hash,
-      });
+
+    const inputHash = await hashPin(pin);
+    if (inputHash === pin_hash) {
       setPinStatus("success");
-      sessionStore.setSession(res);
-      setTimeout(() => navigateAfterLogin(), 400);
-    } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.code === 401) {
-          const next = pinAttempts + 1;
-          setPinAttempts(next);
-          setPinStatus("error");
-          const remaining = MAX_PIN_ATTEMPTS - next;
-          setPinStatusMessage(
-            remaining > 0
-              ? `Incorrect PIN. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining before account lock.`
-              : "Incorrect PIN."
-          );
-        } else if (err.code === 429) {
-          setAccountLocked(true);
-          setPinStatus("error");
-          setPinStatusMessage("Account locked. Verify with your phone number.");
-        } else {
-          toast.error("Connection failed. Check your internet and try again.");
-        }
+      sessionStore.setUnlocked(true);
+      setTimeout(() => navigateAfterUnlock(), 300);
+    } else {
+      const next = pinAttempts + 1;
+      setPinAttempts(next);
+      setPinStatus("error");
+      const remaining = MAX_PIN_ATTEMPTS - next;
+      if (remaining <= 0) {
+        setAccountLocked(true);
+        setPinStatusMessage("Too many incorrect attempts. Verify with phone.");
       } else {
-        toast.error("Connection failed. Check your internet and try again.");
+        setPinStatusMessage(
+          `Incorrect PIN. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`
+        );
       }
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -159,20 +163,20 @@ function LoginPage() {
     void navigate({ to: "/signup" });
   };
 
+  // Render nothing while redirect check fires
+  if (!isAuthenticated || is_unlocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-auth-gradient">
+        <LoadingSpinner size={24} color="orange" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-auth-gradient relative">
       <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-white/30" />
 
-      <div className="relative z-10 px-5 pt-6 pb-8 max-w-97.5 mx-auto min-h-screen flex flex-col">
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/" })}
-          className="w-9 h-9 rounded-xl bg-white/50 border border-white/60 flex items-center justify-center cursor-pointer mb-8 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
-          aria-label="Go back"
-        >
-          <ChevronLeft size={16} strokeWidth={2} />
-        </button>
-
+      <div className="relative z-10 px-5 pt-12 pb-8 max-w-97.5 mx-auto min-h-screen flex flex-col">
         {view === "biometric" ? (
           <BiometricView
             greeting={greeting}
@@ -182,7 +186,7 @@ function LoginPage() {
             isLoading={isLoading}
             bioError={bioError}
             credentialId={credentialId}
-            onBiometricPress={handleBiometricLogin}
+            onBiometricPress={handleBiometricUnlock}
             onUsePin={() => { setView("pin"); setBioError(null); }}
             onUsePhone={() => navigate({ to: "/login/phone" })}
             onSwitchAccount={handleSwitchAccount}
@@ -191,15 +195,16 @@ function LoginPage() {
           <PinView
             avatarLetter={avatarLetter}
             phone={phone}
+            hasPinHash={!!pin_hash}
             pinStatus={pinStatus}
             pinStatusMessage={pinStatusMessage}
             pinAttempts={pinAttempts}
             accountLocked={accountLocked}
             isLoading={isLoading}
             credentialId={credentialId}
-            onComplete={handlePinLogin}
+            onComplete={handlePinUnlock}
             onForgotPin={() => navigate({ to: "/login/phone" })}
-            onUseBiometric={() => { setView("biometric"); void handleBiometricLogin(); }}
+            onUseBiometric={() => { setView("biometric"); void handleBiometricUnlock(); }}
           />
         )}
       </div>
@@ -302,6 +307,7 @@ function BiometricView({
 interface PinViewProps {
   avatarLetter: string;
   phone: string | null;
+  hasPinHash: boolean;
   pinStatus: PinStatus;
   pinStatusMessage: string | undefined;
   pinAttempts: number;
@@ -316,6 +322,7 @@ interface PinViewProps {
 function PinView({
   avatarLetter,
   phone,
+  hasPinHash,
   pinStatus,
   pinStatusMessage,
   pinAttempts,
@@ -338,39 +345,63 @@ function PinView({
           <p className="text-[13px] text-black/40 text-center mb-1">{phone}</p>
         )}
         <h1 className="font-display font-bold text-[22px] text-navy text-center">
-          Enter your PIN
+          {hasPinHash ? "Enter your PIN" : "Unlock your account"}
         </h1>
+        {!hasPinHash && (
+          <p className="text-[13px] text-black/40 text-center mt-1 max-w-60 leading-relaxed">
+            No PIN found. Verify with your phone number to re-access your account.
+          </p>
+        )}
       </div>
 
-      <PinKeypad
-        key={accountLocked ? "locked" : "active"}
-        onComplete={onComplete}
-        theme="light"
-        status={pinStatus}
-        statusMessage={pinStatusMessage}
-        disabled={isLoading || accountLocked}
-      />
+      {hasPinHash ? (
+        <PinKeypad
+          key={accountLocked ? "locked" : "active"}
+          onComplete={onComplete}
+          theme="light"
+          status={pinStatus}
+          statusMessage={pinStatusMessage}
+          disabled={isLoading || accountLocked}
+        />
+      ) : (
+        <div className="flex justify-center mt-4 mb-4">
+          <button
+            type="button"
+            onClick={onForgotPin}
+            className={cn(
+              "px-6 py-3.5 rounded-2xl bg-orange-gradient text-white font-display font-bold text-[15px]",
+              "shadow-[0_6px_20px_rgba(249,115,22,0.35)] flex items-center justify-center gap-2",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2"
+            )}
+          >
+            <Phone size={16} strokeWidth={2} />
+            Verify with phone number
+          </button>
+        </div>
+      )}
 
-      {pinAttempts > 0 && !accountLocked && (
+      {hasPinHash && pinAttempts > 0 && !accountLocked && (
         <p className="text-center text-[12px] text-danger mt-1">
-          {remaining} attempt{remaining === 1 ? "" : "s"} remaining before your account is locked
+          {remaining} attempt{remaining === 1 ? "" : "s"} remaining before account lock
         </p>
       )}
 
       <div className="flex-1" />
 
-      <p className={cn("text-center text-[12px] text-black/35 mt-4")}>
-        Forgot PIN?{" "}
-        <button
-          type="button"
-          onClick={onForgotPin}
-          className="text-orange font-semibold focus-visible:outline-none"
-        >
-          Verify with phone number
-        </button>
-      </p>
+      {hasPinHash && (
+        <p className={cn("text-center text-[12px] text-black/35 mt-4")}>
+          Forgot PIN?{" "}
+          <button
+            type="button"
+            onClick={onForgotPin}
+            className="text-orange font-semibold focus-visible:outline-none"
+          >
+            Verify with phone number
+          </button>
+        </p>
+      )}
 
-      {credentialId && !accountLocked && (
+      {credentialId && !accountLocked && hasPinHash && (
         <p className="text-center text-[12px] text-orange font-semibold mt-3 cursor-pointer">
           <button
             type="button"
