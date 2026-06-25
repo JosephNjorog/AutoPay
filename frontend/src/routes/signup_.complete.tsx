@@ -59,7 +59,6 @@ function SignupComplete() {
           phone: res.phone,
           display_name: res.display_name,
           wallet_address: res.wallet_address,
-          kes_rate: 130,
         });
 
         clearSignupStore();
@@ -113,19 +112,19 @@ function SignupComplete() {
         </h1>
 
         {activating && (
-          <p className="text-[13px] text-white/40 leading-relaxed max-w-[260px]">
+          <p className="text-[13px] text-white/40 leading-relaxed max-w-65">
             Assigning your wallet address on Avalanche. This takes a few seconds.
           </p>
         )}
 
         {done && (
-          <p className="text-[13px] text-white/50 leading-relaxed max-w-[280px]">
+          <p className="text-[13px] text-white/50 leading-relaxed max-w-70">
             Your wallet is live on Avalanche C-Chain. You can now send money to any phone number in Africa.
           </p>
         )}
 
         {error && (
-          <p className="text-[13px] text-danger/80 leading-relaxed max-w-[280px]">{error}</p>
+          <p className="text-[13px] text-danger/80 leading-relaxed max-w-70">{error}</p>
         )}
 
         {/* Steps checklist */}
@@ -133,10 +132,10 @@ function SignupComplete() {
           {STEPS.map((step, i) => {
             const checked = done || (activating && i < 2);
             return (
-              <div key={step} className={cn("flex items-center gap-3 py-2", i < STEPS.length - 1 && "border-b border-white/[0.05]")}>
+              <div key={step} className={cn("flex items-center gap-3 py-2", i < STEPS.length - 1 && "border-b border-white/5")}>
                 <div
                   className={cn(
-                    "w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors duration-300",
+                    "w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors duration-300",
                     checked
                       ? "bg-success/20 border-success/50"
                       : activating
