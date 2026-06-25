@@ -14,6 +14,30 @@ export class ApiError extends Error {
   }
 }
 
+// All backend responses are wrapped: {"ok":true,"data":{...}} or {"ok":false,"error":"..."}
+// Unwrap the data field when ok=true, otherwise return as-is.
+function unwrap<T>(json: unknown): T {
+  if (
+    json !== null &&
+    typeof json === "object" &&
+    "ok" in json &&
+    (json as Record<string, unknown>).ok === true &&
+    "data" in json
+  ) {
+    return (json as { ok: boolean; data: T }).data;
+  }
+  return json as T;
+}
+
+function pickErrorMessage(body: unknown): string {
+  if (body && typeof body === "object") {
+    const b = body as Record<string, unknown>;
+    const msg = b.error ?? b.message ?? b.detail;
+    if (typeof msg === "string") return msg;
+  }
+  return "Request failed";
+}
+
 async function refreshToken(): Promise<void> {
   const store = useSessionStore.getState();
   const { refresh_token } = store;
@@ -34,22 +58,24 @@ async function refreshToken(): Promise<void> {
     throw new ApiError(401, "Session expired. Please log in again.");
   }
 
-  const json = (await res.json()) as { ok: boolean; data?: { accessToken: string; refreshToken?: string } };
+  const json = (await res.json()) as {
+    ok: boolean;
+    data?: { accessToken: string; refreshToken?: string };
+  };
 
   if (!json.ok || !json.data?.accessToken) {
     store.clearSession();
     throw new ApiError(401, "Failed to refresh session.");
   }
 
-  const newSession = {
+  store.setSession({
     access_token: json.data.accessToken,
     refresh_token: json.data.refreshToken ?? refresh_token,
     user_id: store.user_id ?? "",
     phone: store.phone ?? "",
     display_name: store.display_name,
     wallet_address: store.wallet_address,
-  };
-  store.setSession(newSession);
+  });
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -72,18 +98,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     };
     const retryRes = await fetch(`${BASE_URL}${path}`, { ...options, headers: retryHeaders });
     if (!retryRes.ok) {
-      const body = await retryRes.json().catch(() => ({})) as { message?: string; detail?: string };
-      throw new ApiError(retryRes.status, body.message ?? `HTTP ${retryRes.status}`, body.detail ?? null);
+      const body = await retryRes.json().catch(() => ({}));
+      throw new ApiError(retryRes.status, pickErrorMessage(body), null);
     }
-    return retryRes.json() as Promise<T>;
+    return unwrap<T>(await retryRes.json());
   }
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { message?: string; detail?: string };
-    throw new ApiError(res.status, body.message ?? `HTTP ${res.status}`, body.detail ?? null);
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, pickErrorMessage(body), null);
   }
 
-  return res.json() as Promise<T>;
+  return unwrap<T>(await res.json());
 }
 
 export const apiClient = {
