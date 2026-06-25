@@ -8,6 +8,7 @@ import { CountdownTimer, type CountdownTimerRef } from "@/components/CountdownTi
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { apiClient, ApiError } from "@/lib/api";
 import { useSignupStore } from "@/stores/signupStore";
+import { useSessionStore } from "@/stores/sessionStore";
 import { maskEmail } from "@/lib/utils";
 import { OTP_LENGTH, OTP_RESEND_SECONDS } from "@/lib/constants";
 import { useState } from "react";
@@ -18,9 +19,23 @@ export const Route = createFileRoute("/signup_/verify")({
   component: SignupVerify,
 });
 
+type BackendAuthResponse = {
+  isNewUser?: boolean;
+  accessToken: string;
+  refreshToken: string;
+  user: {
+    id: string;
+    phone: string;
+    email: string | null;
+    walletAddress: string | null;
+    isMerchant: boolean;
+  };
+};
+
 function SignupVerify() {
   const navigate = useNavigate();
-  const { phone, email, otp_id, setOtpId, setSignupToken } = useSignupStore();
+  const { phone, email, setPinHash: _setPinHash, clearSignupStore: _clear } = useSignupStore();
+  const { setSession } = useSessionStore();
 
   const [error, setError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
@@ -30,30 +45,45 @@ function SignupVerify() {
   const timerRef = useRef<CountdownTimerRef>(null);
 
   useEffect(() => {
-    if (!phone || !otp_id) {
+    if (!phone) {
       void navigate({ to: "/signup" });
     }
-  }, [phone, otp_id, navigate]);
+  }, [phone, navigate]);
 
   const handleComplete = async (otp: string) => {
-    if (!otp_id) return;
     setError(null);
     setVerifying(true);
     try {
-      const res = await apiClient.post<{ signup_token: string }>(
-        "/api/auth/verify-otp",
-        { otp_id, code: otp }
-      );
-      setSignupToken(res.signup_token);
+      const res = await apiClient.post<BackendAuthResponse>("/api/auth/verify-otp", {
+        phone,
+        code: otp,
+      });
+
+      const emailLocal = res.user.email
+        ? res.user.email.split("@")[0]?.replace(/[._\-+]/g, " ").split(" ")[0]
+        : null;
+      const displayName = emailLocal
+        ? emailLocal.charAt(0).toUpperCase() + emailLocal.slice(1)
+        : null;
+
+      setSession({
+        access_token: res.accessToken,
+        refresh_token: res.refreshToken,
+        user_id: res.user.id,
+        phone: res.user.phone,
+        display_name: displayName,
+        wallet_address: res.user.walletAddress,
+      });
+
       void navigate({ to: "/signup/pin" });
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.code === 422) {
-          setError("Incorrect code. Check your email and try again.");
+        if (err.code === 422 || err.code === 400) {
+          setError(err.message || "Incorrect code. Check your email and try again.");
         } else if (err.code === 410) {
           setError("This code has expired. Request a new one.");
         } else {
-          setError("Verification failed. Please try again.");
+          setError(err.message || "Verification failed. Please try again.");
         }
       } else {
         setError("Verification failed. Please try again.");
@@ -69,11 +99,11 @@ function SignupVerify() {
     setResending(true);
     setError(null);
     try {
-      const res = await apiClient.post<{ otp_id?: string; id?: string; expires_in?: number }>(
-        "/api/auth/send-otp",
-        { phone, email, channel: "email" }
-      );
-      setOtpId(res.otp_id ?? res.id ?? "");
+      await apiClient.post<{ message: string }>("/api/auth/send-otp", {
+        phone,
+        email,
+        channel: "email",
+      });
       otpRef.current?.reset();
       timerRef.current?.reset();
       toast.success("A new code has been sent to your email.");
@@ -117,14 +147,12 @@ function SignupVerify() {
           <span className="font-semibold text-navy">{maskedEmail}</span>
         </p>
 
-        {/* Email visual */}
         <div className="flex justify-center mb-7">
           <div className="w-16 h-16 rounded-2xl bg-orange/10 border border-orange/20 flex items-center justify-center">
             <Mail size={28} strokeWidth={1.5} className="text-orange" />
           </div>
         </div>
 
-        {/* OTP input */}
         <div className="flex justify-center mb-3">
           <OtpInput
             ref={otpRef}
@@ -147,7 +175,6 @@ function SignupVerify() {
           </div>
         )}
 
-        {/* Resend */}
         <div className="flex justify-center mt-4">
           <CountdownTimer
             ref={timerRef}
