@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { WagmiProvider } from "wagmi";
 import { useEffect } from "react";
+import { Toaster } from "sonner";
 
 import { reportError } from "../lib/error-reporting";
 import { wagmiConfig } from "../lib/web3";
@@ -87,6 +88,7 @@ function RootComponent() {
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <Outlet />
+        <Toaster position="top-center" richColors />
       </QueryClientProvider>
     </WagmiProvider>
   );
