@@ -6,11 +6,11 @@ import { startAuthentication } from "@simplewebauthn/browser";
 import { BiometricRing } from "@/components/BiometricRing";
 import { PinKeypad } from "@/components/PinKeypad";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { apiClient, ApiError } from "@/lib/api";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useProfileStore } from "@/stores/profileStore";
+import { Avatar } from "@/components/Avatar";
 import { hashPin, getGreeting } from "@/lib/utils";
 import { MAX_PIN_ATTEMPTS } from "@/lib/constants";
-import type { UserSession } from "@/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/login")({
@@ -21,13 +21,11 @@ export const Route = createFileRoute("/login")({
 type LockView = "biometric" | "pin";
 type PinStatus = "idle" | "error" | "success";
 
-type PasskeyChallengeResponse = {
-  optionsJSON: Parameters<typeof startAuthentication>[0]["optionsJSON"];
-};
 
 function LoginPage() {
   const navigate = useNavigate();
   const sessionStore = useSessionStore();
+  const profile = useProfileStore();
 
   const credentialId =
     typeof window !== "undefined"
@@ -49,14 +47,10 @@ function LoginPage() {
   const redirectChecked = useRef(false);
 
   const phone = sessionStore.phone;
-  const displayName = sessionStore.display_name;
+  const displayName = profile.displayName ?? sessionStore.display_name;
   const greeting = getGreeting();
 
-  const avatarLetter = displayName
-    ? displayName[0]!.toUpperCase()
-    : phone
-    ? phone[0] ?? "?"
-    : "?";
+  const avatarFallback = (displayName ?? phone ?? "A")[0]?.toUpperCase() ?? "A";
 
   const nameDisplay = displayName
     ? displayName.split(" ")[0] ?? displayName
@@ -85,33 +79,39 @@ function LoginPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleBiometricUnlock = async () => {
+    const credId = localStorage.getItem("autopayke_credential_id");
+    if (!credId) { setView("pin"); return; }
+
     setIsLoading(true);
     setBioError(null);
     try {
-      const data = await apiClient.get<PasskeyChallengeResponse>(
-        "/api/auth/passkey-challenge"
-      );
-      const assertion = await startAuthentication({ optionsJSON: data.optionsJSON });
-      const res = await apiClient.post<UserSession>("/api/auth/verify-passkey", {
-        assertion,
+      const rawChallenge = crypto.getRandomValues(new Uint8Array(32));
+      const challenge = btoa(String.fromCharCode(...rawChallenge))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+
+      await startAuthentication({
+        optionsJSON: {
+          challenge,
+          rpId: window.location.hostname,
+          allowCredentials: [{ id: credId, type: "public-key" }],
+          userVerification: "required",
+          timeout: 60000,
+        },
       });
-      // setSession auto-sets is_unlocked = true
-      sessionStore.setSession(res);
+
+      // Biometric verified locally — no server round-trip needed for the lock screen
+      sessionStore.setUnlocked(true);
       navigateAfterUnlock();
     } catch (err) {
       if (err instanceof DOMException) {
         if (err.name === "NotAllowedError") {
           setBioError("Authentication was cancelled. Tap to try again.");
-        } else if (err.name === "InvalidStateError") {
+        } else {
           setView("pin");
           toast("Please use your PIN instead.");
-        } else {
-          setBioError("Connection failed. Check your internet and try again.");
         }
-      } else if (err instanceof ApiError) {
-        setBioError("Authentication failed. Please try again.");
       } else {
-        setBioError("Connection failed. Check your internet and try again.");
+        setBioError("Biometric failed. Use your PIN.");
       }
     } finally {
       setIsLoading(false);
@@ -182,7 +182,9 @@ function LoginPage() {
             greeting={greeting}
             nameDisplay={nameDisplay}
             phone={phone}
-            avatarLetter={avatarLetter}
+            avatarFallback={avatarFallback}
+            avatarKey={profile.avatarKey}
+            avatarDataUrl={profile.avatarDataUrl}
             isLoading={isLoading}
             bioError={bioError}
             credentialId={credentialId}
@@ -193,7 +195,9 @@ function LoginPage() {
           />
         ) : (
           <PinView
-            avatarLetter={avatarLetter}
+            avatarFallback={avatarFallback}
+            avatarKey={profile.avatarKey}
+            avatarDataUrl={profile.avatarDataUrl}
             phone={phone}
             hasPinHash={!!pin_hash}
             pinStatus={pinStatus}
@@ -216,7 +220,9 @@ interface BiometricViewProps {
   greeting: string;
   nameDisplay: string;
   phone: string | null;
-  avatarLetter: string;
+  avatarFallback: string;
+  avatarKey: string | null;
+  avatarDataUrl: string | null;
   isLoading: boolean;
   bioError: string | null;
   credentialId: string | null;
@@ -230,7 +236,9 @@ function BiometricView({
   greeting,
   nameDisplay,
   phone,
-  avatarLetter,
+  avatarFallback,
+  avatarKey,
+  avatarDataUrl,
   isLoading,
   bioError,
   onBiometricPress,
@@ -248,8 +256,8 @@ function BiometricView({
         <p className="text-[13px] text-black/40 text-center mb-6">{phone}</p>
       )}
 
-      <div className="w-15 h-15 rounded-4xl bg-orange-gradient flex items-center justify-center font-display text-[22px] font-extrabold text-white shadow-[0_8px_24px_rgba(249,115,22,0.35)] mb-8 mt-3">
-        {avatarLetter}
+      <div className="mb-8 mt-3 shadow-[0_8px_24px_rgba(249,115,22,0.25)]">
+        <Avatar avatarKey={avatarKey} avatarDataUrl={avatarDataUrl} fallbackLetter={avatarFallback} size="lg" />
       </div>
 
       <BiometricRing
@@ -305,7 +313,9 @@ function BiometricView({
 }
 
 interface PinViewProps {
-  avatarLetter: string;
+  avatarFallback: string;
+  avatarKey: string | null;
+  avatarDataUrl: string | null;
   phone: string | null;
   hasPinHash: boolean;
   pinStatus: PinStatus;
@@ -320,7 +330,9 @@ interface PinViewProps {
 }
 
 function PinView({
-  avatarLetter,
+  avatarFallback,
+  avatarKey,
+  avatarDataUrl,
   phone,
   hasPinHash,
   pinStatus,
@@ -338,8 +350,8 @@ function PinView({
   return (
     <div className="flex flex-col flex-1">
       <div className="flex flex-col items-center mb-4">
-        <div className="w-15 h-15 rounded-4xl bg-orange-gradient flex items-center justify-center font-display text-[22px] font-extrabold text-white shadow-[0_8px_24px_rgba(249,115,22,0.35)] mb-3">
-          {avatarLetter}
+        <div className="mb-3 shadow-[0_8px_24px_rgba(249,115,22,0.25)]">
+          <Avatar avatarKey={avatarKey} avatarDataUrl={avatarDataUrl} fallbackLetter={avatarFallback} size="lg" />
         </div>
         {phone && (
           <p className="text-[13px] text-black/40 text-center mb-1">{phone}</p>
