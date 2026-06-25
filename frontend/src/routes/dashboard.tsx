@@ -26,7 +26,8 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: () => {
-    if (!useSessionStore.getState().isAuthenticated()) {
+    const s = useSessionStore.getState();
+    if (!s.isAuthenticated() || !s.is_unlocked) {
       sessionStorage.setItem("autopayke_redirect_to", "/dashboard");
       throw redirect({ to: "/login", replace: true });
     }
