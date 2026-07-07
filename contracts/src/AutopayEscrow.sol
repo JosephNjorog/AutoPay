@@ -26,8 +26,14 @@ import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
  * - One-time claim: claimRef is consumed on success.
  * - Refund only after expiry.
  * - Claim requires a signature from Autopayke's signer key (prevents front-running).
+ * - Pausable: DEFAULT_ADMIN_ROLE can halt deposit/claim/refund if a bug is found
+ *   post-deploy, without needing a full redeploy (this contract holds user funds
+ *   and has no upgrade path otherwise).
+ * - rescueToken() sweeps only the excess above totalHeld[token] (tokens sent
+ *   directly to this contract outside deposit()), so it can never touch funds
+ *   legitimately held against a pending or claimable escrow.
  */
-contract AutopayEscrow is ReentrancyGuard, AccessControl {
+contract AutopayEscrow is ReentrancyGuard, AccessControl, Pausable {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
@@ -57,6 +63,11 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
     /// @notice Tokens depositors are allowed to escrow (USDC/USDT only, in practice).
     mapping(address => bool) public allowedTokens;
 
+    /// @notice token => amount currently owed against pending/claimable escrow
+    ///         records. Anything held above this per token is stray (e.g. sent
+    ///         via a raw transfer instead of deposit()) and safe to rescue.
+    mapping(address => uint256) public totalHeld;
+
     // ── Events ────────────────────────────────────────────────────────────────
 
     event Deposited(
@@ -82,6 +93,8 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
         uint256 amount
     );
 
+    event TokenRescued(address indexed token, address indexed to, uint256 amount);
+
     // ── Errors ────────────────────────────────────────────────────────────────
 
     error AlreadyExists(bytes32 claimRef);
@@ -93,6 +106,7 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
     error ZeroAddress();
     error InvalidSignature();
     error TokenNotAllowed(address token);
+    error NothingToRescue();
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
@@ -128,6 +142,34 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
         emit TokenAllowedSet(token, allowed);
     }
 
+    /**
+     * @notice Halt deposit/claim/refund. Emergency stop for a discovered bug —
+     *         this contract holds user funds and has no upgrade path.
+     */
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
+    }
+
+    /**
+     * @notice Sweep tokens held above what's owed to pending/claimable escrow
+     *         records — i.e. tokens sent directly to this contract instead of
+     *         through deposit(). Never touches legitimately-escrowed funds,
+     *         since it only moves the excess above totalHeld[token].
+     */
+    function rescueToken(address token, address to) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
+        if (to == address(0)) revert ZeroAddress();
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        uint256 held = totalHeld[token];
+        if (balance <= held) revert NothingToRescue();
+        uint256 excess = balance - held;
+        IERC20(token).safeTransfer(to, excess);
+        emit TokenRescued(token, to, excess);
+    }
+
     // ── Core functions ────────────────────────────────────────────────────────
 
     /**
@@ -144,7 +186,7 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
         address token,
         uint256 amount,
         uint256 expiryOffset
-    ) external nonReentrant {
+    ) external nonReentrant whenNotPaused {
         if (payments[claimRef].sender != address(0)) revert AlreadyExists(claimRef);
         if (amount == 0) revert ZeroAmount();
         if (token == address(0)) revert ZeroAddress();
@@ -155,6 +197,7 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
 
         // Pull tokens from sender
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        totalHeld[token] += amount;
 
         payments[claimRef] = EscrowPayment({
             sender: msg.sender,
@@ -180,7 +223,7 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
         bytes32 claimRef,
         address recipient,
         bytes calldata signature
-    ) external nonReentrant {
+    ) external nonReentrant whenNotPaused {
         EscrowPayment storage payment = payments[claimRef];
 
         if (payment.sender == address(0)) revert NotFound(claimRef);
@@ -202,6 +245,7 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
 
         payment.status = EscrowStatus.Claimed;
         payment.amount = 0; // prevent re-entrancy double claim
+        totalHeld[token] -= amount;
 
         IERC20(token).safeTransfer(recipient, amount);
 
@@ -215,7 +259,7 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
      *
      * @param claimRef The escrow reference to refund
      */
-    function refund(bytes32 claimRef) external nonReentrant {
+    function refund(bytes32 claimRef) external nonReentrant whenNotPaused {
         EscrowPayment storage payment = payments[claimRef];
 
         if (payment.sender == address(0)) revert NotFound(claimRef);
@@ -232,6 +276,7 @@ contract AutopayEscrow is ReentrancyGuard, AccessControl {
 
         payment.status = EscrowStatus.Refunded;
         payment.amount = 0;
+        totalHeld[token] -= amount;
 
         IERC20(token).safeTransfer(sender, amount);
 
