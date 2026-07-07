@@ -3,13 +3,14 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, Search, UserPlus, Check, ArrowRight, Sparkles,
-  Loader2, Lock, Send as SendIcon, MessageCircle, AlertCircle, BookUser, X,
+  Loader2, Lock, Send as SendIcon, MessageCircle, AlertCircle, BookUser, X, Download,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { MobileFrame } from "@/components/MobileFrame";
 import { midRates, type Contact } from "@/lib/tuma-data";
 import { api, type FxQuote, type Corridor, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
+import { usePwaInstall } from "@/lib/use-pwa-install";
 
 type SendSearch = { to?: string; amount?: string };
 
@@ -35,6 +36,7 @@ function SendPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const { accessToken, isLoggedIn } = useAuthStore();
+  const { canInstall, install } = usePwaInstall();
   const [step, setStep] = useState<Step>("country");
   const [country, setCountry] = useState<Corridor | null>(null);
   const [recipient, setRecipient] = useState<Contact | null>(null);
@@ -235,6 +237,21 @@ function SendPage() {
                   </p>
                 </div>
               </div>
+            )}
+
+            {canInstall && (
+              <button
+                onClick={install}
+                className="mt-6 w-full flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left hover:bg-muted/50 transition"
+              >
+                <div className="h-10 w-10 rounded-full bg-primary-soft flex items-center justify-center shrink-0">
+                  <Download className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">Install Autopayke</p>
+                  <p className="text-[11px] text-muted-foreground">One tap for faster, full-screen access next time.</p>
+                </div>
+              </button>
             )}
 
             <div className="mt-auto pt-6 space-y-2">
