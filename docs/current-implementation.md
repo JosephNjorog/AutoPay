@@ -194,8 +194,50 @@ would be a screen with nothing real behind it for a user to reason about.
   the pre-auth landing page that never touches a wallet connector. Not
   yet fixed; the CI check is advisory specifically because of this.
 - **Agent feature has no UI or live consumer** — see above.
-- **Contracts** — TestNet only. See the separate section below on
-  MainNet readiness.
+- **Contracts** — TestNet only. Fund-safety/access-control hardening is
+  done (see below); the process items from `Deploy.s.sol`'s own checklist
+  (multisig admin, KMS-backed relayer key, professional audit, mainnet
+  gas/funding re-validation) are still open.
+
+---
+
+## Smart contracts — MainNet-readiness hardening
+
+A read-only security audit of `contracts/src/` (see
+[ADR 0008](adr/0008-smart-wallet-and-escrow-mainnet-hardening.md) for full
+detail) found and fixed five concrete fund-safety/access-control gaps,
+all TestNet-only — no deployment scripts, network config, or the
+process checklist below were touched:
+
+1. `AutopayEscrow` now has a pause switch (it had none, despite holding
+   user funds).
+2. `AutopaySmartWallet.updateOwner()` (single-transaction, guardian could
+   call it) is now `proposeOwnerChange()` → `finalizeOwnerChange()`, timelocked
+   24h with owner-cancellable, mirroring the existing guardian-rotation flow.
+3. The guardian daily spend cap now catches value leaving the wallet by
+   any mechanism (balance-delta check), not just direct `transfer()`/
+   `approve()` calls against the exact capped token address — closing a
+   real bypass where a guardian could route a pull through another
+   contract (e.g. `AutopayEscrow.deposit()`) to dodge the cap entirely.
+4. `pause()` now also blocks proposing/finalizing an owner or guardian
+   change (never cancelling one) — previously a compromised guardian could
+   still seize ownership while the wallet was "paused."
+5. `AutopayEscrow.rescueToken()` recovers tokens sent directly to the
+   contract outside `deposit()`, without ever touching funds legitimately
+   held against a pending/claimable escrow (tracked via a `totalHeld`
+   counter).
+
+Test suite grew from 80 to 105 passing tests (`forge test`), including new
+coverage that specifically proves the closed bypasses.
+
+**Still open before MainNet** (acknowledged in `Deploy.s.sol`'s own
+comments but not enforced by anything): move the admin address to a
+multisig, move the relayer private key to a KMS/HSM, verify the ERC-4337
+EntryPoint's canonical address actually holds on Avalanche C-Chain mainnet
+specifically, re-validate gas/funding amounts (currently testnet-scale),
+get a professional security audit, and add integration/fuzz tests
+exercising the full EntryPoint → Paymaster → SmartWallet → Escrow path
+(only per-contract unit tests exist today).
 
 ---
 
