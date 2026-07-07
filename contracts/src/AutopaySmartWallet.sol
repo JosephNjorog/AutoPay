@@ -28,13 +28,21 @@ import "./interfaces/UserOperation.sol";
  * Defense-in-depth against a compromised guardian key (the realistic single point
  * of failure in Phase 1 — see audit notes):
  * - Pausable: owner OR guardian can pause; only owner can unpause, so a compromised
- *   guardian can't un-pause itself after being caught.
- * - Per-token daily spend cap on guardian-initiated transfer()/approve() calls routed
- *   through execute()/executeBatch() — the actual path the backend uses for every
- *   USDC movement (transferToken()/approveToken() exist but aren't currently called
- *   by the backend). Owner-only to raise; guardian can lower in an emergency.
- * - Timelocked guardian rotation: a new guardian only takes effect after a delay,
- *   giving the owner a window to notice and cancel an unauthorized change.
+ *   guardian can't un-pause itself after being caught. Pause also blocks
+ *   proposing or finalizing an owner/guardian change (but never cancelling one),
+ *   so a compromised guardian can't race a takeover through while the owner is
+ *   responding to an incident.
+ * - Per-token daily cap on guardian-initiated value movement, checked two ways:
+ *   new approve() amounts are capped by calldata inspection (stops the guardian
+ *   pre-authorizing an oversized future pull), and actual balance decreases are
+ *   capped by comparing balances before/after the call (stops the guardian
+ *   moving funds via any other selector or through a third contract that pulls
+ *   a pre-existing allowance — see _enforceGuardianBalanceCap). Both share one
+ *   daily budget. Owner-only to raise; guardian can lower in an emergency.
+ * - Timelocked owner AND guardian changes: either takes effect only after a
+ *   delay via a propose/finalize/cancel flow, giving the owner a window to
+ *   notice and cancel an unauthorized change — including an unauthorized
+ *   ownership takeover, not just a guardian rotation.
  *
  * Deployed via AutopayWalletFactory using CREATE2 for deterministic addresses.
  */
@@ -52,21 +60,33 @@ contract AutopaySmartWallet is IAccount, ReentrancyGuard, Pausable {
     bool public initialized;
 
     uint256 private constant SIG_VALIDATION_FAILED = 1;
-    bytes4 private constant TRANSFER_SELECTOR = bytes4(keccak256("transfer(address,uint256)"));
     bytes4 private constant APPROVE_SELECTOR = bytes4(keccak256("approve(address,uint256)"));
 
     uint256 public constant GUARDIAN_CHANGE_DELAY = 24 hours;
+    uint256 public constant OWNER_CHANGE_DELAY = 24 hours;
 
-    /// @notice Per-token daily cap on guardian-initiated transfer/approve amounts.
-    ///         0 = no cap configured (preserves current unrestricted behavior until
-    ///         the owner opts in by setting a real limit).
+    /// @notice Per-token daily cap on guardian-initiated value movement: both
+    ///         actual balance decreases (any mechanism — direct transfer, or an
+    ///         indirect pull that happens within the same guardian-initiated
+    ///         call) and newly-granted approve() amounts. 0 = no cap configured
+    ///         (preserves current unrestricted behavior until the owner opts in
+    ///         by setting a real limit).
     mapping(address => uint256) public guardianDailyTokenLimit;
 
     /// @notice token => day bucket => amount already spent/approved by guardian today.
     mapping(address => mapping(uint256 => uint256)) private _guardianSpentToday;
 
+    /// @notice Tokens that have ever had a guardian daily limit configured —
+    ///         iterated to snapshot/compare balances around guardian-initiated
+    ///         execute()/executeBatch() calls. Bounded in practice (USDC/USDT).
+    address[] private _guardianCappedTokens;
+    mapping(address => bool) private _isGuardianCappedTokenTracked;
+
     address public pendingGuardian;
     uint256 public guardianChangeReadyAt;
+
+    address public pendingOwner;
+    uint256 public ownerChangeReadyAt;
 
     // ── Events ────────────────────────────────────────────────────────────────
 
@@ -74,6 +94,8 @@ contract AutopaySmartWallet is IAccount, ReentrancyGuard, Pausable {
     event Executed(address indexed to, uint256 value, bytes data, bool success);
     event TokenTransferred(address indexed token, address indexed to, uint256 amount);
     event OwnerUpdated(address indexed oldOwner, address indexed newOwner);
+    event OwnerChangeProposed(address indexed newOwner, uint256 readyAt);
+    event OwnerChangeCancelled(address indexed cancelledOwner);
     event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
     event GuardianChangeProposed(address indexed newGuardian, uint256 readyAt);
     event GuardianChangeCancelled(address indexed cancelledGuardian);
@@ -91,6 +113,8 @@ contract AutopaySmartWallet is IAccount, ReentrancyGuard, Pausable {
     error GuardianDailyLimitExceeded(address token, uint256 attempted, uint256 limit);
     error NoPendingGuardianChange();
     error GuardianChangeNotReady(uint256 readyAt);
+    error NoPendingOwnerChange();
+    error OwnerChangeNotReady(uint256 readyAt);
 
     // ── Modifiers ─────────────────────────────────────────────────────────────
 
@@ -181,16 +205,23 @@ contract AutopaySmartWallet is IAccount, ReentrancyGuard, Pausable {
     // ── Guardian spend cap ────────────────────────────────────────────────────
 
     /**
-     * @dev Applies only to guardian-initiated calls (not owner, not EntryPoint —
-     *      the owner is the wallet's ultimate authority and isn't capped). Inspects
-     *      `to`/`data` for an ERC-20 transfer()/approve() call against a token that
-     *      has a configured daily limit, and reverts if it would be exceeded.
-     *      This is the function the backend actually calls for every USDC send
-     *      today (it encodes transfer() as `data` and calls execute() directly —
-     *      transferToken()/approveToken() below aren't currently used in
-     *      production), so the cap lives here rather than only on transferToken().
+     * @dev Caps NEW allowances a guardian-initiated call grants on a capped
+     *      token, so the guardian can't pre-authorize a future pull larger than
+     *      its daily budget even if that pull happens outside a
+     *      guardian-initiated transaction (e.g. a third party calling
+     *      transferFrom directly, in a later block). Actual value leaving the
+     *      wallet — direct transfers, or an indirect pull that happens within
+     *      the same guardian-initiated call — is capped separately by
+     *      _enforceGuardianBalanceCap() below, which tracks realized balance
+     *      changes rather than pattern-matching specific calldata. That split
+     *      is what closes the original design's bypasses: a guardian routing
+     *      the call through some other contract (e.g. calling
+     *      AutopayEscrow.deposit() to pull pre-approved tokens instead of
+     *      calling transfer() directly), or using a different selector
+     *      (transferFrom instead of transfer), no longer evades the cap,
+     *      because the balance check doesn't care how the tokens left.
      */
-    function _checkGuardianSpendCap(address to, bytes calldata data) internal {
+    function _checkGuardianApprovalCap(address to, bytes calldata data) internal {
         if (msg.sender != guardian) return;
 
         uint256 limit = guardianDailyTokenLimit[to];
@@ -198,7 +229,7 @@ contract AutopaySmartWallet is IAccount, ReentrancyGuard, Pausable {
         if (data.length < 68) return; // shorter than selector + address + uint256
 
         bytes4 selector = bytes4(data[:4]);
-        if (selector != TRANSFER_SELECTOR && selector != APPROVE_SELECTOR) return;
+        if (selector != APPROVE_SELECTOR) return;
 
         (, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
@@ -206,6 +237,46 @@ contract AutopaySmartWallet is IAccount, ReentrancyGuard, Pausable {
         uint256 spent = _guardianSpentToday[to][day] + amount;
         if (spent > limit) revert GuardianDailyLimitExceeded(to, spent, limit);
         _guardianSpentToday[to][day] = spent;
+    }
+
+    /**
+     * @dev Snapshots this wallet's balance of every token with a configured
+     *      guardian daily limit, before a guardian-initiated execute()/
+     *      executeBatch() call. Returns an empty array for owner/EntryPoint
+     *      calls (not capped) or when no tokens are tracked, so the common
+     *      case costs a single array allocation.
+     */
+    function _snapshotGuardianBalances() internal view returns (uint256[] memory balances) {
+        if (msg.sender != guardian) return balances;
+        uint256 len = _guardianCappedTokens.length;
+        balances = new uint256[](len);
+        for (uint256 i = 0; i < len; i++) {
+            balances[i] = IERC20(_guardianCappedTokens[i]).balanceOf(address(this));
+        }
+    }
+
+    /**
+     * @dev Compares post-call balances against the snapshot and reverts if a
+     *      capped token's balance dropped by more than its remaining daily
+     *      budget. Shares the same _guardianSpentToday bucket as the approval
+     *      cap above by design: a guardian's total daily authority over a
+     *      token — whether exercised by spending it directly or by newly
+     *      authorizing someone else to pull it — is bounded at one limit.
+     */
+    function _enforceGuardianBalanceCap(uint256[] memory before) internal {
+        if (msg.sender != guardian) return;
+        uint256 day = block.timestamp / 1 days;
+        for (uint256 i = 0; i < before.length; i++) {
+            address token = _guardianCappedTokens[i];
+            uint256 limit = guardianDailyTokenLimit[token];
+            if (limit == 0) continue;
+            uint256 balAfter = IERC20(token).balanceOf(address(this));
+            if (balAfter >= before[i]) continue; // balance didn't decrease
+            uint256 decreased = before[i] - balAfter;
+            uint256 spent = _guardianSpentToday[token][day] + decreased;
+            if (spent > limit) revert GuardianDailyLimitExceeded(token, spent, limit);
+            _guardianSpentToday[token][day] = spent;
+        }
     }
 
     /**
@@ -225,6 +296,10 @@ contract AutopaySmartWallet is IAccount, ReentrancyGuard, Pausable {
             revert NotAuthorized();
         }
         guardianDailyTokenLimit[token] = limit;
+        if (!_isGuardianCappedTokenTracked[token]) {
+            _isGuardianCappedTokenTracked[token] = true;
+            _guardianCappedTokens.push(token);
+        }
         emit GuardianDailyLimitSet(token, limit);
     }
 
@@ -242,9 +317,11 @@ contract AutopaySmartWallet is IAccount, ReentrancyGuard, Pausable {
         whenNotPaused
         onlyOwnerOrGuardian
     {
-        _checkGuardianSpendCap(to, data);
+        _checkGuardianApprovalCap(to, data);
+        uint256[] memory before = _snapshotGuardianBalances();
         (bool success, bytes memory result) = to.call{value: value}(data);
         if (!success) revert ExecutionFailed(result);
+        _enforceGuardianBalanceCap(before);
         emit Executed(to, value, data, success);
     }
 
@@ -258,12 +335,14 @@ contract AutopaySmartWallet is IAccount, ReentrancyGuard, Pausable {
     ) external nonReentrant whenNotPaused onlyOwnerOrGuardian {
         require(targets.length == values.length && values.length == dataArr.length, "Length mismatch");
 
+        uint256[] memory before = _snapshotGuardianBalances();
         for (uint256 i = 0; i < targets.length; i++) {
-            _checkGuardianSpendCap(targets[i], dataArr[i]);
+            _checkGuardianApprovalCap(targets[i], dataArr[i]);
             (bool success, bytes memory result) = targets[i].call{value: values[i]}(dataArr[i]);
             if (!success) revert ExecutionFailed(result);
             emit Executed(targets[i], values[i], dataArr[i], success);
         }
+        _enforceGuardianBalanceCap(before);
     }
 
     /**
@@ -307,14 +386,53 @@ contract AutopaySmartWallet is IAccount, ReentrancyGuard, Pausable {
     // ── Owner management ──────────────────────────────────────────────────────
 
     /**
-     * @notice Transfer wallet ownership (e.g., when user upgrades to passkey).
-     * @dev Only the current owner or guardian can do this.
+     * @notice Propose a new owner (e.g., user upgrading to passkey, or
+     *         guardian-assisted recovery).
+     * @dev Takes effect after OWNER_CHANGE_DELAY via finalizeOwnerChange(), not
+     *      immediately — mirrors updateGuardian()'s timelock below. Ownership
+     *      is the single most sensitive thing a compromised guardian key could
+     *      seize, so it gets the same "propose now, take effect later, current
+     *      owner can cancel" protection rather than the single-transaction
+     *      handoff this used to be.
      */
-    function updateOwner(address newOwner) external onlyOwnerOrGuardian {
+    function proposeOwnerChange(address newOwner) external onlyOwnerOrGuardian whenNotPaused {
         if (newOwner == address(0)) revert ZeroAddress();
+        pendingOwner = newOwner;
+        ownerChangeReadyAt = block.timestamp + OWNER_CHANGE_DELAY;
+        emit OwnerChangeProposed(newOwner, ownerChangeReadyAt);
+    }
+
+    /**
+     * @notice Complete a pending owner change once the delay has elapsed.
+     * @dev Callable by anyone, same rationale as finalizeGuardianChange().
+     *      Blocked while paused: an owner who paused the wallet in response to
+     *      suspected compromise shouldn't have a pending change slip through
+     *      before they've resolved it.
+     */
+    function finalizeOwnerChange() external whenNotPaused {
+        if (pendingOwner == address(0)) revert NoPendingOwnerChange();
+        if (block.timestamp < ownerChangeReadyAt) revert OwnerChangeNotReady(ownerChangeReadyAt);
+
         address old = owner;
-        owner = newOwner;
-        emit OwnerUpdated(old, newOwner);
+        owner = pendingOwner;
+        pendingOwner = address(0);
+        ownerChangeReadyAt = 0;
+
+        emit OwnerUpdated(old, owner);
+    }
+
+    /**
+     * @notice Cancel a pending owner change before it takes effect.
+     * @dev Owner-only, always available regardless of pause state — this is
+     *      precisely the recovery action for an unauthorized
+     *      proposeOwnerChange() call from a compromised guardian key.
+     */
+    function cancelOwnerChange() external onlyOwner {
+        address cancelled = pendingOwner;
+        if (cancelled == address(0)) revert NoPendingOwnerChange();
+        pendingOwner = address(0);
+        ownerChangeReadyAt = 0;
+        emit OwnerChangeCancelled(cancelled);
     }
 
     /**
@@ -323,7 +441,7 @@ contract AutopaySmartWallet is IAccount, ReentrancyGuard, Pausable {
      *      not immediately — gives the owner a window to notice and cancel an
      *      unauthorized rotation before it takes effect.
      */
-    function updateGuardian(address newGuardian) external onlyGuardian {
+    function updateGuardian(address newGuardian) external onlyGuardian whenNotPaused {
         if (newGuardian == address(0)) revert ZeroAddress();
         pendingGuardian = newGuardian;
         guardianChangeReadyAt = block.timestamp + GUARDIAN_CHANGE_DELAY;
@@ -333,9 +451,10 @@ contract AutopaySmartWallet is IAccount, ReentrancyGuard, Pausable {
     /**
      * @notice Complete a pending guardian change once the delay has elapsed.
      * @dev Callable by anyone — there's nothing sensitive about triggering it,
-     *      only about who could have proposed it in the first place.
+     *      only about who could have proposed it in the first place. Blocked
+     *      while paused, same rationale as finalizeOwnerChange().
      */
-    function finalizeGuardianChange() external {
+    function finalizeGuardianChange() external whenNotPaused {
         if (pendingGuardian == address(0)) revert NoPendingGuardianChange();
         if (block.timestamp < guardianChangeReadyAt) revert GuardianChangeNotReady(guardianChangeReadyAt);
 
