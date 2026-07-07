@@ -7,6 +7,7 @@ import { MobileFrame } from "@/components/MobileFrame";
 import { BottomNav } from "@/components/BottomNav";
 import { api, type TxSummary } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
+import { getStatusLabel } from "@/lib/status-labels";
 
 export const Route = createFileRoute("/history")({
   beforeLoad: () => {
@@ -30,12 +31,12 @@ function fmtDate(iso: string) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
+// No badge for a settled transaction — the amount styling already covers
+// the successful case, so only surface a badge while it's pending or needs
+// attention. Label copy comes from the shared status-labels module.
 function statusBadge(status: TxSummary["status"]) {
-  if (status === "initiated" || status === "onchain" || status === "routed") return "Pending";
-  if (status === "requires_review") return "Needs review";
-  if (status === "failed") return "Failed";
-  if (status === "expired") return "Expired";
-  return null;
+  if (status === "settled") return null;
+  return getStatusLabel(status);
 }
 
 function History() {
@@ -126,7 +127,9 @@ function History() {
                             ? "text-destructive bg-destructive/10"
                             : "text-warning bg-warning-soft"
                         }`}>
-                          {badge !== "Pending" ? null : <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />}
+                          {(tx.status === "initiated" || tx.status === "onchain" || tx.status === "routed") && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                          )}
                           {badge}
                         </span>
                       )}
