@@ -112,3 +112,20 @@ export async function pollRailStatus(
       return "pending";
   }
 }
+
+export type RailNameLookupResult = { available: false } | { available: true; name: string };
+
+/**
+ * Resolves the account-holder name a rail has on file for a phone number,
+ * for the recipient name-verification step. None of Paystack/M-Pesa/MoMo/Wave
+ * are wired up to a name-resolution call yet — this is a known gap, not a
+ * bug, so it always reports unavailable and the caller skips the
+ * verification step gracefully rather than blocking the send flow.
+ */
+export async function lookupRailAccountName(
+  rail: Rail,
+  _recipientPhone: string
+): Promise<RailNameLookupResult> {
+  console.warn(`[Send] Name lookup unavailable for rail=${rail} — known gap, pending provider integration`);
+  return { available: false };
+}
