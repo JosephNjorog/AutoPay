@@ -101,6 +101,24 @@ services:
       REDIS_URL: redis://redis:6379
     restart: unless-stopped
 
+  worker-agent-review:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["bun", "run", "src/workers/agent-review.worker.ts"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://tuma:password@postgres:5432/tuma_db
+      DATABASE_SSL: "false"
+      REDIS_URL: redis://redis:6379
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
