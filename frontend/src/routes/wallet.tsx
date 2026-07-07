@@ -9,7 +9,7 @@ import { avalanche } from "@reown/appkit/networks";
 import { MobileFrame } from "@/components/MobileFrame";
 import { BottomNav } from "@/components/BottomNav";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
-import { api, type WalletAsset, ApiError } from "@/lib/api/client";
+import { api, type WalletAsset, type WalletData, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useCurrencyStore } from "@/lib/currency-store";
 import { useKesRate } from "@/hooks/use-kes-rate";
@@ -69,23 +69,48 @@ function Wallet() {
     enabled: !!accessToken && !!extAddress,
   });
 
+  // Both mutations update the linked/unlinked wallet address optimistically
+  // — this is account metadata, not a financial transaction, so it's safe
+  // to reflect immediately with rollback on failure (4.4).
   const connectMutation = useMutation({
     mutationFn: ({ address, walletType }: { address: string; walletType: string }) =>
       api.wallet.connect(address, walletType, accessToken!),
-    onSuccess: () => {
+    onMutate: async ({ address, walletType }) => {
+      await queryClient.cancelQueries({ queryKey: ["wallet"] });
+      const previous = queryClient.getQueryData<WalletData>(["wallet"]);
+      queryClient.setQueryData<WalletData | undefined>(["wallet"], (old) =>
+        old ? { ...old, externalWalletAddress: address, externalWalletType: walletType } : old
+      );
+      setConnectError(null);
+      return { previous };
+    },
+    onError: (e, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(["wallet"], context.previous);
+      setConnectError(e instanceof ApiError ? e.message : "Failed to link wallet.");
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
       queryClient.invalidateQueries({ queryKey: ["ext-balances"] });
-      setConnectError(null);
-    },
-    onError: (e) => {
-      setConnectError(e instanceof ApiError ? e.message : "Failed to link wallet.");
     },
   });
 
   const disconnectMutation = useMutation({
     mutationFn: () => api.wallet.disconnect(accessToken!),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["wallet"] });
+      const previous = queryClient.getQueryData<WalletData>(["wallet"]);
+      queryClient.setQueryData<WalletData | undefined>(["wallet"], (old) =>
+        old ? { ...old, externalWalletAddress: null, externalWalletType: null } : old
+      );
+      return { previous };
+    },
+    onError: (_e, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(["wallet"], context.previous);
+    },
     onSuccess: () => {
       disconnect();
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
       queryClient.invalidateQueries({ queryKey: ["ext-balances"] });
     },
