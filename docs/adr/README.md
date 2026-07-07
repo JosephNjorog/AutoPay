@@ -19,6 +19,7 @@ Current ADRs:
 | [0005](0005-worker-and-scanner-heartbeats.md) | Record worker and scanner liveness for operational alerting | Accepted |
 | [0006](0006-resilience-test-and-ci-gates.md) | Gate resilience changes with unit and integration CI | Accepted |
 | [0007](0007-render-cron-heartbeat-alerting.md) | Use a failing Render cron run for heartbeat notifications | Accepted |
+| [0008](0008-smart-wallet-and-escrow-mainnet-hardening.md) | Escrow pause, owner-change timelock, and balance-based guardian spend cap | Accepted |
 
 Related operational doc:
 
