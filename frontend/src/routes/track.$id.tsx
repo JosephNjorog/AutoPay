@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { MobileFrame } from "@/components/MobileFrame";
 import { api, type TxSummary } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
+import { getStatusLabel } from "@/lib/status-labels";
 
 export const Route = createFileRoute("/track/$id")({
   head: ({ params }) => ({ meta: [{ title: `Track ${params.id} · Autopayke` }, { name: "description", content: "Live cross-border settlement tracker." }] }),
@@ -19,11 +20,6 @@ function stepForStatus(status: TxSummary["status"]) {
   }
   const idx = STATUS_ORDER.indexOf(status);
   return idx === -1 ? 0 : idx;
-}
-
-function statusLabel(status: TxSummary["status"]) {
-  if (status === "requires_review") return "Needs review";
-  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 function Track() {
@@ -165,7 +161,7 @@ function Track() {
 
         <div className="px-5 mt-6">
           <div className="rounded-2xl border border-border bg-card divide-y divide-border">
-            <Row k="Status" v={statusLabel(tx.status)} />
+            <Row k="Status" v={getStatusLabel(tx.status)} />
             <Row k="Asset" v="USDC" />
             <Row k="Rail" v={tx.rail} />
             {fxLine && <Row k="FX rate" v={fxLine} />}
