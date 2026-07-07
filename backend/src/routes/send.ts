@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { SendMoneySchema } from "@tuma/shared";
+import { SendMoneySchema, COUNTRY_CONFIG, dialCodeToCountry, type Rail } from "@tuma/shared";
 import { db } from "../db";
 import { users, transactions, merchantSettings } from "../db/schema";
 import { and, eq } from "drizzle-orm";
@@ -18,6 +18,7 @@ import {
   processRailDisbursement,
   railProviderIdempotencyKey,
 } from "../services/rail-disbursement";
+import { lookupRailAccountName } from "../services/rails";
 import { sendClaimLink, sendReceivedNotification } from "../services/whatsapp";
 import { hashPhone, generateTxRef, generateEscrowRef } from "../lib/crypto";
 import {
@@ -147,6 +148,71 @@ sendRouter.get("/lookup", async (c) => {
   });
 
   const result = { registered: !!(user?.walletAddress) };
+  await setex(cacheKey, 60, result);
+  return c.json({ ok: true, data: result });
+});
+
+// GET /api/send/corridors
+// Backend-driven list of supported destination countries, so adding a new
+// corridor is a config change, not a client release.
+sendRouter.get("/corridors", async (c) => {
+  const cacheKey = "corridors:all";
+  const cached = await getJson<unknown>(cacheKey);
+  if (cached !== null) return c.json({ ok: true, data: cached });
+
+  const corridors = Object.values(COUNTRY_CONFIG).map((country) => ({
+    code: country.code,
+    name: country.name,
+    dial: country.dialCode,
+    currency: country.currency,
+    currencySymbol: country.currencySymbol,
+    flag: country.flag,
+    phoneLength: country.phoneLength,
+    rail: country.primaryRail,
+  }));
+
+  await setex(cacheKey, 3600, corridors);
+  return c.json({ ok: true, data: corridors });
+});
+
+// GET /api/send/verify-recipient?phone=+254...&country=KE
+// Attempts to resolve the registered account name for the recipient name
+// verification step. Returns available: false when no name can be resolved
+// (today, always — see lookupRailAccountName) so the frontend can skip the
+// confirmation step gracefully rather than block the send flow.
+sendRouter.get("/verify-recipient", async (c) => {
+  const phone = (c.req.query("phone") ?? "").trim();
+  const countryCode = (c.req.query("country") ?? "").trim().toUpperCase();
+  if (!/^\+[1-9]\d{6,18}$/.test(phone)) {
+    throw new ValidationError("phone must be E.164 format e.g. +254712345678");
+  }
+
+  const phoneHash = hashPhone(phone);
+  const cacheKey = `verify-recipient:${phoneHash}:${countryCode}`;
+  const cached = await getJson<{ available: boolean; recipientName: string | null; source: string | null }>(cacheKey);
+  if (cached !== null) return c.json({ ok: true, data: cached });
+
+  const tumaUser = await db.query.users.findFirst({
+    where: eq(users.phoneHash, phoneHash),
+    columns: { id: true, walletAddress: true },
+  });
+
+  let result: { available: boolean; recipientName: string | null; source: "tuma_user" | "rail" | null };
+
+  if (tumaUser?.walletAddress) {
+    // Registered Autopayke users have no stored display name today — known
+    // gap, not blocking; the frontend skips the verification step.
+    console.warn("[Send] TUMA user name lookup unavailable — no stored display name");
+    result = { available: false, recipientName: null, source: null };
+  } else {
+    const country = COUNTRY_CONFIG[countryCode] ?? dialCodeToCountry(phone);
+    const rail = (country?.primaryRail ?? "bank") as Rail;
+    const lookup = await lookupRailAccountName(rail, phone);
+    result = lookup.available
+      ? { available: true, recipientName: lookup.name, source: "rail" }
+      : { available: false, recipientName: null, source: null };
+  }
+
   await setex(cacheKey, 60, result);
   return c.json({ ok: true, data: result });
 });
