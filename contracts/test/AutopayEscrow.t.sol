@@ -271,4 +271,122 @@ contract AutopayEscrowTest is Test {
         vm.expectRevert();
         escrow.setTokenAllowed(address(usdc), false);
     }
+
+    // ── Pausable ──────────────────────────────────────────────────────────────
+    // Previously this contract had no emergency stop at all despite holding
+    // user funds — a bug found post-deploy in deposit/claim/refund had no way
+    // to be halted short of a full redeploy.
+
+    function test_pause_blocksDeposit() public {
+        vm.prank(admin);
+        escrow.pause();
+
+        vm.prank(sender);
+        vm.expectRevert();
+        escrow.deposit(CLAIM_REF, address(usdc), AMOUNT, EXPIRY);
+    }
+
+    function test_pause_blocksClaim() public {
+        vm.prank(sender);
+        escrow.deposit(CLAIM_REF, address(usdc), AMOUNT, EXPIRY);
+
+        vm.prank(admin);
+        escrow.pause();
+
+        bytes memory sig = _signerSign(CLAIM_REF, recipient);
+        vm.expectRevert();
+        escrow.claim(CLAIM_REF, recipient, sig);
+    }
+
+    function test_pause_blocksRefund() public {
+        vm.prank(sender);
+        escrow.deposit(CLAIM_REF, address(usdc), AMOUNT, EXPIRY);
+        vm.warp(block.timestamp + EXPIRY + 1);
+
+        vm.prank(admin);
+        escrow.pause();
+
+        vm.expectRevert();
+        escrow.refund(CLAIM_REF);
+    }
+
+    function test_pause_revertsForStranger() public {
+        vm.prank(attacker);
+        vm.expectRevert();
+        escrow.pause();
+    }
+
+    function test_unpause_byAdmin_restoresDeposit() public {
+        vm.prank(admin);
+        escrow.pause();
+
+        vm.prank(admin);
+        escrow.unpause();
+
+        vm.prank(sender);
+        escrow.deposit(CLAIM_REF, address(usdc), AMOUNT, EXPIRY);
+        (, , uint256 amount, , ) = escrow.getPayment(CLAIM_REF);
+        assertEq(amount, AMOUNT);
+    }
+
+    // ── rescueToken ───────────────────────────────────────────────────────────
+
+    function test_rescueToken_sweepsStrayTransferOnly() public {
+        // Legitimate escrowed funds via deposit()...
+        vm.prank(sender);
+        escrow.deposit(CLAIM_REF, address(usdc), AMOUNT, EXPIRY);
+
+        // ...plus tokens sent directly, bypassing deposit() entirely.
+        uint256 strayAmount = 10_000_000;
+        usdc.mint(address(this), strayAmount);
+        usdc.transfer(address(escrow), strayAmount);
+
+        address rescueTarget = makeAddr("rescueTarget");
+        vm.prank(admin);
+        escrow.rescueToken(address(usdc), rescueTarget);
+
+        // Only the stray amount moved — the escrowed deposit is untouched.
+        assertEq(usdc.balanceOf(rescueTarget), strayAmount);
+        assertEq(usdc.balanceOf(address(escrow)), AMOUNT);
+
+        (, , uint256 amount, , AutopayEscrow.EscrowStatus status) = escrow.getPayment(CLAIM_REF);
+        assertEq(amount, AMOUNT);
+        assertEq(uint8(status), uint8(AutopayEscrow.EscrowStatus.Pending));
+    }
+
+    function test_rescueToken_revertsWhenNothingToRescue() public {
+        vm.prank(sender);
+        escrow.deposit(CLAIM_REF, address(usdc), AMOUNT, EXPIRY);
+
+        vm.prank(admin);
+        vm.expectRevert(AutopayEscrow.NothingToRescue.selector);
+        escrow.rescueToken(address(usdc), makeAddr("rescueTarget"));
+    }
+
+    function test_rescueToken_revertsForStranger() public {
+        vm.prank(attacker);
+        vm.expectRevert();
+        escrow.rescueToken(address(usdc), attacker);
+    }
+
+    function test_totalHeld_decreasesOnClaim() public {
+        vm.prank(sender);
+        escrow.deposit(CLAIM_REF, address(usdc), AMOUNT, EXPIRY);
+        assertEq(escrow.totalHeld(address(usdc)), AMOUNT);
+
+        bytes memory sig = _signerSign(CLAIM_REF, recipient);
+        escrow.claim(CLAIM_REF, recipient, sig);
+
+        assertEq(escrow.totalHeld(address(usdc)), 0);
+    }
+
+    function test_totalHeld_decreasesOnRefund() public {
+        vm.prank(sender);
+        escrow.deposit(CLAIM_REF, address(usdc), AMOUNT, EXPIRY);
+        vm.warp(block.timestamp + EXPIRY + 1);
+
+        escrow.refund(CLAIM_REF);
+
+        assertEq(escrow.totalHeld(address(usdc)), 0);
+    }
 }
