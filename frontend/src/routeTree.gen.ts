@@ -24,6 +24,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as TrackIdRouteImport } from './routes/track.$id'
 import { Route as SignupVerifyRouteImport } from './routes/signup_.verify'
 import { Route as SignupPinRouteImport } from './routes/signup_.pin'
+import { Route as SignupKycRouteImport } from './routes/signup_.kyc'
 import { Route as SignupCompleteRouteImport } from './routes/signup_.complete'
 import { Route as SignupBiometricsRouteImport } from './routes/signup_.biometrics'
 import { Route as SettingsProfileRouteImport } from './routes/settings_.profile'
@@ -109,6 +110,11 @@ const SignupPinRoute = SignupPinRouteImport.update({
   path: '/signup/pin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignupKycRoute = SignupKycRouteImport.update({
+  id: '/signup_/kyc',
+  path: '/signup/kyc',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupCompleteRoute = SignupCompleteRouteImport.update({
   id: '/signup_/complete',
   path: '/signup/complete',
@@ -177,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/settings/profile': typeof SettingsProfileRoute
   '/signup/biometrics': typeof SignupBiometricsRoute
   '/signup/complete': typeof SignupCompleteRoute
+  '/signup/kyc': typeof SignupKycRoute
   '/signup/pin': typeof SignupPinRoute
   '/signup/verify': typeof SignupVerifyRoute
   '/track/$id': typeof TrackIdRoute
@@ -203,6 +210,7 @@ export interface FileRoutesByTo {
   '/settings/profile': typeof SettingsProfileRoute
   '/signup/biometrics': typeof SignupBiometricsRoute
   '/signup/complete': typeof SignupCompleteRoute
+  '/signup/kyc': typeof SignupKycRoute
   '/signup/pin': typeof SignupPinRoute
   '/signup/verify': typeof SignupVerifyRoute
   '/track/$id': typeof TrackIdRoute
@@ -230,6 +238,7 @@ export interface FileRoutesById {
   '/settings_/profile': typeof SettingsProfileRoute
   '/signup_/biometrics': typeof SignupBiometricsRoute
   '/signup_/complete': typeof SignupCompleteRoute
+  '/signup_/kyc': typeof SignupKycRoute
   '/signup_/pin': typeof SignupPinRoute
   '/signup_/verify': typeof SignupVerifyRoute
   '/track/$id': typeof TrackIdRoute
@@ -258,6 +267,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/signup/biometrics'
     | '/signup/complete'
+    | '/signup/kyc'
     | '/signup/pin'
     | '/signup/verify'
     | '/track/$id'
@@ -284,6 +294,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/signup/biometrics'
     | '/signup/complete'
+    | '/signup/kyc'
     | '/signup/pin'
     | '/signup/verify'
     | '/track/$id'
@@ -310,6 +321,7 @@ export interface FileRouteTypes {
     | '/settings_/profile'
     | '/signup_/biometrics'
     | '/signup_/complete'
+    | '/signup_/kyc'
     | '/signup_/pin'
     | '/signup_/verify'
     | '/track/$id'
@@ -337,6 +349,7 @@ export interface RootRouteChildren {
   SettingsProfileRoute: typeof SettingsProfileRoute
   SignupBiometricsRoute: typeof SignupBiometricsRoute
   SignupCompleteRoute: typeof SignupCompleteRoute
+  SignupKycRoute: typeof SignupKycRoute
   SignupPinRoute: typeof SignupPinRoute
   SignupVerifyRoute: typeof SignupVerifyRoute
   TrackIdRoute: typeof TrackIdRoute
@@ -449,6 +462,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupPinRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/signup_/kyc': {
+      id: '/signup_/kyc'
+      path: '/signup/kyc'
+      fullPath: '/signup/kyc'
+      preLoaderRoute: typeof SignupKycRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup_/complete': {
       id: '/signup_/complete'
       path: '/signup/complete'
@@ -537,6 +557,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsProfileRoute: SettingsProfileRoute,
   SignupBiometricsRoute: SignupBiometricsRoute,
   SignupCompleteRoute: SignupCompleteRoute,
+  SignupKycRoute: SignupKycRoute,
   SignupPinRoute: SignupPinRoute,
   SignupVerifyRoute: SignupVerifyRoute,
   TrackIdRoute: TrackIdRoute,
