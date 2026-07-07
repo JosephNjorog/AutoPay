@@ -4,6 +4,7 @@ import {
   text,
   boolean,
   timestamp,
+  date,
   numeric,
   integer,
   bigint,
@@ -51,6 +52,10 @@ export const escrowStatusEnum = pgEnum("escrow_status", [
   "expired",
 ]);
 
+// Placeholder identity check, not real document/liveness verification — see
+// backend/src/routes/kyc.ts for why.
+export const kycStatusEnum = pgEnum("kyc_status", ["verified", "rejected"]);
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 export const users = pgTable(
@@ -80,6 +85,15 @@ export const users = pgTable(
     termsAcceptedIp: text("terms_accepted_ip"),
     termsVersion: text("terms_version"),
     suspendedAt: timestamp("suspended_at"),
+    // Onboarding identity step — see kycStatusEnum for why this isn't real
+    // document/liveness verification.
+    fullName: text("full_name"),
+    dateOfBirth: date("date_of_birth"),
+    idType: text("id_type"),
+    idNumber: text("id_number"),
+    kycStatus: kycStatusEnum("kyc_status"),
+    kycRejectionReason: text("kyc_rejection_reason"),
+    kycSubmittedAt: timestamp("kyc_submitted_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -283,6 +297,85 @@ export const merchantSettings = pgTable(
   (t) => [index("merchant_settings_user_id_idx").on(t.userId)]
 );
 
+// ── Agentic foundation ──────────────────────────────────────────────────────
+// App-layer scaffolding for a future agent-initiated-payment feature: a
+// human payer's scoped permission grant, an append-only audit trail, and a
+// landing table for anomaly-flagged activity. Nothing in the product
+// creates agent-initiated transactions yet — see backend/src/services/agent-permissions.ts.
+
+export const agentAuditEventEnum = pgEnum("agent_audit_event", [
+  "permission_granted",
+  "permission_updated",
+  "permission_revoked",
+  "kill_switch_activated",
+  "anomaly_flagged",
+]);
+
+export const agentReviewStatusEnum = pgEnum("agent_review_status", [
+  "pending",
+  "reviewed",
+]);
+
+export const agentPermissions = pgTable(
+  "agent_permissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    maxTransactionUsd: numeric("max_transaction_usd").notNull(),
+    // E.164 phone numbers the agent may pay out to — plaintext, matching
+    // transactions.recipientPhone's existing storage convention.
+    approvedRecipients: jsonb("approved_recipients").notNull().default("[]"),
+    // Corridor pairs, e.g. "KE-KE" or "EU-KE".
+    approvedCorridors: jsonb("approved_corridors").notNull().default("[]"),
+    maxTxPerDay: integer("max_tx_per_day").notNull(),
+    version: integer("version").default(1).notNull(),
+    // Kill-switch toggle — same nullable-timestamp pattern as users.suspendedAt.
+    revokedAt: timestamp("revoked_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("agent_permissions_user_id_idx").on(t.userId)]
+);
+
+export const agentAuditLog = pgTable(
+  "agent_audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    eventType: agentAuditEventEnum("event_type").notNull(),
+    detail: jsonb("detail"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("agent_audit_log_user_id_idx").on(t.userId),
+    index("agent_audit_log_created_at_idx").on(t.createdAt),
+  ]
+);
+
+export const agentReviewEvents = pgTable(
+  "agent_review_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reason: text("reason").notNull(),
+    detail: jsonb("detail"),
+    status: agentReviewStatusEnum("status").default("pending").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("agent_review_events_user_id_idx").on(t.userId),
+    index("agent_review_events_status_idx").on(t.status),
+  ]
+);
+
 // ── Relations ─────────────────────────────────────────────────────────────────
 
 export const merchantSettingsRelations = relations(merchantSettings, ({ one }) => ({
@@ -343,3 +436,24 @@ export const settlementEventsRelations = relations(
     }),
   })
 );
+
+export const agentPermissionsRelations = relations(agentPermissions, ({ one }) => ({
+  user: one(users, {
+    fields: [agentPermissions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const agentAuditLogRelations = relations(agentAuditLog, ({ one }) => ({
+  user: one(users, {
+    fields: [agentAuditLog.userId],
+    references: [users.id],
+  }),
+}));
+
+export const agentReviewEventsRelations = relations(agentReviewEvents, ({ one }) => ({
+  user: one(users, {
+    fields: [agentReviewEvents.userId],
+    references: [users.id],
+  }),
+}));
