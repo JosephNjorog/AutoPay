@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 type SignupState = {
   country_code: string;
@@ -30,20 +31,32 @@ const DEFAULT_STATE = {
   terms_accepted: false,
 };
 
-export const useSignupStore = create<SignupState>()((set) => ({
-  ...DEFAULT_STATE,
+// Persisted so signup progress (phone, PIN, passkey status, etc.) survives
+// a reload — signup is broken into discrete routed steps specifically so
+// it can hold up on flaky mobile connections, which only works if the
+// state backing each step's route guard actually outlives a reload.
+export const useSignupStore = create<SignupState>()(
+  persist(
+    (set) => ({
+      ...DEFAULT_STATE,
 
-  setPhone: (country_code, phone, email) => set({ country_code, phone, email }),
+      setPhone: (country_code, phone, email) => set({ country_code, phone, email }),
 
-  setOtpId: (otp_id) => set({ otp_id }),
+      setOtpId: (otp_id) => set({ otp_id }),
 
-  setSignupToken: (signup_token) => set({ signup_token }),
+      setSignupToken: (signup_token) => set({ signup_token }),
 
-  setPinHash: (pin_hash) => set({ pin_hash }),
+      setPinHash: (pin_hash) => set({ pin_hash }),
 
-  setPasskeyRegistered: () => set({ passkey_registered: true }),
+      setPasskeyRegistered: () => set({ passkey_registered: true }),
 
-  setTermsAccepted: (terms_accepted) => set({ terms_accepted }),
+      setTermsAccepted: (terms_accepted) => set({ terms_accepted }),
 
-  clearSignupStore: () => set({ ...DEFAULT_STATE }),
-}));
+      clearSignupStore: () => set({ ...DEFAULT_STATE }),
+    }),
+    {
+      name: "autopayke_signup",
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);
