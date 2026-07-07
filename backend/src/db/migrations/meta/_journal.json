@@ -36,6 +36,13 @@
       "when": 1750860000000,
       "tag": "0004_terms_consent",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783462149434,
+      "tag": "0005_nifty_purifiers",
+      "breakpoints": true
     }
   ]
 }
