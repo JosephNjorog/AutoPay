@@ -79,7 +79,7 @@ function SignupVerify() {
         wallet_address: res.user.walletAddress,
       });
 
-      void navigate({ to: "/signup/pin" });
+      void navigate({ to: "/signup/kyc" });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.code === 422 || err.code === 400) {
@@ -138,10 +138,10 @@ function SignupVerify() {
           <ChevronLeft size={16} strokeWidth={2} />
         </button>
 
-        <ProgressBar currentStep={2} className="mb-7" />
+        <ProgressBar totalSteps={5} currentStep={2} className="mb-7" />
 
         <p className="text-[11px] font-semibold tracking-widest text-black/40 uppercase mb-1.5">
-          STEP 2 OF 4
+          STEP 2 OF 5
         </p>
         <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-navy mb-2">
           Check your email
