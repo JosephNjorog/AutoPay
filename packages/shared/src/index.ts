@@ -27,6 +27,12 @@ export type CountryConfig = {
   currencySymbol: string;
   primaryRail: Rail;
   fallbackRail?: Rail;
+  // Flag emoji shown in country pickers.
+  flag: string;
+  // Expected local (national-format) digit count, i.e. the phone number's
+  // length once the dial code / leading trunk "0" is stripped. Used to
+  // validate recipient numbers against the selected destination country.
+  phoneLength: number;
 };
 
 export const COUNTRY_CONFIG: Record<string, CountryConfig> = {
@@ -37,6 +43,8 @@ export const COUNTRY_CONFIG: Record<string, CountryConfig> = {
     currency: "KES",
     currencySymbol: "KSh",
     primaryRail: "mpesa",
+    flag: "🇰🇪",
+    phoneLength: 9,
   },
   GH: {
     name: "Ghana",
@@ -45,6 +53,8 @@ export const COUNTRY_CONFIG: Record<string, CountryConfig> = {
     currency: "GHS",
     currencySymbol: "GH₵",
     primaryRail: "momo",
+    flag: "🇬🇭",
+    phoneLength: 9,
   },
   NG: {
     name: "Nigeria",
@@ -53,6 +63,8 @@ export const COUNTRY_CONFIG: Record<string, CountryConfig> = {
     currency: "NGN",
     currencySymbol: "₦",
     primaryRail: "paystack",
+    flag: "🇳🇬",
+    phoneLength: 10,
   },
   SN: {
     name: "Senegal",
@@ -62,6 +74,8 @@ export const COUNTRY_CONFIG: Record<string, CountryConfig> = {
     currencySymbol: "CFA",
     primaryRail: "wave",
     fallbackRail: "orange_money",
+    flag: "🇸🇳",
+    phoneLength: 9,
   },
   CI: {
     name: "Côte d'Ivoire",
@@ -70,6 +84,8 @@ export const COUNTRY_CONFIG: Record<string, CountryConfig> = {
     currency: "XOF",
     currencySymbol: "CFA",
     primaryRail: "orange_money",
+    flag: "🇨🇮",
+    phoneLength: 10,
   },
   TZ: {
     name: "Tanzania",
@@ -78,6 +94,8 @@ export const COUNTRY_CONFIG: Record<string, CountryConfig> = {
     currency: "TZS",
     currencySymbol: "TSh",
     primaryRail: "mpesa",
+    flag: "🇹🇿",
+    phoneLength: 9,
   },
   UG: {
     name: "Uganda",
@@ -86,6 +104,8 @@ export const COUNTRY_CONFIG: Record<string, CountryConfig> = {
     currency: "UGX",
     currencySymbol: "USh",
     primaryRail: "momo",
+    flag: "🇺🇬",
+    phoneLength: 9,
   },
 };
 
