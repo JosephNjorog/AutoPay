@@ -68,7 +68,7 @@ function SignupPin() {
       setStatus("idle");
       setStatusMessage(undefined);
     } else {
-      void navigate({ to: "/signup/verify" });
+      void navigate({ to: "/signup/kyc" });
     }
   };
 
@@ -86,10 +86,10 @@ function SignupPin() {
           <ChevronLeft size={16} strokeWidth={2} />
         </button>
 
-        <ProgressBar currentStep={3} className="mb-7" />
+        <ProgressBar totalSteps={5} currentStep={4} className="mb-7" />
 
         <p className="text-[11px] font-semibold tracking-widest text-black/40 uppercase mb-1.5">
-          STEP 3 OF 4
+          STEP 4 OF 5
         </p>
 
         <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-navy mb-2">
