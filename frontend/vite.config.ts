@@ -43,6 +43,45 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         navigateFallback: "/index.html",
+        runtimeCaching: [
+          // Same-origin static assets not already swept into the precache
+          // manifest (e.g. a lazy route chunk fetched after a deploy while
+          // an older service worker is still active) — served instantly
+          // from cache, refreshed in the background.
+          {
+            urlPattern: ({ request, sameOrigin }) =>
+              sameOrigin && ["style", "script", "font", "image"].includes(request.destination),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "static-assets",
+              expiration: { maxEntries: 200, maxAgeSeconds: 30 * 24 * 60 * 60 },
+            },
+          },
+          // Semi-static config — changes rarely, safe to serve stale while
+          // a fresh copy loads in the background.
+          {
+            urlPattern: ({ url, sameOrigin }) =>
+              sameOrigin && url.pathname === "/api/send/corridors",
+            handler: "StaleWhileRevalidate",
+            options: { cacheName: "corridors-config" },
+          },
+          // Volatile data — FX rates and transaction status. Prefer a live
+          // network response but fall back to a short-lived cached one on
+          // flaky connections rather than failing outright.
+          {
+            urlPattern: ({ url, sameOrigin }) =>
+              sameOrigin &&
+              (url.pathname === "/api/fx/rates" ||
+                url.pathname.startsWith("/api/track/") ||
+                url.pathname.startsWith("/api/history")),
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "volatile-data",
+              networkTimeoutSeconds: 4,
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 },
+            },
+          },
+        ],
       },
     }),
   ],
