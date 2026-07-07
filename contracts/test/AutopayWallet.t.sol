@@ -7,6 +7,7 @@ import "../src/AutopayWalletFactory.sol";
 import "../src/interfaces/IEntryPoint.sol";
 import "../src/interfaces/UserOperation.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // Minimal mock for EntryPoint (we just need depositTo/balanceOf)
 contract MockEntryPoint {
@@ -36,6 +37,16 @@ contract MockEntryPoint {
 contract MockERC20 is ERC20 {
     constructor() ERC20("Mock", "MCK") {}
     function mint(address to, uint256 amount) external { _mint(to, amount); }
+}
+
+/// @dev Stands in for "some other contract the wallet has pre-approved" (e.g.
+///      AutopayEscrow.deposit()) — used to prove the guardian daily cap can no
+///      longer be bypassed by routing a pull through a target other than the
+///      token contract itself.
+contract MockPullSpender {
+    function pull(IERC20 token, address from, address to, uint256 amount) external {
+        require(token.transferFrom(from, to, amount), "transferFrom failed");
+    }
 }
 
 contract AutopaySmartWalletTest is Test {
@@ -160,30 +171,120 @@ contract AutopaySmartWalletTest is Test {
         wallet.transferToken(address(token), alice, 100e18);
     }
 
-    // ── updateOwner ───────────────────────────────────────────────────────────
+    // ── proposeOwnerChange / finalizeOwnerChange / cancelOwnerChange ────────────
+    // Ownership used to be a single-transaction updateOwner() callable by owner
+    // OR guardian — meaning a compromised guardian key could seize a wallet
+    // instantly. It's now timelocked exactly like guardian rotation.
 
-    function test_updateOwner_byGuardian() public {
+    function test_proposeOwnerChange_byGuardian_doesNotApplyImmediately() public {
         address newOwner = makeAddr("newOwner");
 
         vm.prank(guardian);
-        wallet.updateOwner(newOwner);
+        wallet.proposeOwnerChange(newOwner);
 
-        assertEq(wallet.owner(), newOwner);
+        assertEq(wallet.owner(), owner);
+        assertEq(wallet.pendingOwner(), newOwner);
     }
 
-    function test_updateOwner_byOwner() public {
+    function test_proposeOwnerChange_byOwner_alsoTimelocked() public {
         address newOwner = makeAddr("newOwner");
 
         vm.prank(owner);
-        wallet.updateOwner(newOwner);
+        wallet.proposeOwnerChange(newOwner);
 
-        assertEq(wallet.owner(), newOwner);
+        assertEq(wallet.owner(), owner);
+        assertEq(wallet.pendingOwner(), newOwner);
     }
 
-    function test_updateOwner_revertsForStranger() public {
+    function test_proposeOwnerChange_revertsForStranger() public {
         vm.prank(alice);
         vm.expectRevert(AutopaySmartWallet.NotAuthorized.selector);
-        wallet.updateOwner(alice);
+        wallet.proposeOwnerChange(alice);
+    }
+
+    function test_finalizeOwnerChange_revertsBeforeDelay() public {
+        address newOwner = makeAddr("newOwner");
+        vm.prank(guardian);
+        wallet.proposeOwnerChange(newOwner);
+
+        vm.expectRevert();
+        wallet.finalizeOwnerChange();
+    }
+
+    function test_finalizeOwnerChange_succeedsAfterDelay() public {
+        address newOwner = makeAddr("newOwner");
+        vm.prank(guardian);
+        wallet.proposeOwnerChange(newOwner);
+
+        vm.warp(block.timestamp + wallet.OWNER_CHANGE_DELAY() + 1);
+        wallet.finalizeOwnerChange();
+
+        assertEq(wallet.owner(), newOwner);
+        assertEq(wallet.pendingOwner(), address(0));
+    }
+
+    function test_cancelOwnerChange_byOwner_stopsAGuardianProposedTakeover() public {
+        address newOwner = makeAddr("newOwner");
+        vm.prank(guardian);
+        wallet.proposeOwnerChange(newOwner);
+
+        vm.prank(owner);
+        wallet.cancelOwnerChange();
+
+        assertEq(wallet.pendingOwner(), address(0));
+
+        vm.warp(block.timestamp + wallet.OWNER_CHANGE_DELAY() + 1);
+        vm.expectRevert();
+        wallet.finalizeOwnerChange();
+
+        assertEq(wallet.owner(), owner);
+    }
+
+    function test_cancelOwnerChange_revertsForGuardian() public {
+        address newOwner = makeAddr("newOwner");
+        vm.prank(guardian);
+        wallet.proposeOwnerChange(newOwner);
+
+        vm.prank(guardian);
+        vm.expectRevert(AutopaySmartWallet.NotAuthorized.selector);
+        wallet.cancelOwnerChange();
+    }
+
+    function test_cancelOwnerChange_worksEvenWhilePaused() public {
+        address newOwner = makeAddr("newOwner");
+        vm.prank(guardian);
+        wallet.proposeOwnerChange(newOwner);
+
+        vm.prank(owner);
+        wallet.pause();
+
+        // The recovery action must stay available during an active incident.
+        vm.prank(owner);
+        wallet.cancelOwnerChange();
+
+        assertEq(wallet.pendingOwner(), address(0));
+    }
+
+    function test_proposeOwnerChange_revertsWhilePaused() public {
+        vm.prank(owner);
+        wallet.pause();
+
+        vm.prank(guardian);
+        vm.expectRevert();
+        wallet.proposeOwnerChange(makeAddr("newOwner"));
+    }
+
+    function test_finalizeOwnerChange_revertsWhilePaused() public {
+        address newOwner = makeAddr("newOwner");
+        vm.prank(guardian);
+        wallet.proposeOwnerChange(newOwner);
+        vm.warp(block.timestamp + wallet.OWNER_CHANGE_DELAY() + 1);
+
+        vm.prank(owner);
+        wallet.pause();
+
+        vm.expectRevert();
+        wallet.finalizeOwnerChange();
     }
 
     // ── updateGuardian ────────────────────────────────────────────────────────
@@ -251,6 +352,42 @@ contract AutopaySmartWalletTest is Test {
         vm.prank(guardian);
         vm.expectRevert(AutopaySmartWallet.NotAuthorized.selector);
         wallet.cancelGuardianChange();
+    }
+
+    function test_cancelGuardianChange_worksEvenWhilePaused() public {
+        address newGuardian = makeAddr("newGuardian");
+        vm.prank(guardian);
+        wallet.updateGuardian(newGuardian);
+
+        vm.prank(owner);
+        wallet.pause();
+
+        vm.prank(owner);
+        wallet.cancelGuardianChange();
+
+        assertEq(wallet.pendingGuardian(), address(0));
+    }
+
+    function test_updateGuardian_revertsWhilePaused() public {
+        vm.prank(owner);
+        wallet.pause();
+
+        vm.prank(guardian);
+        vm.expectRevert();
+        wallet.updateGuardian(makeAddr("newGuardian"));
+    }
+
+    function test_finalizeGuardianChange_revertsWhilePaused() public {
+        address newGuardian = makeAddr("newGuardian");
+        vm.prank(guardian);
+        wallet.updateGuardian(newGuardian);
+        vm.warp(block.timestamp + wallet.GUARDIAN_CHANGE_DELAY() + 1);
+
+        vm.prank(owner);
+        wallet.pause();
+
+        vm.expectRevert();
+        wallet.finalizeGuardianChange();
     }
 
     // ── Pausable ──────────────────────────────────────────────────────────────
@@ -351,6 +488,81 @@ contract AutopaySmartWalletTest is Test {
         wallet.setGuardianDailyLimit(address(token), 50e18);
 
         assertEq(wallet.guardianDailyTokenLimit(address(token)), 50e18);
+    }
+
+    // ── Guardian cap bypass closure ──────────────────────────────────────────
+    // The original cap only inspected calldata for transfer()/approve() calls
+    // targeting the exact capped token address — a guardian could dodge it by
+    // routing the same value movement through any other contract. The balance
+    // snapshot in execute()/executeBatch() closes that regardless of mechanism.
+
+    function test_guardianDailyLimit_catchesIndirectPullThroughOtherContract() public {
+        vm.prank(owner);
+        wallet.setGuardianDailyLimit(address(token), 100e18);
+
+        MockPullSpender spender = new MockPullSpender();
+        vm.prank(owner);
+        wallet.approveToken(address(token), address(spender), 1000e18);
+
+        bytes memory pullData = abi.encodeWithSignature(
+            "pull(address,address,address,uint256)",
+            address(token),
+            address(wallet),
+            alice,
+            150e18
+        );
+
+        // Guardian never touches the token contract directly — the old
+        // selector-matching cap would have let this through uncapped.
+        vm.prank(guardian);
+        vm.expectRevert();
+        wallet.execute(address(spender), 0, pullData);
+
+        assertEq(token.balanceOf(alice), 0);
+    }
+
+    function test_guardianDailyLimit_allowsIndirectPullUnderCap() public {
+        vm.prank(owner);
+        wallet.setGuardianDailyLimit(address(token), 100e18);
+
+        MockPullSpender spender = new MockPullSpender();
+        vm.prank(owner);
+        wallet.approveToken(address(token), address(spender), 1000e18);
+
+        bytes memory pullData = abi.encodeWithSignature(
+            "pull(address,address,address,uint256)",
+            address(token),
+            address(wallet),
+            alice,
+            50e18
+        );
+
+        vm.prank(guardian);
+        wallet.execute(address(spender), 0, pullData);
+
+        assertEq(token.balanceOf(alice), 50e18);
+    }
+
+    function test_guardianDailyLimit_approveAndBalanceCapShareOneBudget() public {
+        vm.prank(owner);
+        wallet.setGuardianDailyLimit(address(token), 100e18);
+
+        // Guardian spends 60 via a direct transfer (balance-delta cap)...
+        bytes memory transferData = abi.encodeWithSignature(
+            "transfer(address,uint256)", alice, 60e18
+        );
+        vm.prank(guardian);
+        wallet.execute(address(token), 0, transferData);
+
+        // ...then tries to also approve 60 more the same day. Combined (120)
+        // exceeds the 100 limit, so this must revert even though neither call
+        // alone would have.
+        bytes memory approveData = abi.encodeWithSignature(
+            "approve(address,uint256)", alice, 60e18
+        );
+        vm.prank(guardian);
+        vm.expectRevert();
+        wallet.execute(address(token), 0, approveData);
     }
 
     // ── Receive AVAX ─────────────────────────────────────────────────────────
