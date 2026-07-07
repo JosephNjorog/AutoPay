@@ -12,6 +12,7 @@ import { Toaster } from "sonner";
 import { reportError } from "../lib/error-reporting";
 import { wagmiConfig } from "../lib/web3";
 import { useSessionStore } from "../stores/sessionStore";
+import { OfflineBanner } from "../components/OfflineBanner";
 
 // Side-effect: initialises Reown AppKit modal
 import "../lib/web3";
@@ -112,6 +113,7 @@ function RootComponent() {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
+        <OfflineBanner />
         <Outlet />
         <Toaster position="top-center" richColors />
       </QueryClientProvider>
