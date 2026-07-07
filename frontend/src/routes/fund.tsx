@@ -828,6 +828,13 @@ function PayBank({ token, onDone }: { token: string; onDone: () => void }) {
     queryFn: () => api.fund.bank(token),
     enabled: !!token,
   });
+  const [copied, setCopied] = useState(false);
+
+  function copy(s: string) {
+    navigator.clipboard?.writeText(s);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
 
   return (
     <div className="flex-1 flex flex-col mt-6">
@@ -847,13 +854,34 @@ function PayBank({ token, onDone }: { token: string; onDone: () => void }) {
         </p>
       )}
       {data && (
-        <div className="mt-5 rounded-3xl border border-border bg-card divide-y divide-border">
-          <Row k="Bank" v={data.bankName} />
-          <Row k="Account name" v={data.accountName} />
-          <Row k="Account number" v={data.accountNumber} mono />
-          <Row k="Reference" v={data.routingReference} mono />
-          <Row k="Fee" v={data.fee ? `$${data.fee.toFixed(2)}` : "Free"} />
-        </div>
+        <>
+          {/* Reference shown prominently at the top with a copy control —
+              this is what users need most and shouldn't have to hunt for. */}
+          <div className="mt-5 rounded-3xl border border-primary/30 bg-primary-soft/30 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Your reference
+            </p>
+            <p className="mt-1 text-2xl font-black font-mono break-all">{data.routingReference}</p>
+            <button
+              onClick={() => copy(data.routingReference)}
+              className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-xs font-semibold text-primary-foreground"
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+              {copied ? "Copied" : "Copy reference"}
+            </button>
+          </div>
+
+          <div className="mt-4 rounded-3xl border border-border bg-card divide-y divide-border">
+            <Row k="Bank" v={data.bankName} />
+            <Row k="Account name" v={data.accountName} />
+            <Row k="Account number" v={data.accountNumber} mono />
+            <Row k="Fee" v={data.fee ? `$${data.fee.toFixed(2)}` : "Free"} />
+          </div>
+        </>
       )}
       <p className="mt-3 text-[11px] text-muted-foreground text-center">
         Reference is auto-detected for instant credit.
