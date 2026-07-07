@@ -26,6 +26,7 @@ export const QUEUE_NAMES = {
   ESCROW_EXPIRE: "escrow_expire",
   RAIL_DISBURSE: "rail_disburse",
   WHATSAPP_NOTIFY: "whatsapp_notify",
+  AGENT_REVIEW: "agent_review",
 } as const;
 
 // ── Job payload types ─────────────────────────────────────────────────────────
@@ -65,10 +66,17 @@ export type WhatsAppNotifyJob = {
   failureStage?: string;
 };
 
+export type AgentReviewJob = {
+  userId: string;
+  reason: string;
+  detail?: Record<string, unknown>;
+};
+
 type SettlementPollJobName = "poll";
 type EscrowExpireJobName = "expire";
 type RailDisburseJobName = "disburse";
 type WhatsAppNotifyJobName = "notify";
+type AgentReviewJobName = "review";
 
 // ── Queue instances ───────────────────────────────────────────────────────────
 
@@ -87,6 +95,9 @@ export const railQueue = queueOpts
   : null;
 export const notifyQueue = queueOpts
   ? new Queue<WhatsAppNotifyJob, unknown, WhatsAppNotifyJobName>(QUEUE_NAMES.WHATSAPP_NOTIFY, queueOpts)
+  : null;
+export const agentReviewQueue = queueOpts
+  ? new Queue<AgentReviewJob, unknown, AgentReviewJobName>(QUEUE_NAMES.AGENT_REVIEW, queueOpts)
   : null;
 
 // ── Scheduling helpers ────────────────────────────────────────────────────────
@@ -142,4 +153,26 @@ export async function enqueueWhatsAppNotify(job: WhatsAppNotifyJob): Promise<boo
     backoff: { type: "exponential", delay: 5_000 },
   });
   return true;
+}
+
+export async function enqueueAgentReview(job: AgentReviewJob): Promise<boolean> {
+  if (!agentReviewQueue) return false;
+  await agentReviewQueue.add("review", job, {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 5_000 },
+  });
+  return true;
+}
+
+/**
+ * Kill-switch support: drops any not-yet-processed review jobs for a user
+ * whose agent permissions were just revoked, so the app-layer queue can't
+ * keep acting on their behalf after revocation.
+ */
+export async function removeQueuedAgentReviewsForUser(userId: string): Promise<number> {
+  if (!agentReviewQueue) return 0;
+  const jobs = await agentReviewQueue.getJobs(["waiting", "delayed"]);
+  const toRemove = jobs.filter((job) => job.data.userId === userId);
+  await Promise.all(toRemove.map((job) => job.remove()));
+  return toRemove.length;
 }
