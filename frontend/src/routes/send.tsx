@@ -1,14 +1,14 @@
 import { createFileRoute, Link, useNavigate, redirect } from "@tanstack/react-router";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, Search, UserPlus, Check, ArrowRight, Sparkles,
-  Loader2, Lock, Send as SendIcon, MessageCircle, AlertCircle, BookUser,
+  Loader2, Lock, Send as SendIcon, MessageCircle, AlertCircle, BookUser, X,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { MobileFrame } from "@/components/MobileFrame";
-import { countries, midRates, type Contact } from "@/lib/tuma-data";
-import { api, type FxQuote, ApiError } from "@/lib/api/client";
+import { midRates, type Contact } from "@/lib/tuma-data";
+import { api, type FxQuote, type Corridor, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 
 type SendSearch = { to?: string; amount?: string };
@@ -29,27 +29,14 @@ export const Route = createFileRoute("/send")({
   component: SendPage,
 });
 
-type Step = "pick" | "amount" | "review" | "sending" | "done";
-
-function dialToFlag(msisdn: string) {
-  const norm = msisdn.startsWith("+") ? msisdn : "+" + msisdn;
-  const c = countries.find((c) => norm.startsWith(c.dial));
-  return c?.flag ?? "🌍";
-}
-
-function getLocalCurrency(msisdn: string) {
-  const norm = msisdn.replace(/\s/g, "").replace(/^00/, "+");
-  const c = countries.find((cc) => norm.startsWith(cc.dial));
-  if (!c) return null;
-  const m = midRates[c.code];
-  return m ? { currency: m.ccy, rate: m.rate, code: c.code } : null;
-}
+type Step = "country" | "pick" | "verify" | "amount" | "review" | "sending" | "done";
 
 function SendPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const { accessToken, isLoggedIn } = useAuthStore();
-  const [step, setStep] = useState<Step>("pick");
+  const [step, setStep] = useState<Step>("country");
+  const [country, setCountry] = useState<Corridor | null>(null);
   const [recipient, setRecipient] = useState<Contact | null>(null);
   const [amount, setAmount] = useState("25"); // always USDC
   const [note, setNote] = useState("");
@@ -64,15 +51,26 @@ function SendPage() {
     if (!isLoggedIn()) navigate({ to: "/signup" });
   }, [isLoggedIn, navigate]);
 
-  // Arrived from a scanned QR (or a deep link) with a recipient pre-filled.
+  const { data: corridors } = useQuery({
+    queryKey: ["send-corridors"],
+    queryFn: () => api.send.corridors(accessToken!),
+    enabled: !!accessToken,
+    staleTime: 5 * 60_000,
+  });
+
+  // Arrived from a scanned QR (or a deep link) with a recipient pre-filled —
+  // derive the destination country from the corridors config once loaded and
+  // skip straight to amount entry.
   useEffect(() => {
-    if (!search.to) return;
-    const country = countries.find((c) => search.to!.startsWith(c.dial));
-    setRecipient({ id: "scanned", name: search.to, msisdn: search.to, country: country?.name ?? "", flag: country?.flag ?? "🌍", rail: "" });
+    if (!search.to || !corridors) return;
+    const matched = corridors.find((c) => search.to!.startsWith(c.dial));
+    if (!matched) return;
+    setCountry(matched);
+    setRecipient({ id: "scanned", name: search.to, msisdn: search.to, country: matched.name, flag: matched.flag, rail: matched.rail });
     if (search.amount) setAmount(search.amount);
     setStep("amount");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [corridors]);
 
   const { data: wallet } = useQuery({
     queryKey: ["wallet"],
@@ -98,6 +96,19 @@ function SendPage() {
     }
   }
 
+  // Re-fetches the quote in place (no step change) when the lock TTL expires
+  // while the user is still reviewing amount/review — keeps the quoted rate
+  // from going stale out from under them.
+  async function refreshQuote() {
+    if (!recipient || !accessToken || usd <= 0) return;
+    try {
+      const q = await api.fx.quote(usd, recipient.msisdn, accessToken);
+      setQuote(q);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Rate expired — couldn't refresh. Try again.");
+    }
+  }
+
   async function handleSend() {
     if (!quote || !recipient || !accessToken) return;
     setError(null);
@@ -115,23 +126,26 @@ function SendPage() {
     }
   }
 
+  function handleBack() {
+    if (step === "country") navigate({ to: "/dashboard" });
+    else if (step === "pick") setStep("country");
+    else if (step === "verify") setStep("pick");
+    else if (step === "amount") setStep(recipient?.id === "scanned" ? "country" : "pick");
+    else if (step === "review") setStep("amount");
+    else navigate({ to: "/dashboard" });
+  }
+
   return (
     <MobileFrame>
       <div className="flex min-h-full flex-col">
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-5 py-4 flex items-center justify-between">
-          <button
-            onClick={() => {
-              if (step === "pick") navigate({ to: "/dashboard" });
-              else if (step === "amount") setStep("pick");
-              else if (step === "review") setStep("amount");
-              else navigate({ to: "/dashboard" });
-            }}
-            className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center"
-          >
+          <button onClick={handleBack} className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
             <ArrowLeft className="h-4 w-4" />
           </button>
           <h1 className="text-sm font-bold">
-            {step === "pick" && "Send money"}
+            {step === "country" && "Send money"}
+            {step === "pick" && "Choose recipient"}
+            {step === "verify" && "Verify recipient"}
             {step === "amount" && "Enter amount"}
             {step === "review" && "Review & confirm"}
             {(step === "sending" || step === "done") && "Sending"}
@@ -145,22 +159,40 @@ function SendPage() {
           </div>
         )}
 
-        {step === "pick" && (
-          <PickRecipient accessToken={accessToken} onPick={(c) => { setRecipient(c); setStep("amount"); }} />
+        {step === "country" && (
+          <CountryStep accessToken={accessToken} corridors={corridors} onPick={(c) => { setCountry(c); setStep("pick"); }} />
         )}
 
-        {step === "amount" && recipient && (
+        {step === "pick" && country && (
+          <PickRecipient
+            accessToken={accessToken}
+            country={country}
+            onPick={(c) => { setRecipient(c); setStep("verify"); }}
+          />
+        )}
+
+        {step === "verify" && country && recipient && (
+          <VerifyRecipientStep
+            accessToken={accessToken}
+            country={country}
+            recipient={recipient}
+            onConfirmed={() => setStep("amount")}
+            onRejected={() => { setRecipient(null); setStep("pick"); }}
+          />
+        )}
+
+        {step === "amount" && recipient && country && (
           <AmountStep
-            recipient={recipient} amount={amount} setAmount={setAmount}
-            usd={usd} maxUsdc={maxUsdc} quote={quote}
+            recipient={recipient} country={country} amount={amount} setAmount={setAmount}
+            usd={usd} maxUsdc={maxUsdc} quote={quote} onRefreshQuote={refreshQuote}
             onNext={handleQuoteAndReview}
           />
         )}
 
-        {step === "review" && recipient && quote && (
+        {step === "review" && recipient && country && quote && (
           <ReviewStep
-            recipient={recipient} usd={usd} quote={quote}
-            note={note} setNote={setNote} onSend={handleSend}
+            recipient={recipient} country={country} usd={usd} quote={quote}
+            note={note} setNote={setNote} onSend={handleSend} onRefreshQuote={refreshQuote}
           />
         )}
 
@@ -223,16 +255,121 @@ function SendPage() {
   );
 }
 
-// ── Contact picker ────────────────────────────────────────────────────────────
+// ── Country step ─────────────────────────────────────────────────────────────
 
-function PickRecipient({ accessToken, onPick }: { accessToken: string | null; onPick: (c: Contact) => void }) {
+function CountryStep({ accessToken, corridors, onPick }: {
+  accessToken: string | null; corridors: Corridor[] | undefined; onPick: (c: Corridor) => void;
+}) {
+  const [q, setQ] = useState("");
+
+  // Recent destination countries, derived from real send history — no
+  // separate backend concept needed.
+  const { data: history } = useQuery({
+    queryKey: ["history", "out", "recents"],
+    queryFn: () => api.history.list(accessToken!, { filter: "out", limit: 20 }),
+    enabled: !!accessToken,
+  });
+
+  const recents: Corridor[] = [];
+  if (corridors && history) {
+    const seen = new Set<string>();
+    for (const tx of history.transactions) {
+      const match = corridors.find((c) => tx.counterparty.startsWith(c.dial));
+      if (!match || seen.has(match.code)) continue;
+      seen.add(match.code);
+      recents.push(match);
+      if (recents.length >= 3) break;
+    }
+  }
+
+  const filtered = (corridors ?? []).filter((c) =>
+    !q || c.name.toLowerCase().includes(q.toLowerCase()) || c.code.toLowerCase().includes(q.toLowerCase())
+  );
+
+  return (
+    <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
+      <div className="flex items-center gap-2 rounded-2xl bg-card border border-border px-4 py-3">
+        <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search countries"
+          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        />
+      </div>
+
+      {!corridors && (
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {recents.length > 0 && !q && (
+        <div className="mt-5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Recent</p>
+          <div className="flex flex-wrap gap-2">
+            {recents.map((c) => (
+              <button key={c.code} onClick={() => onPick(c)}
+                className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted/50 transition">
+                <span>{c.flag}</span>{c.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-5 flex-1 space-y-2">
+        {filtered.map((c) => (
+          <button key={c.code} onClick={() => onPick(c)}
+            className="w-full flex items-center gap-3 rounded-2xl border border-border bg-card hover:bg-muted/50 p-3.5 text-left transition">
+            <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xl">{c.flag}</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate">{c.name}</p>
+              <p className="text-[11px] text-muted-foreground">{c.dial} · {c.currency}</p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+          </button>
+        ))}
+        {corridors && filtered.length === 0 && (
+          <p className="py-12 text-center text-sm text-muted-foreground">No match for "{q}"</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Recipient identification ────────────────────────────────────────────────
+
+// Normalizes free-typed input against the already-selected destination
+// country, returning a canonical E.164 msisdn or null if it doesn't match
+// that country's expected format.
+function normalizeToCountry(input: string, country: Corridor): string | null {
+  const digits = input.replace(/[^\d+]/g, "");
+  const dialDigits = country.dial.replace("+", "");
+  let national: string;
+  if (digits.startsWith(country.dial)) national = digits.slice(country.dial.length);
+  else if (digits.startsWith(dialDigits)) national = digits.slice(dialDigits.length);
+  else if (digits.startsWith("+")) return null; // a different country's code was typed
+  else if (digits.startsWith("0")) national = digits.slice(1);
+  else national = digits;
+
+  if (!/^\d+$/.test(national) || national.length !== country.phoneLength) return null;
+  return country.dial + national;
+}
+
+function PickRecipient({ accessToken, country, onPick }: {
+  accessToken: string | null; country: Corridor; onPick: (c: Contact) => void;
+}) {
   const [q, setQ] = useState("");
   const [importing, setImporting] = useState(false);
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const [pendingContact, setPendingContact] = useState<{ name: string; rawNumber: string } | null>(null);
   const [debouncedPhone, setDebouncedPhone] = useState("");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hasContactPicker = typeof navigator !== "undefined" && "contacts" in (navigator as any);
 
-  // Recent recipients, built from real send history — no mock contacts.
+  // Recent recipients within this destination country, built from real send
+  // history — no mock contacts.
   const { data: history } = useQuery({
     queryKey: ["history", "out", "recents"],
     queryFn: () => api.history.list(accessToken!, { filter: "out", limit: 20 }),
@@ -242,39 +379,25 @@ function PickRecipient({ accessToken, onPick }: { accessToken: string | null; on
   const recents: Contact[] = [];
   const seen = new Set<string>();
   for (const tx of history?.transactions ?? []) {
-    if (seen.has(tx.counterparty)) continue;
+    if (!tx.counterparty.startsWith(country.dial) || seen.has(tx.counterparty)) continue;
     seen.add(tx.counterparty);
-    const country = countries.find((c) => tx.counterparty.startsWith(c.dial));
-    recents.push({
-      id: tx.id,
-      name: tx.counterparty,
-      msisdn: tx.counterparty,
-      country: country?.name ?? "",
-      flag: country?.flag ?? "🌍",
-      rail: tx.rail,
-    });
+    recents.push({ id: tx.id, name: tx.counterparty, msisdn: tx.counterparty, country: country.name, flag: country.flag, rail: tx.rail });
   }
 
   const filtered = q
     ? recents.filter((c) => c.name.toLowerCase().includes(q.toLowerCase()) || c.msisdn.includes(q))
     : recents;
-  const typed = q.replace(/\s/g, "");
-  const isPhone = /^\+?\d{8,}$/.test(typed);
+
+  const normalized = normalizeToCountry(q, country);
   const noMatch = filtered.length === 0;
-  const newContact = isPhone && noMatch;
-  const cc = countries.find((c) => typed.startsWith(c.dial))
-    ?? countries.find((c) => typed.startsWith(c.dial.slice(1)))
-    ?? countries[0];
+  const newContact = !!normalized && noMatch;
 
   // Debounce the phone input by 400 ms before firing the lookup query.
   useEffect(() => {
-    if (!isPhone) { setDebouncedPhone(""); return; }
-    const t = setTimeout(() => {
-      const e164 = typed.startsWith("+") ? typed : `+${typed}`;
-      setDebouncedPhone(e164);
-    }, 400);
+    if (!normalized) { setDebouncedPhone(""); return; }
+    const t = setTimeout(() => setDebouncedPhone(normalized), 400);
     return () => clearTimeout(t);
-  }, [typed, isPhone]);
+  }, [normalized]);
 
   const { data: lookupData, isFetching: lookupFetching } = useQuery({
     queryKey: ["lookup", debouncedPhone],
@@ -285,10 +408,19 @@ function PickRecipient({ accessToken, onPick }: { accessToken: string | null; on
 
   const isRegistered = lookupData?.registered;
   // True while the debounce hasn't settled or the request is in-flight.
-  const lookupPending = (isPhone && debouncedPhone === "") || lookupFetching;
+  const lookupPending = (!!normalized && debouncedPhone === "") || lookupFetching;
+
+  async function finalizePick(name: string, msisdn: string) {
+    let registered: boolean | undefined;
+    try {
+      if (accessToken) registered = (await api.send.lookup(msisdn, accessToken)).registered;
+    } catch { /* non-fatal */ }
+    onPick({ id: "new", name, msisdn, country: country.name, flag: country.flag, rail: country.rail, registered });
+  }
 
   async function importFromContacts() {
     if (!hasContactPicker) return;
+    setInlineError(null);
     setImporting(true);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -296,19 +428,23 @@ function PickRecipient({ accessToken, onPick }: { accessToken: string | null; on
       if (results.length > 0) {
         const first = results[0];
         const raw = (first.tel?.[0] ?? "").replace(/[\s\-().]/g, "");
-        const tel = raw.startsWith("+") ? raw : raw.startsWith("00") ? "+" + raw.slice(2) : "+" + raw;
-        const name = first.name?.[0] ?? tel;
-        if (tel.length >= 8) {
-          const country = countries.find((c) => tel.startsWith(c.dial)) ?? countries[0];
-          let registered: boolean | undefined;
-          try {
-            if (accessToken) {
-              const res = await api.send.lookup(tel, accessToken);
-              registered = res.registered;
-            }
-          } catch { /* non-fatal */ }
-          onPick({ id: "device", name, msisdn: tel, country: country.name, flag: country.flag, rail: "MoMo", registered });
+        const name = first.name?.[0] ?? raw;
+        const hasCallingCode = raw.startsWith("+") || raw.startsWith("00");
+
+        if (!hasCallingCode) {
+          // No country calling code on this number — confirm against the
+          // selected destination country rather than silently guessing.
+          setPendingContact({ name, rawNumber: raw });
+          return;
         }
+
+        const e164 = raw.startsWith("00") ? "+" + raw.slice(2) : raw;
+        const msisdn = normalizeToCountry(e164, country);
+        if (!msisdn) {
+          setInlineError(`That contact's number doesn't look like a ${country.name} number.`);
+          return;
+        }
+        await finalizePick(name, msisdn);
       }
     } catch {
       // user dismissed or permission denied
@@ -317,15 +453,53 @@ function PickRecipient({ accessToken, onPick }: { accessToken: string | null; on
     }
   }
 
+  function confirmPendingContact() {
+    if (!pendingContact) return;
+    const msisdn = normalizeToCountry(pendingContact.rawNumber, country);
+    setPendingContact(null);
+    if (!msisdn) {
+      setInlineError(`That contact's number doesn't look like a ${country.name} number.`);
+      return;
+    }
+    finalizePick(pendingContact.name, msisdn);
+  }
+
   return (
     <>
       <div className="px-5 pt-5">
-        <div className="flex items-center gap-2 rounded-2xl bg-card border border-border px-4 py-3">
+        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+          <span>{country.flag}</span>
+          <span>Sending to {country.name} · {country.dial}</span>
+        </div>
+
+        {pendingContact && (
+          <div className="mt-3 rounded-2xl border border-primary/30 bg-primary-soft/30 p-4">
+            <p className="text-sm font-semibold">
+              "{pendingContact.rawNumber}" doesn't have a country code — treat it as a {country.name} number ({country.dial})?
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button onClick={confirmPendingContact} className="flex-1 rounded-xl bg-primary py-2 text-xs font-semibold text-primary-foreground">
+                Yes, use {country.dial}
+              </button>
+              <button onClick={() => setPendingContact(null)} className="flex-1 rounded-xl border border-border bg-card py-2 text-xs font-semibold">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {inlineError && (
+          <div className="mt-3 flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-xs text-destructive">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />{inlineError}
+          </div>
+        )}
+
+        <div className="mt-3 flex items-center gap-2 rounded-2xl bg-card border border-border px-4 py-3">
           <Search className="h-4 w-4 text-muted-foreground shrink-0" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Type or paste a phone number"
+            placeholder={`Phone number, e.g. ${"0".repeat(country.phoneLength)}`}
             type="tel"
             inputMode="tel"
             autoComplete="tel"
@@ -359,11 +533,7 @@ function PickRecipient({ accessToken, onPick }: { accessToken: string | null; on
 
         {newContact && (
           <button
-            onClick={() => onPick({
-              id: "new", name: typed, msisdn: typed.startsWith("+") ? typed : `+${typed}`,
-              country: cc.name, flag: cc.flag, rail: "MoMo",
-              registered: lookupData?.registered,
-            })}
+            onClick={() => finalizePick(normalized!, normalized!)}
             className={`mt-4 w-full flex items-center gap-3 rounded-2xl border p-4 text-left transition ${
               isRegistered
                 ? "border-success/50 bg-success/5"
@@ -380,7 +550,7 @@ function PickRecipient({ accessToken, onPick }: { accessToken: string | null; on
                   : <UserPlus className="h-4 w-4" />}
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold">Send to {typed.startsWith("+") ? typed : `+${typed}`} {cc.flag}</p>
+              <p className="text-sm font-semibold">Send to {normalized} {country.flag}</p>
               {lookupPending ? (
                 <p className="text-[11px] text-muted-foreground">Checking Autopayke…</p>
               ) : isRegistered ? (
@@ -415,12 +585,93 @@ function PickRecipient({ accessToken, onPick }: { accessToken: string | null; on
           )}
           {filtered.length === 0 && !newContact && !q && (
             <p className="py-12 text-center text-sm text-muted-foreground">
-              No recent recipients yet — type a phone number or import from contacts above.
+              No recent recipients in {country.name} yet — type a phone number or import from contacts above.
             </p>
           )}
         </div>
       </div>
     </>
+  );
+}
+
+// ── Recipient name verification ──────────────────────────────────────────────
+
+function VerifyRecipientStep({ accessToken, country, recipient, onConfirmed, onRejected }: {
+  accessToken: string | null; country: Corridor; recipient: Contact;
+  onConfirmed: () => void; onRejected: () => void;
+}) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["verify-recipient", recipient.msisdn, country.code],
+    queryFn: () => api.send.verifyRecipient(recipient.msisdn, country.code, accessToken!),
+    enabled: !!accessToken,
+  });
+
+  // If a registered name can't be resolved (the case for every rail today),
+  // skip this step gracefully rather than block the send flow.
+  useEffect(() => {
+    if (!isLoading && data && !data.available) onConfirmed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, data]);
+
+  if (isLoading || !data || !data.available) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <p className="mt-3 text-xs text-muted-foreground">Verifying recipient…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
+      <div className="rounded-3xl border border-border bg-card p-5 text-center">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Sending to</p>
+        <p className="mt-2 text-2xl font-black">{data.recipientName}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{recipient.msisdn} {country.flag}</p>
+        <p className="mt-3 text-sm font-semibold">Is this correct?</p>
+      </div>
+      <div className="mt-auto pt-6 space-y-2">
+        <button onClick={onConfirmed}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant)"
+          style={{ background: "var(--gradient-portfolio)" }}>
+          <Check className="h-4 w-4" /> Yes, that's them
+        </button>
+        <button onClick={onRejected} className="w-full flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-4 text-sm font-semibold">
+          <X className="h-4 w-4" /> Not them — go back
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── FX quote countdown ───────────────────────────────────────────────────────
+
+function QuoteCountdown({ lockedUntil, onExpire }: { lockedUntil: string; onExpire: () => void }) {
+  const [secondsLeft, setSecondsLeft] = useState(() =>
+    Math.max(0, Math.round((new Date(lockedUntil).getTime() - Date.now()) / 1000))
+  );
+  const onExpireRef = useRef(onExpire);
+  useEffect(() => { onExpireRef.current = onExpire; });
+
+  useEffect(() => {
+    setSecondsLeft(Math.max(0, Math.round((new Date(lockedUntil).getTime() - Date.now()) / 1000)));
+    const id = setInterval(() => {
+      const remaining = Math.max(0, Math.round((new Date(lockedUntil).getTime() - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(id);
+        onExpireRef.current();
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [lockedUntil]);
+
+  const expiring = secondsLeft <= 5;
+
+  return (
+    <span className={`normal-case flex items-center gap-1 ${expiring ? "text-warning" : "text-success"}`}>
+      <Lock className="h-3 w-3" /> {secondsLeft > 0 ? `Rate locked · ${secondsLeft}s` : "Refreshing rate…"}
+    </span>
   );
 }
 
@@ -444,21 +695,16 @@ function fmtQuick(v: number): string {
   return String(v);
 }
 
-function AmountStep({ recipient, amount, setAmount, usd, maxUsdc, quote, onNext }: {
-  recipient: Contact; amount: string; setAmount: (v: string) => void;
-  usd: number; maxUsdc: number; quote: FxQuote | null;
+function AmountStep({ recipient, country, amount, setAmount, usd, maxUsdc, quote, onRefreshQuote, onNext }: {
+  recipient: Contact; country: Corridor; amount: string; setAmount: (v: string) => void;
+  usd: number; maxUsdc: number; quote: FxQuote | null; onRefreshQuote: () => void;
   onNext: () => void;
 }) {
   const [mode, setMode] = useState<AmountMode>("usdc");
   const [localInput, setLocalInput] = useState("");
 
-  const flag = dialToFlag(recipient.msisdn);
-  const localCurrData = getLocalCurrency(recipient.msisdn);
-  const localCurrency = localCurrData?.currency ?? null;
-  const localRate = localCurrData?.rate ?? null;
-  const countryCode = localCurrData?.code ?? null;
-
-  const quickLocal = countryCode ? (LOCAL_QUICK_AMOUNTS[countryCode] ?? [500, 1_000, 2_500, 5_000]) : [];
+  const localRate = midRates[country.code]?.rate ?? null;
+  const quickLocal = LOCAL_QUICK_AMOUNTS[country.code] ?? [500, 1_000, 2_500, 5_000];
 
   function switchMode(next: AmountMode) {
     if (next === "local" && localRate) {
@@ -485,13 +731,13 @@ function AmountStep({ recipient, amount, setAmount, usd, maxUsdc, quote, onNext 
   }
 
   const displayValue = mode === "local" ? localInput : amount;
-  const displayCurrency = mode === "local" && localCurrency ? localCurrency : "USDC";
+  const displayCurrency = mode === "local" ? country.currency : "USDC";
 
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
       {/* Recipient row */}
       <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-lg">{flag}</div>
+        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-lg">{country.flag}</div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold truncate">
             {recipient.name !== recipient.msisdn ? recipient.name : recipient.msisdn}
@@ -504,22 +750,20 @@ function AmountStep({ recipient, amount, setAmount, usd, maxUsdc, quote, onNext 
       <div className="mt-6 rounded-3xl p-5 text-primary-foreground shadow-(--shadow-elegant)" style={{ background: "var(--gradient-portfolio)" }}>
         <div className="flex items-center justify-between mb-1">
           <p className="text-xs opacity-90">You send</p>
-          {localCurrency && (
-            <div className="flex items-center rounded-full bg-white/20 p-0.5">
-              <button
-                onClick={() => switchMode("usdc")}
-                className={`rounded-full px-3 py-1 text-[10px] font-bold transition ${mode === "usdc" ? "bg-white text-foreground shadow" : "text-white/70"}`}
-              >
-                USDC
-              </button>
-              <button
-                onClick={() => switchMode("local")}
-                className={`rounded-full px-3 py-1 text-[10px] font-bold transition ${mode === "local" ? "bg-white text-foreground shadow" : "text-white/70"}`}
-              >
-                {localCurrency}
-              </button>
-            </div>
-          )}
+          <div className="flex items-center rounded-full bg-white/20 p-0.5">
+            <button
+              onClick={() => switchMode("usdc")}
+              className={`rounded-full px-3 py-1 text-[10px] font-bold transition ${mode === "usdc" ? "bg-white text-foreground shadow" : "text-white/70"}`}
+            >
+              USDC
+            </button>
+            <button
+              onClick={() => switchMode("local")}
+              className={`rounded-full px-3 py-1 text-[10px] font-bold transition ${mode === "local" ? "bg-white text-foreground shadow" : "text-white/70"}`}
+            >
+              {country.currency}
+            </button>
+          </div>
         </div>
 
         <div className="flex items-baseline gap-2">
@@ -562,9 +806,7 @@ function AmountStep({ recipient, amount, setAmount, usd, maxUsdc, quote, onNext 
         <div className="mt-4 rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
             <span>Recipient gets</span>
-            <span className="text-success normal-case flex items-center gap-1">
-              <Lock className="h-3 w-3" /> Rate locked
-            </span>
+            <QuoteCountdown lockedUntil={quote.lockedUntil} onExpire={onRefreshQuote} />
           </div>
           <p className="mt-1 text-3xl font-black">
             {quote.toCurrency} {quote.toAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })}
@@ -597,11 +839,10 @@ function AmountStep({ recipient, amount, setAmount, usd, maxUsdc, quote, onNext 
 
 // ── Review step ───────────────────────────────────────────────────────────────
 
-function ReviewStep({ recipient, usd, quote, note, setNote, onSend }: {
-  recipient: Contact; usd: number; quote: FxQuote;
-  note: string; setNote: (v: string) => void; onSend: () => void;
+function ReviewStep({ recipient, country, usd, quote, note, setNote, onSend, onRefreshQuote }: {
+  recipient: Contact; country: Corridor; usd: number; quote: FxQuote;
+  note: string; setNote: (v: string) => void; onSend: () => void; onRefreshQuote: () => void;
 }) {
-  const flag = dialToFlag(recipient.msisdn);
   const [loading, setLoading] = useState(false);
 
   async function handleSend() {
@@ -625,9 +866,12 @@ function ReviewStep({ recipient, usd, quote, note, setNote, onSend }: {
           <p className="mt-1 text-3xl font-black">
             {quote.toCurrency} {quote.toAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })}
           </p>
+          <div className="mt-2 flex justify-center text-[10px]">
+            <QuoteCountdown lockedUntil={quote.lockedUntil} onExpire={onRefreshQuote} />
+          </div>
         </div>
         <div className="divide-y divide-border text-xs">
-          <KV k="To" v={`${recipient.name !== recipient.msisdn ? recipient.name : recipient.msisdn} ${flag}`} />
+          <KV k="To" v={`${recipient.name !== recipient.msisdn ? recipient.name : recipient.msisdn} ${country.flag}`} />
           <KV k="Number" v={recipient.msisdn} mono />
           <KV k="Settles via" v={quote.rail} />
           <KV k="Rate" v={`1 USDC = ${quote.tumaRate.toFixed(2)} ${quote.toCurrency}`} />
