@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowRight, ChevronLeft, ShieldCheck, CheckSquare, Square } from "lucide-react";
+import { ArrowRight, ChevronLeft, ShieldCheck, CheckSquare, Square, BadgePercent } from "lucide-react";
 import { toast } from "sonner";
 import {
   Select,
@@ -114,10 +114,10 @@ function SignupStep1() {
           <ChevronLeft size={16} strokeWidth={2} />
         </button>
 
-        <ProgressBar currentStep={1} className="mb-7" />
+        <ProgressBar totalSteps={5} currentStep={1} className="mb-7" />
 
         <p className="text-[11px] font-semibold tracking-widest text-black/40 uppercase mb-1.5">
-          STEP 1 OF 4
+          STEP 1 OF 5
         </p>
         <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-navy mb-2">
           What is your number?
@@ -220,6 +220,14 @@ function SignupStep1() {
             title="No seed phrase. Ever."
             body="Your wallet is derived from your number. Recover by re-verifying your SIM. Nothing to write down."
             icon={<ShieldCheck size={18} strokeWidth={2.5} className="text-success" />}
+          />
+
+          <TrustBadge
+            className="mt-2.5"
+            variant="orange"
+            title="No hidden fees, ever"
+            body="Every send shows the real exchange rate and fee upfront — before you confirm, not after."
+            icon={<BadgePercent size={18} strokeWidth={2.5} className="text-orange" />}
           />
 
           <div className="flex-1" />
