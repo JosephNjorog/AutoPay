@@ -51,6 +51,23 @@ export type AuthResponse = {
 
 // ── FX ────────────────────────────────────────────────────────────────────────
 
+export type Corridor = {
+  code: string;
+  name: string;
+  dial: string;
+  currency: string;
+  currencySymbol: string;
+  flag: string;
+  phoneLength: number;
+  rail: string;
+};
+
+export type RecipientVerification = {
+  available: boolean;
+  recipientName: string | null;
+  source: "tuma_user" | "rail" | null;
+};
+
 export type FxQuote = {
   quoteId: string;
   fromToken: string;
@@ -210,6 +227,15 @@ export const api = {
     lookup: (phone: string, token: string) =>
       request<{ registered: boolean }>(
         `/api/send/lookup?phone=${encodeURIComponent(phone)}`,
+        { token }
+      ),
+
+    corridors: (token: string) =>
+      request<Corridor[]>("/api/send/corridors", { token }),
+
+    verifyRecipient: (phone: string, countryCode: string, token: string) =>
+      request<RecipientVerification>(
+        `/api/send/verify-recipient?phone=${encodeURIComponent(phone)}&country=${encodeURIComponent(countryCode)}`,
         { token }
       ),
 
