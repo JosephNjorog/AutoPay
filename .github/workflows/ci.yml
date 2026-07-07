@@ -75,6 +75,15 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
       - run: bun run --cwd frontend build
+      # Advisory for now, not a merge gate: the landing page currently
+      # fails both budgets (LCP ~4.6s, TTI ~9s vs the 2.5s/3.5s targets),
+      # most likely because __root.tsx eagerly imports lib/web3.ts
+      # (wagmi/Reown AppKit) for every route, including the pre-auth
+      # landing page that never touches a wallet connector. Flip
+      # continue-on-error off once that's fixed and the budget is met.
+      - name: Lighthouse CI budget (advisory)
+        continue-on-error: true
+        run: bun run --cwd frontend lighthouse
 
   contracts:
     name: Contracts
