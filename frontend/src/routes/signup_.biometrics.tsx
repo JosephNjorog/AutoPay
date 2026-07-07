@@ -84,10 +84,10 @@ function SignupBiometrics() {
           <ChevronLeft size={16} strokeWidth={2} />
         </button>
 
-        <ProgressBar currentStep={4} className="mb-7" />
+        <ProgressBar totalSteps={5} currentStep={5} className="mb-7" />
 
         <p className="text-[11px] font-semibold tracking-widest text-black/40 uppercase mb-1.5">
-          STEP 4 OF 4
+          STEP 5 OF 5
         </p>
         <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-navy mb-2">
           Unlock with your face or finger
