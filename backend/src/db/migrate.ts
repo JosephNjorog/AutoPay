@@ -141,6 +141,34 @@ const MIGRATIONS: { name: string; up: string }[] = [
     name: "0005_nifty_purifiers/idx_agent_review_events_status",
     up: `CREATE INDEX IF NOT EXISTS "agent_review_events_status_idx" ON "agent_review_events" USING btree ("status")`,
   },
+  {
+    name: "0006_pay_b2b/enum_pay_method",
+    up: `DO $$ BEGIN CREATE TYPE "public"."pay_method" AS ENUM('buy_goods', 'paybill'); EXCEPTION WHEN duplicate_object THEN null; END $$`,
+  },
+  {
+    name: "0006_pay_b2b/rail_enum_till",
+    up: `DO $$ BEGIN ALTER TYPE "public"."rail" ADD VALUE IF NOT EXISTS 'mpesa_b2b_till'; EXCEPTION WHEN duplicate_object THEN null; END $$`,
+  },
+  {
+    name: "0006_pay_b2b/rail_enum_paybill",
+    up: `DO $$ BEGIN ALTER TYPE "public"."rail" ADD VALUE IF NOT EXISTS 'mpesa_b2b_paybill'; EXCEPTION WHEN duplicate_object THEN null; END $$`,
+  },
+  {
+    name: "0006_pay_b2b/recipient_phone_nullable",
+    up: `ALTER TABLE "transactions" ALTER COLUMN "recipient_phone" DROP NOT NULL`,
+  },
+  {
+    name: "0006_pay_b2b/columns",
+    up: `
+      ALTER TABLE "transactions"
+        ADD COLUMN IF NOT EXISTS "merchant_pay_method" "pay_method",
+        ADD COLUMN IF NOT EXISTS "merchant_till_number" text,
+        ADD COLUMN IF NOT EXISTS "merchant_paybill_number" text,
+        ADD COLUMN IF NOT EXISTS "merchant_account_number" text,
+        ADD COLUMN IF NOT EXISTS "refund_tx_hash" text,
+        ADD COLUMN IF NOT EXISTS "refunded_at" timestamp
+    `,
+  },
 ];
 
 export async function runStartupMigrations(): Promise<void> {
