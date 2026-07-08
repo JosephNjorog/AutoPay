@@ -94,7 +94,7 @@ function bigintEnv(name: string, fallback: bigint): bigint {
 }
 
 function escrowAddress(): Address | null {
-  const address = process.env.TUMA_ESCROW_ADDRESS;
+  const address = process.env.AUTOPAYKE_ESCROW_ADDRESS;
   if (!address || address === "0x") return null;
   return address as Address;
 }
