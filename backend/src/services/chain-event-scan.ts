@@ -177,7 +177,8 @@ async function processDepositEvent(event: ChainEvent): Promise<boolean> {
   const expiry = event.args.expiry as bigint;
 
   if (!escrow && tx) {
-    if (!tx.senderId) return false;
+    if (!tx.senderId || !tx.recipientPhone) return false;
+    const recipientPhone = tx.recipientPhone;
 
     const sender = await db.query.users.findFirst({
       where: eq(users.id, tx.senderId),
@@ -189,7 +190,7 @@ async function processDepositEvent(event: ChainEvent): Promise<boolean> {
         ref: claimRef,
         transactionId: tx.id,
         senderId: tx.senderId!,
-        recipientPhone: tx.recipientPhone,
+        recipientPhone,
         tokenAddress: token,
         amountUsdc: amountUsdc(amount),
         onchainRef: claimRef,
