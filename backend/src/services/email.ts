@@ -7,7 +7,7 @@
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_ADDRESS = process.env.RESEND_FROM_EMAIL ?? "AutoPayKe <noreply@autopayke.com>";
-const APP_URL = process.env.APP_URL ?? "https://autopayke.com";
+const APP_URL = process.env.APP_URL ?? "https://www.autopayke.com";
 const TERMS_URL = `${APP_URL}/legal/terms`;
 const PRIVACY_URL = `${APP_URL}/legal/privacy`;
 const SUPPORT_EMAIL = "support@autopayke.com";
