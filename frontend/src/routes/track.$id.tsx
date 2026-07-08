@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { MobileFrame } from "@/components/MobileFrame";
 import { api, type TxSummary } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
-import { getStatusLabel } from "@/lib/status-labels";
+import { getStatusLabel, getRailLabel } from "@/lib/status-labels";
 
 export const Route = createFileRoute("/track/$id")({
   head: ({ params }) => ({ meta: [{ title: `Track ${params.id} · AutoPayKe` }, { name: "description", content: "Live cross-border settlement tracker." }] }),
@@ -84,7 +84,7 @@ function Track() {
   const steps = [
     { title: "Initiated", desc: "You signed and broadcast the transfer" },
     { title: "On-chain confirmed", desc: "Avalanche finality reached in ~1s" },
-    { title: "Routed to rail", desc: `AutoPayKe selected ${tx.rail}` },
+    { title: "Routed to rail", desc: `AutoPayKe selected ${getRailLabel(tx.rail)}` },
     {
       title: needsReview ? "Needs review" : isFailed ? "Failed" : "Settled",
       desc: needsReview
@@ -125,7 +125,7 @@ function Track() {
                 {localLine && <p className="text-xs opacity-80 mt-0.5">{localLine}</p>}
               </div>
               <div className="text-right text-xs opacity-90">
-                <p>via {tx.rail}</p>
+                <p>via {getRailLabel(tx.rail)}</p>
                 {fxLine && <p className="opacity-70">{fxLine}</p>}
               </div>
             </div>
@@ -163,11 +163,15 @@ function Track() {
           <div className="rounded-2xl border border-border bg-card divide-y divide-border">
             <Row k="Status" v={getStatusLabel(tx.status)} />
             <Row k="Asset" v="USDC" />
-            <Row k="Rail" v={tx.rail} />
+            <Row k="Rail" v={getRailLabel(tx.rail)} />
+            {tx.merchantTillNumber && <Row k="Till" v={tx.merchantTillNumber} mono />}
+            {tx.merchantPaybillNumber && <Row k="PayBill" v={tx.merchantPaybillNumber} mono />}
+            {tx.merchantAccountNumber && <Row k="Account" v={tx.merchantAccountNumber} mono />}
             {fxLine && <Row k="FX rate" v={fxLine} />}
             <Row k="Reference" v={tx.reference} mono />
             {tx.failureStage && <Row k="Review stage" v={tx.failureStage} />}
             {tx.failureReason && <Row k="Review reason" v={tx.failureReason} />}
+            {tx.refundTxHash && <Row k="Refunded" v="Yes — stablecoin returned to your balance" />}
             {settledAt && <Row k="Settled at" v={settledAt} />}
             {tx.note && <Row k="Note" v={tx.note} />}
           </div>
