@@ -16,8 +16,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       injectRegister: "auto",
       manifest: {
-        name: "Autopayke — Send money by phone",
-        short_name: "Autopayke",
+        name: "AutoPayKe — Send money by phone",
+        short_name: "AutoPayKe",
         description: "Phone-first money for Africa. Send to any number, settle locally.",
         theme_color: "#080810",
         background_color: "#080810",
