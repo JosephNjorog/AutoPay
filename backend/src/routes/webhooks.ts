@@ -17,7 +17,7 @@ import { db } from "../db";
 import { transactions, users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { recordSettlementStep } from "../services/settlement";
-import { creditFromFloat } from "../services/avalanche";
+import { creditPayFromFloat } from "../services/avalanche-pay";
 import type { Address } from "viem";
 
 // ── M-Pesa ────────────────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ mpesaWebhookRouter.post("/b2b/result", async (c) => {
       try {
         const sender = await db.query.users.findFirst({ where: eq(users.id, tx.senderId) });
         if (sender?.walletAddress) {
-          const refundTxHash = await creditFromFloat(
+          const refundTxHash = await creditPayFromFloat(
             sender.walletAddress as Address,
             parseFloat(tx.amountUsdc)
           );
