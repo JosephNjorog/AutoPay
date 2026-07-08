@@ -7,7 +7,7 @@ import { useAuthStore } from "@/lib/auth-store";
 type PaySearch = { phone?: string; amount?: string };
 
 export const Route = createFileRoute("/pay")({
-  head: () => ({ meta: [{ title: "Pay · Autopayke" }] }),
+  head: () => ({ meta: [{ title: "Pay · AutoPayKe" }] }),
   validateSearch: (search: Record<string, unknown>): PaySearch => ({
     phone: typeof search.phone === "string" ? search.phone : undefined,
     amount: typeof search.amount === "string" ? search.amount : undefined,
@@ -40,7 +40,7 @@ function Pay() {
     <MobileFrame>
       <div className="flex min-h-full flex-col items-center justify-center gap-3 text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin" />
-        <p className="text-sm">Opening Autopayke…</p>
+        <p className="text-sm">Opening AutoPayKe…</p>
       </div>
     </MobileFrame>
   );
