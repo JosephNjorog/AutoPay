@@ -1,3 +1,5 @@
+import type { CountryPayConfig, PayQuote as PayQuoteData } from "@tuma/shared";
+
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:3001";
 
 export class ApiError extends Error {
@@ -333,9 +335,59 @@ export const api = {
   track: {
     get: (id: string, token: string) =>
       request<{
-        transaction: TxSummary;
+        transaction: TxSummary & {
+          txHash: string | null;
+          txExplorerUrl: string | null;
+          railReference: string | null;
+          isEscrow: boolean;
+          escrowRef: string | null;
+          recipientPhone: string | null;
+          merchantPayMethod: "buy_goods" | "paybill" | null;
+          merchantTillNumber: string | null;
+          merchantPaybillNumber: string | null;
+          merchantAccountNumber: string | null;
+          refundTxHash: string | null;
+          refundedAt: string | null;
+        };
         events: { step: string; metadata: Record<string, unknown>; createdAt: string }[];
       }>(`/api/track/${id}`, { token }),
+  },
+
+  pay: {
+    config: (token: string) => request<CountryPayConfig>("/api/pay/config", { token }),
+
+    quote: (amountUsd: number, payMethod: "buy_goods" | "paybill", token: string) =>
+      request<PayQuoteData>("/api/pay/quote", {
+        method: "POST",
+        body: JSON.stringify({ amountUsd, payMethod }),
+        token,
+      }),
+
+    initiate: (
+      body: {
+        quoteId: string;
+        payMethod: "buy_goods" | "paybill";
+        merchantNumber: string;
+        accountNumber?: string;
+        amountUsd: number;
+        idempotencyKey?: string;
+      },
+      token: string
+    ) =>
+      request<{
+        transactionId: string;
+        reference: string;
+        txHash: string | null;
+        rail: string;
+        amountLocal: number;
+        localCurrency: string;
+        status: string;
+        merchantPayMethod: string | null;
+        merchantTillNumber: string | null;
+        merchantPaybillNumber: string | null;
+        merchantAccountNumber: string | null;
+        idempotentReplay?: boolean;
+      }>("/api/pay/initiate", { method: "POST", body: JSON.stringify(body), token }),
   },
 
   claim: {
