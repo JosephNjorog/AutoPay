@@ -35,9 +35,15 @@ export const railEnum = pgEnum("rail", [
   "orange_money",
   "bank",
   "crypto",
+  // Daraja B2B merchant-pay rails (Till/PayBill) — a separate dispatch path
+  // from the Paystack-backed payout corridors above, see services/pay.ts.
+  "mpesa_b2b_till",
+  "mpesa_b2b_paybill",
 ]);
 
 export const tokenEnum = pgEnum("token", ["USDC", "USDT"]);
+
+export const payMethodEnum = pgEnum("pay_method", ["buy_goods", "paybill"]);
 
 export const settlementScheduleEnum = pgEnum("settlement_schedule", [
   "instant",
@@ -151,7 +157,9 @@ export const transactions = pgTable(
     reference: text("reference").notNull().unique(),
     idempotencyKey: text("idempotency_key"),
     senderId: uuid("sender_id").references(() => users.id),
-    recipientPhone: text("recipient_phone").notNull(),
+    // Nullable: merchant Till/PayBill payments (see merchantPayMethod below)
+    // have no recipient phone number.
+    recipientPhone: text("recipient_phone"),
     recipientWalletAddress: text("recipient_wallet_address"),
     recipientUserId: uuid("recipient_user_id").references(() => users.id),
     amountUsdc: numeric("amount_usdc", { precision: 20, scale: 6 }).notNull(),
@@ -170,6 +178,17 @@ export const transactions = pgTable(
     isMerchantPayment: boolean("is_merchant_payment").default(false).notNull(),
     merchantId: uuid("merchant_id").references(() => users.id),
     feeUsdc: numeric("fee_usdc", { precision: 20, scale: 6 }).default("0").notNull(),
+    // Merchant Pay (Till/PayBill) fields — populated only when rail is
+    // mpesa_b2b_till / mpesa_b2b_paybill.
+    merchantPayMethod: payMethodEnum("merchant_pay_method"),
+    merchantTillNumber: text("merchant_till_number"),
+    merchantPaybillNumber: text("merchant_paybill_number"),
+    merchantAccountNumber: text("merchant_account_number"),
+    // Set once if a Daraja B2B callback reports failure after the on-chain
+    // debit already happened — guards the auto-refund against double-firing
+    // on a retried/duplicate callback.
+    refundTxHash: text("refund_tx_hash"),
+    refundedAt: timestamp("refunded_at"),
     failureStage: text("failure_stage"),
     failureReason: text("failure_reason"),
     failedAt: timestamp("failed_at"),
