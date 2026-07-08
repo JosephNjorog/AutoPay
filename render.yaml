@@ -27,10 +27,10 @@
 #                             Same KMS preference as above via SIGNER_KMS_KEY_ID.
 #   SIGNER_KMS_KEY_ID       → AWS KMS key ARN/id for the signer, if using KMS
 #   SIGNER_ADDRESS          → address derived from SIGNER_PRIVATE_KEY or the KMS key
-#   TUMA_REGISTRY_ADDRESS   → from contracts/script/Deploy.s.sol mainnet run
-#   TUMA_FACTORY_ADDRESS    → from contracts/script/Deploy.s.sol mainnet run
-#   TUMA_ESCROW_ADDRESS     → from contracts/script/Deploy.s.sol mainnet run
-#   TUMA_PAYMASTER_ADDRESS  → from contracts/script/Deploy.s.sol mainnet run
+#   AUTOPAYKE_REGISTRY_ADDRESS   → from contracts/script/Deploy.s.sol mainnet run
+#   AUTOPAYKE_FACTORY_ADDRESS    → from contracts/script/Deploy.s.sol mainnet run
+#   AUTOPAYKE_ESCROW_ADDRESS     → from contracts/script/Deploy.s.sol mainnet run
+#   AUTOPAYKE_PAYMASTER_ADDRESS  → from contracts/script/Deploy.s.sol mainnet run
 #   TREASURY_ADDRESS        → wallet that receives merchant fees + cash-out withdrawals
 #   USDC_ADDRESS/USDT_ADDRESS → only needed if overriding the mainnet defaults in code
 #   OPEN_EXCHANGE_RATES_APP_ID → from openexchangerates.org — FX quotes fail without this
@@ -128,13 +128,13 @@ services:
         sync: false
 
       # ── Smart contracts (mainnet, chain 43114 — set after mainnet deploy) ──
-      - key: TUMA_REGISTRY_ADDRESS
+      - key: AUTOPAYKE_REGISTRY_ADDRESS
         sync: false
-      - key: TUMA_FACTORY_ADDRESS
+      - key: AUTOPAYKE_FACTORY_ADDRESS
         sync: false
-      - key: TUMA_ESCROW_ADDRESS
+      - key: AUTOPAYKE_ESCROW_ADDRESS
         sync: false
-      - key: TUMA_PAYMASTER_ADDRESS
+      - key: AUTOPAYKE_PAYMASTER_ADDRESS
         sync: false
 
       # ── Treasury wallet (receives merchant fees and cash-out withdrawals) ──
@@ -232,13 +232,13 @@ services:
         sync: false
       - key: SIGNER_ADDRESS
         sync: false
-      - key: TUMA_REGISTRY_ADDRESS
+      - key: AUTOPAYKE_REGISTRY_ADDRESS
         sync: false
-      - key: TUMA_FACTORY_ADDRESS
+      - key: AUTOPAYKE_FACTORY_ADDRESS
         sync: false
-      - key: TUMA_ESCROW_ADDRESS
+      - key: AUTOPAYKE_ESCROW_ADDRESS
         sync: false
-      - key: TUMA_PAYMASTER_ADDRESS
+      - key: AUTOPAYKE_PAYMASTER_ADDRESS
         sync: false
       - key: CHAIN_EVENT_SCAN_LOOKBACK_BLOCKS
         value: "100000"
