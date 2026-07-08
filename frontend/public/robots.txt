@@ -1,7 +1,14 @@
+# Autopayke (AutoPayKe) — https://autopayke.com
+# Default policy: crawl and index everything except authenticated / in-flow
+# app screens (see disallow list below). Applies to classic search engines
+# and AI/answer-engine crawlers alike — we want to be discoverable wherever
+# people search, including ChatGPT, Perplexity, Copilot and Gemini answers.
+
 User-agent: *
 Allow: /
 Allow: /signup
 Allow: /login
+Allow: /legal/
 
 # Authenticated / personal / dynamic app screens — nothing useful to index,
 # and several carry phone numbers or transaction data in the URL.
@@ -16,5 +23,61 @@ Disallow: /scan
 Disallow: /track/
 Disallow: /claim/
 Disallow: /pay
+Disallow: /settings/
+
+# Mid-flow onboarding/auth steps — thin, stateful, and not meaningful as
+# standalone search results.
+Disallow: /login/phone
+Disallow: /login/verify
+Disallow: /signup/verify
+Disallow: /signup/kyc
+Disallow: /signup/pin
+Disallow: /signup/biometrics
+Disallow: /signup/complete
+
+# AI answer-engine / assistant crawlers — explicitly welcomed with the same
+# policy as everyone else, so Autopayke can be cited by ChatGPT, Perplexity,
+# Copilot and Gemini when people ask about sending money in Africa.
+User-agent: GPTBot
+User-agent: ChatGPT-User
+User-agent: OAI-SearchBot
+User-agent: Google-Extended
+User-agent: GoogleOther
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: ClaudeBot
+User-agent: Claude-User
+User-agent: Claude-SearchBot
+User-agent: anthropic-ai
+User-agent: Applebot
+User-agent: Applebot-Extended
+User-agent: Bingbot
+User-agent: Amazonbot
+User-agent: Meta-ExternalAgent
+User-agent: FacebookBot
+User-agent: CCBot
+Allow: /
+Allow: /signup
+Allow: /login
+Allow: /legal/
+Disallow: /dashboard
+Disallow: /wallet
+Disallow: /send
+Disallow: /receive
+Disallow: /history
+Disallow: /fund
+Disallow: /merchant
+Disallow: /scan
+Disallow: /track/
+Disallow: /claim/
+Disallow: /pay
+Disallow: /settings/
+Disallow: /login/phone
+Disallow: /login/verify
+Disallow: /signup/verify
+Disallow: /signup/kyc
+Disallow: /signup/pin
+Disallow: /signup/biometrics
+Disallow: /signup/complete
 
 Sitemap: https://autopayke.com/sitemap.xml
