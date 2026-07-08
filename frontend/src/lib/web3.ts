@@ -2,7 +2,7 @@ import { createAppKit } from "@reown/appkit/react";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import { avalanche, avalancheFuji } from "@reown/appkit/networks";
 
-// Reown Cloud project for Autopayke — set VITE_WALLETCONNECT_PROJECT_ID in
+// Reown Cloud project for AutoPayKe — set VITE_WALLETCONNECT_PROJECT_ID in
 // every deploy environment; this fallback only covers a missing env var.
 const projectId = (import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined) ?? "1348491e6acf0fa944e3272935f96a94";
 
@@ -27,7 +27,7 @@ createAppKit({
   networks,
   projectId,
   metadata: {
-    name: "Autopayke",
+    name: "AutoPayKe",
     description: "Phone-first cross-border payments for Africa",
     url: appUrl,
     icons: [`${appUrl}/icons/icon-192.png`],
