@@ -1,4 +1,4 @@
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { SendMoneySchema, COUNTRY_CONFIG, dialCodeToCountry, type Rail } from "@tuma/shared";
 import { db } from "../db";
@@ -35,7 +35,13 @@ import {
   scheduleEscrowExpiry,
   type RailDisburseJob,
 } from "../lib/queue";
-import { del, setnxTtl, setex, getJson } from "../lib/redis";
+import { setex, getJson } from "../lib/redis";
+import {
+  normalizeIdempotencyKey,
+  acquireIdempotencyLock,
+  releaseIdempotencyLock,
+  markRequiresReview,
+} from "../lib/idempotency";
 import { parseUnits } from "viem";
 import type { Address } from "viem";
 
@@ -43,31 +49,6 @@ export const sendRouter = new Hono();
 sendRouter.use("*", authMiddleware);
 
 type SendTransaction = typeof transactions.$inferSelect;
-
-const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9._:-]+$/;
-
-function normalizeIdempotencyKey(c: Context, bodyKey?: string): string | null {
-  const key =
-    bodyKey ??
-    c.req.header("idempotency-key") ??
-    c.req.header("x-idempotency-key") ??
-    null;
-
-  if (!key) return null;
-
-  const trimmed = key.trim();
-  if (
-    trimmed.length < 8 ||
-    trimmed.length > 128 ||
-    !IDEMPOTENCY_KEY_RE.test(trimmed)
-  ) {
-    throw new ValidationError(
-      "Idempotency key must be 8-128 characters using letters, numbers, '.', '_', ':', or '-'"
-    );
-  }
-
-  return trimmed;
-}
 
 function txToSendResponse(
   tx: SendTransaction,
@@ -90,42 +71,6 @@ function txToSendResponse(
     idempotentReplay,
     ...extra,
   };
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
-async function markRequiresReview(
-  transactionId: string,
-  stage: string,
-  err: unknown
-): Promise<void> {
-  await recordSettlementStep(transactionId, "requires_review", {
-    stage,
-    error: errorMessage(err),
-  });
-}
-
-async function acquireSendIdempotencyLock(
-  userId: string,
-  idempotencyKey: string | null
-): Promise<string | null> {
-  if (!idempotencyKey) return null;
-
-  const lockKey = `idem:send:${userId}:${idempotencyKey}`;
-  const acquired = await setnxTtl(lockKey, 120);
-  return acquired ? lockKey : null;
-}
-
-async function releaseSendIdempotencyLock(lockKey: string | null): Promise<void> {
-  if (!lockKey) return;
-
-  try {
-    await del(lockKey);
-  } catch (err) {
-    console.error(`[Send] Failed to release idempotency lock ${lockKey}:`, errorMessage(err));
-  }
 }
 
 // GET /api/send/lookup?phone=+254...
@@ -244,7 +189,7 @@ sendRouter.post(
       }
     }
 
-    const lockKey = await acquireSendIdempotencyLock(userId, idempotencyKey);
+    const lockKey = await acquireIdempotencyLock("send", userId, idempotencyKey);
     if (idempotencyKey && !lockKey) {
       const existing = await db.query.transactions.findFirst({
         where: and(
@@ -552,7 +497,7 @@ sendRouter.post(
       }
     }
     } finally {
-      await releaseSendIdempotencyLock(lockKey);
+      await releaseIdempotencyLock(lockKey);
     }
   }
 );
