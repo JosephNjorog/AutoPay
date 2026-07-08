@@ -5,6 +5,7 @@ import {
   Bell,
   Plus,
   ArrowUpRight,
+  Store,
   QrCode,
   Activity,
   AlertCircle,
@@ -185,6 +186,7 @@ function Dashboard() {
         <QuickActions
           onAddMoney={() => navigate({ to: "/fund" })}
           onSend={() => navigate({ to: "/send" })}
+          onPay={() => navigate({ to: "/pay-merchant" })}
           onReceive={() => navigate({ to: "/receive" })}
         />
 
@@ -292,27 +294,33 @@ const AssetsSection = memo(function AssetsSection({
 const QUICK_ACTIONS = [
   { label: "Add money", icon: Plus,         isOrange: true,  key: "add"     },
   { label: "Send",      icon: ArrowUpRight, isOrange: false, key: "send"    },
+  { label: "Pay",       icon: Store,        isOrange: false, key: "pay"     },
   { label: "Receive",   icon: QrCode,       isOrange: false, key: "receive" },
 ] as const;
 
 function QuickActions({
   onAddMoney,
   onSend,
+  onPay,
   onReceive,
 }: {
   onAddMoney: () => void;
   onSend: () => void;
+  onPay: () => void;
   onReceive: () => void;
 }) {
   const handlers: Record<string, () => void> = {
     add: onAddMoney,
     send: onSend,
+    pay: onPay,
     receive: onReceive,
   };
 
   return (
     <div className="px-4 mb-5">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-2">
+        {/* 4-up layout: touch targets keep their 44px min-height, just with
+            tighter horizontal gutters than the previous 3-up grid. */}
         {QUICK_ACTIONS.map(({ label, icon: Icon, isOrange, key }) => (
           <button
             key={key}
