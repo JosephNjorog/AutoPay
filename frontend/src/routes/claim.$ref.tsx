@@ -7,7 +7,7 @@ import { api, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/claim/$ref")({
-  head: ({ params }) => ({ meta: [{ title: `Claim ${params.ref} · Autopayke` }, { name: "description", content: "Someone sent you money on Autopayke. Claim it with your phone." }] }),
+  head: ({ params }) => ({ meta: [{ title: `Claim ${params.ref} · AutoPayKe` }, { name: "description", content: "Someone sent you money on AutoPayKe. Claim it with your phone." }] }),
   component: Claim,
 });
 
@@ -142,7 +142,7 @@ function Claim() {
             {claiming ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
             {claiming ? "Claiming…" : isLoggedIn() ? `Claim $${amountUsdc.toFixed(2)}` : "Sign in to claim"}
           </button>
-          <p className="text-center text-[11px] text-muted-foreground">Powered by Autopayke · Settled on Avalanche</p>
+          <p className="text-center text-[11px] text-muted-foreground">Powered by AutoPayKe · Settled on Avalanche</p>
         </div>
       </div>
     </MobileFrame>
