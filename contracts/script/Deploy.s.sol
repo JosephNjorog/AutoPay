@@ -96,10 +96,10 @@ contract Deploy is Script {
         // Print env block for .env update
         console.log("");
         console.log("=== Add to .env ===");
-        console.log("TUMA_REGISTRY_ADDRESS=", vm.toString(address(deployed.registry)));
-        console.log("TUMA_FACTORY_ADDRESS=",  vm.toString(address(deployed.factory)));
-        console.log("TUMA_ESCROW_ADDRESS=",   vm.toString(address(deployed.escrow)));
-        console.log("TUMA_PAYMASTER_ADDRESS=", vm.toString(address(deployed.paymaster)));
+        console.log("AUTOPAYKE_REGISTRY_ADDRESS=", vm.toString(address(deployed.registry)));
+        console.log("AUTOPAYKE_FACTORY_ADDRESS=",  vm.toString(address(deployed.factory)));
+        console.log("AUTOPAYKE_ESCROW_ADDRESS=",   vm.toString(address(deployed.escrow)));
+        console.log("AUTOPAYKE_PAYMASTER_ADDRESS=", vm.toString(address(deployed.paymaster)));
 
         // Post-deployment checklist
         console.log("");
