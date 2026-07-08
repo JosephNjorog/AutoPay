@@ -380,11 +380,17 @@ forge script script/Deploy.s.sol --rpc-url fuji --broadcast --verify
 
 | Network | Contract | Address |
 | ------- | -------- | ------- |
-| Fuji Testnet | AutopayRegistry | *(deploy and update)* |
-| Fuji Testnet | AutopayWalletFactory | *(deploy and update)* |
-| Fuji Testnet | AutopayEscrow | *(deploy and update)* |
-| Fuji Testnet | AutopayPaymaster | *(deploy and update)* |
+| Fuji Testnet | AutopayRegistry | `0xb77915DF5b650Ee3e1eeAf58ca810e092927811a` |
+| Fuji Testnet | AutopayWalletFactory | `0x6478f871262877018E735438d4F927B445160103` |
+| Fuji Testnet | AutopayEscrow | `0xa5B418ACCCF6f914a2F6622c0e56062F59daAfC2` |
+| Fuji Testnet | AutopayPaymaster | `0x40e382048637E9B3622654c60403d239883D7723` (deployed, not yet funded — see below) |
 | Avalanche Mainnet | All | *(after audit)* |
+
+Deployed with the [ADR 0008](docs/adr/0008-smart-wallet-and-escrow-mainnet-hardening.md)
+hardening fixes included. The Paymaster is deployed but has no EntryPoint
+deposit or stake yet — gas sponsorship won't work until
+`script/PostDeploy.s.sol` is run with a deployer wallet funded with at
+least ~3.1 AVAX (2 AVAX deposit + 1 AVAX stake + gas).
 
 ---
 
