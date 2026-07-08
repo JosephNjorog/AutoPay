@@ -14,6 +14,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SendRouteImport } from './routes/send'
 import { Route as ScanRouteImport } from './routes/scan'
 import { Route as ReceiveRouteImport } from './routes/receive'
+import { Route as PayMerchantRouteImport } from './routes/pay-merchant'
 import { Route as PayRouteImport } from './routes/pay'
 import { Route as MerchantRouteImport } from './routes/merchant'
 import { Route as LoginRouteImport } from './routes/login'
@@ -58,6 +59,11 @@ const ScanRoute = ScanRouteImport.update({
 const ReceiveRoute = ReceiveRouteImport.update({
   id: '/receive',
   path: '/receive',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PayMerchantRoute = PayMerchantRouteImport.update({
+  id: '/pay-merchant',
+  path: '/pay-merchant',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PayRoute = PayRouteImport.update({
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/merchant': typeof MerchantRoute
   '/pay': typeof PayRoute
+  '/pay-merchant': typeof PayMerchantRoute
   '/receive': typeof ReceiveRoute
   '/scan': typeof ScanRoute
   '/send': typeof SendRoute
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/merchant': typeof MerchantRoute
   '/pay': typeof PayRoute
+  '/pay-merchant': typeof PayMerchantRoute
   '/receive': typeof ReceiveRoute
   '/scan': typeof ScanRoute
   '/send': typeof SendRoute
@@ -224,6 +232,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/merchant': typeof MerchantRoute
   '/pay': typeof PayRoute
+  '/pay-merchant': typeof PayMerchantRoute
   '/receive': typeof ReceiveRoute
   '/scan': typeof ScanRoute
   '/send': typeof SendRoute
@@ -253,6 +262,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/merchant'
     | '/pay'
+    | '/pay-merchant'
     | '/receive'
     | '/scan'
     | '/send'
@@ -280,6 +290,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/merchant'
     | '/pay'
+    | '/pay-merchant'
     | '/receive'
     | '/scan'
     | '/send'
@@ -307,6 +318,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/merchant'
     | '/pay'
+    | '/pay-merchant'
     | '/receive'
     | '/scan'
     | '/send'
@@ -335,6 +347,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MerchantRoute: typeof MerchantRoute
   PayRoute: typeof PayRoute
+  PayMerchantRoute: typeof PayMerchantRoute
   ReceiveRoute: typeof ReceiveRoute
   ScanRoute: typeof ScanRoute
   SendRoute: typeof SendRoute
@@ -390,6 +403,13 @@ declare module '@tanstack/react-router' {
       path: '/receive'
       fullPath: '/receive'
       preLoaderRoute: typeof ReceiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pay-merchant': {
+      id: '/pay-merchant'
+      path: '/pay-merchant'
+      fullPath: '/pay-merchant'
+      preLoaderRoute: typeof PayMerchantRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pay': {
@@ -543,6 +563,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MerchantRoute: MerchantRoute,
   PayRoute: PayRoute,
+  PayMerchantRoute: PayMerchantRoute,
   ReceiveRoute: ReceiveRoute,
   ScanRoute: ScanRoute,
   SendRoute: SendRoute,
