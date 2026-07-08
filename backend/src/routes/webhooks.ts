@@ -4,15 +4,17 @@
  * body parsing / header signatures.
  *
  * Mounted at:
- *   /webhooks/mpesa/result   ← M-Pesa B2C disbursement result
- *   /webhooks/mpesa/timeout  ← M-Pesa B2C queue timeout
- *   /webhooks/mpesa/stk      ← M-Pesa STK Push (fund) callback
- *   /webhooks/momo           ← MTN MoMo disbursement callback
+ *   /webhooks/mpesa/result       ← M-Pesa B2C disbursement result
+ *   /webhooks/mpesa/timeout      ← M-Pesa B2C queue timeout
+ *   /webhooks/mpesa/stk          ← M-Pesa STK Push (fund) callback
+ *   /webhooks/mpesa/b2b/result   ← Merchant Pay (Daraja B2B) result
+ *   /webhooks/mpesa/b2b/timeout  ← Merchant Pay (Daraja B2B) queue timeout
+ *   /webhooks/momo               ← MTN MoMo disbursement callback
  */
 
 import { Hono } from "hono";
 import { db } from "../db";
-import { transactions } from "../db/schema";
+import { transactions, users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { recordSettlementStep } from "../services/settlement";
 import { creditFromFloat } from "../services/avalanche";
@@ -72,6 +74,84 @@ mpesaWebhookRouter.post("/result", async (c) => {
 mpesaWebhookRouter.post("/timeout", async (c) => {
   const body = await c.req.json() as { ConversationID?: string };
   console.warn(`[Webhook:Mpesa] B2C timeout ConversationID=${body.ConversationID ?? "unknown"}`);
+  return c.json({ ResultCode: 0, ResultDesc: "Accepted" });
+});
+
+// POST /webhooks/mpesa/b2b/result — Merchant Pay (Till/PayBill) async result.
+// A ResultCode != 0 here is an unambiguous "the KES never reached the
+// merchant" — since the on-chain stablecoin debit already happened at
+// initiate time, we auto-refund it once (guarded by refundTxHash so a
+// retried/duplicate callback can't double-refund) and mark the transaction
+// requires_review so it stays visible rather than silently closed.
+mpesaWebhookRouter.post("/b2b/result", async (c) => {
+  const body = await c.req.json() as {
+    Result: {
+      ResultCode: number;
+      ResultDesc: string;
+      ConversationID: string;
+      TransactionID?: string;
+    };
+  };
+
+  const { ResultCode, ConversationID, TransactionID, ResultDesc } = body.Result;
+
+  const tx = await db.query.transactions.findFirst({
+    where: eq(transactions.railReference, ConversationID),
+  });
+
+  if (!tx) {
+    console.warn(`[Webhook:MpesaB2B] No TX found for ConversationID=${ConversationID}`);
+    return c.json({ ResultCode: 0, ResultDesc: "Accepted" });
+  }
+
+  if (tx.status === "settled" || tx.status === "failed") {
+    return c.json({ ResultCode: 0, ResultDesc: "Already processed" });
+  }
+
+  if (ResultCode === 0) {
+    await recordSettlementStep(tx.id, "settled", {
+      mpesaTransactionId: TransactionID,
+      resultDesc: ResultDesc,
+    });
+    console.log(`[Webhook:MpesaB2B] ✓ Settled TX=${tx.id} MPESA=${TransactionID}`);
+  } else {
+    if (!tx.refundTxHash && tx.senderId) {
+      try {
+        const sender = await db.query.users.findFirst({ where: eq(users.id, tx.senderId) });
+        if (sender?.walletAddress) {
+          const refundTxHash = await creditFromFloat(
+            sender.walletAddress as Address,
+            parseFloat(tx.amountUsdc)
+          );
+          await db
+            .update(transactions)
+            .set({ refundTxHash, refundedAt: new Date() })
+            .where(eq(transactions.id, tx.id));
+          console.log(`[Webhook:MpesaB2B] ↩ Refunded TX=${tx.id} hash=${refundTxHash}`);
+        }
+      } catch (refundErr) {
+        console.error(
+          `[Webhook:MpesaB2B] Refund failed for TX=${tx.id}:`,
+          (refundErr as Error).message
+        );
+      }
+    }
+
+    await recordSettlementStep(tx.id, "requires_review", {
+      stage: "pay_b2b_result",
+      resultCode: ResultCode,
+      reason: ResultDesc,
+    });
+    console.error(`[Webhook:MpesaB2B] ✗ B2B failed TX=${tx.id} code=${ResultCode}: ${ResultDesc}`);
+  }
+
+  return c.json({ ResultCode: 0, ResultDesc: "Accepted" });
+});
+
+// POST /webhooks/mpesa/b2b/timeout — Merchant Pay queue timeout (treat as pending)
+mpesaWebhookRouter.post("/b2b/timeout", async (c) => {
+  const body = await c.req.json() as { ConversationID?: string };
+  console.warn(`[Webhook:MpesaB2B] Timeout ConversationID=${body.ConversationID ?? "unknown"}`);
   return c.json({ ResultCode: 0, ResultDesc: "Accepted" });
 });
 
