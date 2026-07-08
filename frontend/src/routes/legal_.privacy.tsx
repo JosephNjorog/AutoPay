@@ -9,7 +9,7 @@ export const Route = createFileRoute("/legal_/privacy")({
 const EFFECTIVE_DATE = "25 June 2026";
 const COMPANY = "AutoPayKe Ltd";
 const EMAIL = "privacy@autopayke.com";
-const APP_URL = "https://autopayke.com";
+const APP_URL = "https://www.autopayke.com";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
