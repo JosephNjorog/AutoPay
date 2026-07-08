@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 function mockEscrowChain(logs: EscrowLogsByEvent): void {
-  process.env.TUMA_ESCROW_ADDRESS = TEST_WALLETS.other;
+  process.env.AUTOPAYKE_ESCROW_ADDRESS = TEST_WALLETS.other;
   process.env.CHAIN_EVENT_SCAN_LOOKBACK_BLOCKS = "100";
   process.env.CHAIN_EVENT_SCAN_BATCH_BLOCKS = "100";
   process.env.CHAIN_EVENT_SCAN_CONFIRMATIONS = "2";
