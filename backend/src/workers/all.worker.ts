@@ -13,5 +13,6 @@ import "./escrow.worker";
 import "./rail.worker";
 import "./notify.worker";
 import "./agent-review.worker";
+import "./pay.worker";
 
-console.log("[Workers] All workers started: settlement, escrow, rail, notify, agent-review");
+console.log("[Workers] All workers started: settlement, escrow, rail, notify, agent-review, pay");
