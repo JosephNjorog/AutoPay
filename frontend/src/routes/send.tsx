@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate, redirect } from "@tanstack/react-router";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  ArrowLeft, Search, UserPlus, Check, ArrowRight, Sparkles,
+  ArrowLeft, Search, UserPlus, Check, ArrowRight,
   Loader2, Lock, Send as SendIcon, MessageCircle, AlertCircle, BookUser, X, Download,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { midRates, type Contact } from "@/lib/tuma-data";
 import { api, type FxQuote, type Corridor, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 import { usePwaInstall } from "@/lib/use-pwa-install";
+import { QuoteCountdown, KV, FxQuoteSummaryCard, FxReviewHero } from "@/components/FxTransparencyCard";
 
 type SendSearch = { to?: string; amount?: string };
 
@@ -661,37 +662,6 @@ function VerifyRecipientStep({ accessToken, country, recipient, onConfirmed, onR
   );
 }
 
-// ── FX quote countdown ───────────────────────────────────────────────────────
-
-function QuoteCountdown({ lockedUntil, onExpire }: { lockedUntil: string; onExpire: () => void }) {
-  const [secondsLeft, setSecondsLeft] = useState(() =>
-    Math.max(0, Math.round((new Date(lockedUntil).getTime() - Date.now()) / 1000))
-  );
-  const onExpireRef = useRef(onExpire);
-  useEffect(() => { onExpireRef.current = onExpire; });
-
-  useEffect(() => {
-    setSecondsLeft(Math.max(0, Math.round((new Date(lockedUntil).getTime() - Date.now()) / 1000)));
-    const id = setInterval(() => {
-      const remaining = Math.max(0, Math.round((new Date(lockedUntil).getTime() - Date.now()) / 1000));
-      setSecondsLeft(remaining);
-      if (remaining <= 0) {
-        clearInterval(id);
-        onExpireRef.current();
-      }
-    }, 1000);
-    return () => clearInterval(id);
-  }, [lockedUntil]);
-
-  const expiring = secondsLeft <= 5;
-
-  return (
-    <span className={`normal-case flex items-center gap-1 ${expiring ? "text-warning" : "text-success"}`}>
-      <Lock className="h-3 w-3" /> {secondsLeft > 0 ? `Rate locked · ${secondsLeft}s` : "Refreshing rate…"}
-    </span>
-  );
-}
-
 // ── Amount step with currency toggle ─────────────────────────────────────────
 
 type AmountMode = "usdc" | "local";
@@ -820,24 +790,7 @@ function AmountStep({ recipient, country, amount, setAmount, usd, maxUsdc, quote
       </div>
 
       {quote && (
-        <div className="mt-4 rounded-2xl border border-border bg-card p-4">
-          <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
-            <span>Recipient gets</span>
-            <QuoteCountdown lockedUntil={quote.lockedUntil} onExpire={onRefreshQuote} />
-          </div>
-          <p className="mt-1 text-3xl font-black">
-            {quote.toCurrency} {quote.toAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })}
-          </p>
-          <p className="mt-1 text-[11px] text-muted-foreground">1 USDC = {quote.tumaRate.toFixed(2)} {quote.toCurrency}</p>
-          <div className="mt-3 pt-3 border-t border-border text-[11px] flex justify-between">
-            <span className="text-success font-semibold flex items-center gap-1">
-              <Sparkles className="h-3 w-3" /> Saving vs banks
-            </span>
-            <span className="text-success font-semibold">
-              {quote.toCurrency} {((quote.midRate - quote.tumaRate) * usd).toLocaleString("en-US", { maximumFractionDigits: 2 })}
-            </span>
-          </div>
-        </div>
+        <FxQuoteSummaryCard quote={quote} usd={usd} onRefreshQuote={onRefreshQuote} />
       )}
 
       <div className="mt-auto pt-6">
@@ -871,22 +824,7 @@ function ReviewStep({ recipient, country, usd, quote, note, setNote, onSend, onR
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
       <div className="rounded-3xl border border-border bg-card overflow-hidden">
-        <div className="p-5 text-center" style={{ background: "var(--gradient-mesh)" }}>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">You send</p>
-          <p className="mt-1 text-3xl font-black">{usd.toFixed(2)} USDC</p>
-          <div className="my-3 flex items-center justify-center text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
-            <SendIcon className="h-4 w-4 mx-3 text-primary" />
-            <div className="h-px flex-1 bg-border" />
-          </div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Recipient gets</p>
-          <p className="mt-1 text-3xl font-black">
-            {quote.toCurrency} {quote.toAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })}
-          </p>
-          <div className="mt-2 flex justify-center text-[10px]">
-            <QuoteCountdown lockedUntil={quote.lockedUntil} onExpire={onRefreshQuote} />
-          </div>
-        </div>
+        <FxReviewHero usd={usd} quote={quote} onRefreshQuote={onRefreshQuote} icon={SendIcon} />
         <div className="divide-y divide-border text-xs">
           <KV k="To" v={`${recipient.name !== recipient.msisdn ? recipient.name : recipient.msisdn} ${country.flag}`} />
           <KV k="Number" v={recipient.msisdn} mono />
@@ -919,15 +857,6 @@ function ReviewStep({ recipient, country, usd, quote, note, setNote, onSend, onR
         </button>
         <p className="mt-2 text-center text-[11px] text-muted-foreground">Signed on-device · Settled on Avalanche</p>
       </div>
-    </div>
-  );
-}
-
-function KV({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
-  return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{k}</span>
-      <span className={`text-xs font-semibold ${mono ? "font-mono" : ""}`}>{v}</span>
     </div>
   );
 }
