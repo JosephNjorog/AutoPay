@@ -102,6 +102,13 @@ function buildRailJob(
   metadata: Record<string, unknown> | null,
   retryMetadata?: Record<string, unknown>
 ): RailDisburseJob {
+  // Rail dead-letters only ever come from the Paystack-backed disbursement
+  // pipeline (see RAIL_FAILURE_STAGES) — merchant Pay (B2B) transactions
+  // never populate these failure stages, so recipientPhone is always set here.
+  if (!tx.recipientPhone) {
+    throw new ConflictError(`Transaction ${tx.id} has no recipientPhone to retry a rail disbursement with.`);
+  }
+
   const failureStage = isRailFailureStage(tx.failureStage)
     ? tx.failureStage
     : "rail_disbursement";
@@ -135,7 +142,7 @@ function toDeadLetterItem(
     transactionId: tx.id,
     reference: tx.reference,
     rail: tx.rail,
-    recipientPhone: tx.recipientPhone,
+    recipientPhone: job.recipientPhone,
     amountLocal: parseFloat(tx.amountLocal),
     localCurrency: tx.localCurrency,
     railReference: tx.railReference,
