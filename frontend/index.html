@@ -10,7 +10,7 @@
     <meta name="keywords" content="send money Africa, M-Pesa transfer, mobile money, MTN MoMo, Wave money transfer, cross-border payments Africa, USDC payments, send money Kenya, send money Ghana, send money Nigeria, send money Senegal, send money Uganda, send money Tanzania, send money Côte d'Ivoire, remittance Africa, stablecoin payments" />
     <meta name="robots" content="index, follow" />
     <meta name="author" content="AutoPayKe" />
-    <link rel="canonical" href="https://autopayke.com/" />
+    <link rel="canonical" href="https://www.autopayke.com/" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,9 +27,9 @@
     <meta property="og:title" content="AutoPayKe — Phone-first money for Africa" />
     <meta property="og:description" content="Type a phone number. Type an amount. Done. No bank account, no seed phrase." />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://autopayke.com/" />
+    <meta property="og:url" content="https://www.autopayke.com/" />
     <meta property="og:site_name" content="AutoPayKe" />
-    <meta property="og:image" content="https://autopayke.com/og-image.png" />
+    <meta property="og:image" content="https://www.autopayke.com/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="AutoPayKe — send money to any phone number across Africa" />
@@ -41,7 +41,7 @@
     <meta name="twitter:creator" content="@AutoPayKe" />
     <meta name="twitter:title" content="AutoPayKe — Phone-first money for Africa" />
     <meta name="twitter:description" content="Type a phone number. Type an amount. Done. No bank account, no seed phrase." />
-    <meta name="twitter:image" content="https://autopayke.com/og-image.png" />
+    <meta name="twitter:image" content="https://www.autopayke.com/og-image.png" />
     <meta name="twitter:image:alt" content="AutoPayKe — send money to any phone number across Africa" />
 
     <!-- Favicons -->
@@ -62,9 +62,9 @@
         "@context": "https://schema.org",
         "@type": "FinancialService",
         "name": "AutoPayKe",
-        "url": "https://autopayke.com/",
-        "logo": "https://autopayke.com/autopay_iconlogo.svg",
-        "image": "https://autopayke.com/og-image.png",
+        "url": "https://www.autopayke.com/",
+        "logo": "https://www.autopayke.com/autopay_iconlogo.svg",
+        "image": "https://www.autopayke.com/og-image.png",
         "description": "Phone-first cross-border payments for Africa. Send money to any phone number, settle instantly on M-Pesa, MTN MoMo, Wave, or bank.",
         "areaServed": [
           { "@type": "Country", "name": "Kenya" },
@@ -87,6 +87,28 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Fallback for crawlers/clients that don't execute JavaScript — this is a
+         client-rendered SPA, so without this block the raw HTML body is just
+         the empty #root div above with no <h1> or text content at all. Most
+         AI/GEO crawlers (GPTBot, ClaudeBot, PerplexityBot) and some classic
+         search crawlers don't render JS, so this is the only content they see. -->
+    <noscript>
+      <div style="max-width: 640px; margin: 40px auto; padding: 0 20px; font-family: sans-serif; color: #1a1a2e; line-height: 1.6;">
+        <h1 style="font-size: 28px; font-weight: 800;">AutoPayKe — Phone-first money for Africa</h1>
+        <p>
+          Send money to any phone number across Kenya, Ghana, Nigeria, Senegal, Côte d'Ivoire,
+          Tanzania and Uganda. Settles on M-Pesa, MTN MoMo, Wave, Orange Money or bank — in
+          seconds, with no crypto knowledge, bank account or seed phrase required.
+        </p>
+        <p>
+          <a href="/signup">Sign up</a> &middot;
+          <a href="/login">Log in</a> &middot;
+          <a href="/legal/privacy">Privacy Policy</a> &middot;
+          <a href="/legal/terms">Terms of Service</a>
+        </p>
+        <p>Please enable JavaScript to use the AutoPayKe app.</p>
+      </div>
+    </noscript>
     <!-- Capture beforeinstallprompt as early as possible — Chrome can fire it
          before any framework code runs, and a listener added inside a
          lazily-loaded route component (after React mounts) can miss it
