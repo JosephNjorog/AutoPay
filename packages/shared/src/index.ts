@@ -13,8 +13,9 @@ export const SUPPORTED_RAILS = [
 export type Rail = (typeof SUPPORTED_RAILS)[number];
 // Settlement rails recorded on a transaction — broader than Rail, which is
 // specifically "where a country's payout goes." Crypto deposits aren't tied
-// to a country/payout rail at all.
-export type TransactionRail = Rail | "crypto";
+// to a country/payout rail at all, and the Daraja B2B merchant-pay rails are
+// a separate dispatch path from Rail's Paystack-backed payout corridors.
+export type TransactionRail = Rail | "crypto" | "mpesa_b2b_till" | "mpesa_b2b_paybill";
 
 export const SUPPORTED_TOKENS = ["USDC", "USDT"] as const;
 export type Token = (typeof SUPPORTED_TOKENS)[number];
@@ -116,6 +117,97 @@ export function dialCodeToCountry(phone: string): CountryConfig | null {
   }
   return null;
 }
+
+// ── Merchant Pay (Till/PayBill) config ────────────────────────────────────────
+// Backend-served (see GET /api/pay/config) so adding a country/method is a
+// config change, not a client release — same rationale as COUNTRY_CONFIG.
+
+export type PayMethodKind = "buy_goods" | "paybill";
+
+export type PayMethodConfig = {
+  kind: PayMethodKind;
+  label: string;
+  numberLabel: string;
+  minDigits: number;
+  maxDigits: number;
+  requiresAccountNumber: boolean;
+};
+
+export type CountryPayConfig = {
+  countryCode: string;
+  countryName: string;
+  status: "available" | "coming_soon";
+  currency: string;
+  currencySymbol: string;
+  methods: PayMethodConfig[];
+};
+
+const KENYA_PAY_METHODS: PayMethodConfig[] = [
+  {
+    kind: "buy_goods",
+    label: "Buy Goods (Till)",
+    numberLabel: "Till number",
+    minDigits: 5,
+    maxDigits: 7,
+    requiresAccountNumber: false,
+  },
+  {
+    kind: "paybill",
+    label: "PayBill",
+    numberLabel: "Business number",
+    minDigits: 5,
+    maxDigits: 7,
+    requiresAccountNumber: true,
+  },
+];
+
+export const PAY_CONFIG: Record<string, CountryPayConfig> = {
+  KE: { countryCode: "KE", countryName: "Kenya", status: "available", currency: "KES", currencySymbol: "KSh", methods: KENYA_PAY_METHODS },
+  GH: { countryCode: "GH", countryName: "Ghana", status: "coming_soon", currency: "GHS", currencySymbol: "GH₵", methods: [] },
+  NG: { countryCode: "NG", countryName: "Nigeria", status: "coming_soon", currency: "NGN", currencySymbol: "₦", methods: [] },
+  SN: { countryCode: "SN", countryName: "Senegal", status: "coming_soon", currency: "XOF", currencySymbol: "CFA", methods: [] },
+  CI: { countryCode: "CI", countryName: "Côte d'Ivoire", status: "coming_soon", currency: "XOF", currencySymbol: "CFA", methods: [] },
+  TZ: { countryCode: "TZ", countryName: "Tanzania", status: "coming_soon", currency: "TZS", currencySymbol: "TSh", methods: [] },
+  UG: { countryCode: "UG", countryName: "Uganda", status: "coming_soon", currency: "UGX", currencySymbol: "USh", methods: [] },
+};
+
+// Safaricom Till (Buy Goods) and PayBill business numbers are both 5-7 digits.
+export const TILL_PAYBILL_NUMBER_RE = /^\d{5,7}$/;
+// Free-text PayBill account reference (invoice/account/policy number, etc).
+export const PAY_ACCOUNT_NUMBER_RE = /^[A-Za-z0-9 .\-]{1,20}$/;
+
+export const InitiatePaymentSchema = z.object({
+  quoteId: z.string().uuid(),
+  payMethod: z.enum(["buy_goods", "paybill"]),
+  merchantNumber: z.string().regex(TILL_PAYBILL_NUMBER_RE, "Enter a 5-7 digit number"),
+  accountNumber: z.string().regex(PAY_ACCOUNT_NUMBER_RE).max(20).optional(),
+  amountUsd: z.number().positive().max(10_000),
+  idempotencyKey: z
+    .string()
+    .min(8)
+    .max(128)
+    .regex(/^[A-Za-z0-9._:-]+$/, "Use letters, numbers, '.', '_', ':', or '-'")
+    .optional(),
+});
+
+export const PayQuoteRequestSchema = z.object({
+  amountUsd: z.number().positive().max(10_000),
+  payMethod: z.enum(["buy_goods", "paybill"]),
+});
+
+export type PayRail = "mpesa_b2b_till" | "mpesa_b2b_paybill";
+
+export type PayQuote = {
+  quoteId: string;
+  fromAmountUsd: number;
+  toAmount: number;
+  toCurrency: string;
+  tumaRate: number;
+  midRate: number;
+  savingsVsBank: number;
+  rail: PayRail;
+  lockedUntil: string;
+};
 
 // ── Shared Zod schemas ────────────────────────────────────────────────────────
 
