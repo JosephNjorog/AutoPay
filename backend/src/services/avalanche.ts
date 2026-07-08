@@ -273,9 +273,9 @@ export function getUserAccount(phoneHash: string) {
 
 /** Predicts the smart wallet address for a user before deployment. */
 export async function getSmartWalletAddress(phoneHash: string): Promise<Address> {
-  const factoryAddress = process.env.TUMA_FACTORY_ADDRESS as Address;
+  const factoryAddress = process.env.AUTOPAYKE_FACTORY_ADDRESS as Address;
   if (!factoryAddress || factoryAddress === "0x") {
-    throw new BlockchainError("TUMA_FACTORY_ADDRESS is not configured");
+    throw new BlockchainError("AUTOPAYKE_FACTORY_ADDRESS is not configured");
   }
 
   const userAccount = getUserAccount(phoneHash);
@@ -292,9 +292,9 @@ export async function getSmartWalletAddress(phoneHash: string): Promise<Address>
 
 /** Deploys a new smart wallet for the user via the factory. Returns the wallet address. */
 export async function deploySmartWallet(phoneHash: string): Promise<Address> {
-  const factoryAddress = process.env.TUMA_FACTORY_ADDRESS as Address;
+  const factoryAddress = process.env.AUTOPAYKE_FACTORY_ADDRESS as Address;
   if (!factoryAddress || factoryAddress === "0x") {
-    throw new BlockchainError("TUMA_FACTORY_ADDRESS is not configured");
+    throw new BlockchainError("AUTOPAYKE_FACTORY_ADDRESS is not configured");
   }
 
   const userAccount = getUserAccount(phoneHash);
@@ -555,7 +555,7 @@ export async function approveEscrow(
   fromWalletAddress: Address,
   amountUsd: number
 ): Promise<Hash> {
-  const escrowAddress = process.env.TUMA_ESCROW_ADDRESS as Address;
+  const escrowAddress = process.env.AUTOPAYKE_ESCROW_ADDRESS as Address;
   const amountRaw = parseUnits(amountUsd.toFixed(6), 6);
 
   const approveCalldata = encodeFunctionData({
@@ -581,13 +581,13 @@ export async function approveEscrow(
 
 /**
  * Records a newly deployed smart wallet in TumaRegistry on-chain.
- * Silently skips if TUMA_REGISTRY_ADDRESS is not yet configured (pre-deploy).
+ * Silently skips if AUTOPAYKE_REGISTRY_ADDRESS is not yet configured (pre-deploy).
  */
 export async function registerWalletOnChain(
   phoneHash: string,
   walletAddress: Address
 ): Promise<void> {
-  const registryAddress = process.env.TUMA_REGISTRY_ADDRESS as Address | undefined;
+  const registryAddress = process.env.AUTOPAYKE_REGISTRY_ADDRESS as Address | undefined;
   if (!registryAddress || registryAddress === "0x") return;
 
   const hash = await (await requireRelayer()).writeContract({
@@ -614,9 +614,9 @@ export async function depositToEscrow(
   escrowRef: string,
   amountUsd: number
 ): Promise<Hash> {
-  const escrowAddress = process.env.TUMA_ESCROW_ADDRESS as Address;
+  const escrowAddress = process.env.AUTOPAYKE_ESCROW_ADDRESS as Address;
   if (!escrowAddress || escrowAddress === "0x") {
-    throw new BlockchainError("TUMA_ESCROW_ADDRESS is not configured");
+    throw new BlockchainError("AUTOPAYKE_ESCROW_ADDRESS is not configured");
   }
 
   const amountRaw = parseUnits(amountUsd.toFixed(6), 6);
@@ -651,9 +651,9 @@ export async function claimEscrowOnChain(
   recipientAddress: Address,
   signature: `0x${string}`
 ): Promise<Hash> {
-  const escrowAddress = process.env.TUMA_ESCROW_ADDRESS as Address;
+  const escrowAddress = process.env.AUTOPAYKE_ESCROW_ADDRESS as Address;
   if (!escrowAddress || escrowAddress === "0x") {
-    throw new BlockchainError("TUMA_ESCROW_ADDRESS is not configured");
+    throw new BlockchainError("AUTOPAYKE_ESCROW_ADDRESS is not configured");
   }
 
   const claimRefBytes32 = stringToBytes32(escrowRef);
@@ -676,9 +676,9 @@ export async function claimEscrowOnChain(
  * TumaEscrow enforces the expiry and pending-state checks on-chain.
  */
 export async function refundEscrowOnChain(escrowRef: string): Promise<Hash> {
-  const escrowAddress = process.env.TUMA_ESCROW_ADDRESS as Address;
+  const escrowAddress = process.env.AUTOPAYKE_ESCROW_ADDRESS as Address;
   if (!escrowAddress || escrowAddress === "0x") {
-    throw new BlockchainError("TUMA_ESCROW_ADDRESS is not configured");
+    throw new BlockchainError("AUTOPAYKE_ESCROW_ADDRESS is not configured");
   }
 
   const hash = await (await requireRelayer()).writeContract({
@@ -721,10 +721,10 @@ export async function creditFromFloat(
 /**
  * Registers a smart wallet with the Paymaster for gas sponsorship.
  * Called after wallet deploy so the user never pays gas.
- * Silently skips if TUMA_PAYMASTER_ADDRESS is not yet configured.
+ * Silently skips if AUTOPAYKE_PAYMASTER_ADDRESS is not yet configured.
  */
 export async function sponsorWallet(walletAddress: Address): Promise<void> {
-  const paymasterAddress = process.env.TUMA_PAYMASTER_ADDRESS as Address | undefined;
+  const paymasterAddress = process.env.AUTOPAYKE_PAYMASTER_ADDRESS as Address | undefined;
   if (!paymasterAddress || paymasterAddress === "0x") return;
 
   const PAYMASTER_APPROVE_ABI = [
