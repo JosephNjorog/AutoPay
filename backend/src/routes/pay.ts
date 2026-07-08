@@ -14,7 +14,7 @@ import { and, eq } from "drizzle-orm";
 import { authMiddleware } from "../middleware/auth";
 import { sendMoneyLimiter } from "../middleware/rateLimit";
 import { createPayQuote, consumePayQuote } from "../services/pay";
-import { transferUsdc, getUsdcBalance } from "../services/avalanche";
+import { transferPayUsdc, getPayUsdcBalance } from "../services/avalanche-pay";
 import { recordSettlementStep } from "../services/settlement";
 import { processPayB2BDisbursement } from "../services/pay-disbursement";
 import { enqueuePayB2BDisburse } from "../lib/queue";
@@ -51,6 +51,15 @@ const FALLBACK_PAY_CONFIG: CountryPayConfig = {
   methods: [],
 };
 
+// Merchant Pay is sandbox-only and defaults OFF everywhere, including
+// production — it only turns on where an operator has deliberately set
+// PAY_FEATURE_ENABLED=true (e.g. local/demo environments with the Daraja
+// sandbox credentials configured). Off/unset always reports every country
+// as coming_soon, so /quote and /initiate reject before ever touching a
+// balance check or on-chain call — the same gate a real "not launched yet"
+// country goes through.
+const PAY_FEATURE_ENABLED = process.env.PAY_FEATURE_ENABLED === "true";
+
 async function resolveCountryPayConfig(userId: string, phone: string): Promise<CountryPayConfig> {
   const user = await db.query.users.findFirst({
     where: eq(users.id, userId),
@@ -58,7 +67,11 @@ async function resolveCountryPayConfig(userId: string, phone: string): Promise<C
   });
   const countryCode = user?.countryCode ?? dialCodeToCountry(phone)?.code;
   if (!countryCode) return FALLBACK_PAY_CONFIG;
-  return PAY_CONFIG[countryCode] ?? { ...FALLBACK_PAY_CONFIG, countryCode };
+  const config = PAY_CONFIG[countryCode] ?? { ...FALLBACK_PAY_CONFIG, countryCode };
+  if (!PAY_FEATURE_ENABLED && config.status === "available") {
+    return { ...config, status: "coming_soon", methods: [] };
+  }
+  return config;
 }
 
 function txToPayResponse(tx: PayTransaction, idempotentReplay = false, extra: Record<string, unknown> = {}) {
@@ -163,7 +176,7 @@ payRouter.post(
       const sender = await db.query.users.findFirst({ where: eq(users.id, userId) });
       if (!sender?.walletAddress) throw new NotFoundError("Sender wallet");
 
-      const balanceRaw = await getUsdcBalance(sender.walletAddress as Address);
+      const balanceRaw = await getPayUsdcBalance(sender.walletAddress as Address);
       const requiredRaw = parseUnits(amountUsd.toFixed(6), 6);
       if (balanceRaw < requiredRaw) throw new InsufficientFundsError();
 
@@ -200,8 +213,9 @@ payRouter.post(
         // Debit the user's stablecoin to the Tuma treasury FIRST. If the
         // Daraja B2B call subsequently fails, the callback handler auto-
         // refunds this exact amount — see webhooks.ts's b2b/result handler.
-        const txHash = await transferUsdc(
-          sender.phoneHash,
+        // Always Fuji testnet (see services/avalanche-pay.ts), regardless
+        // of NODE_ENV, since Merchant Pay is sandbox-only.
+        const txHash = await transferPayUsdc(
           sender.walletAddress as Address,
           treasuryAddress,
           amountUsd
