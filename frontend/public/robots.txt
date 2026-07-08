@@ -1,4 +1,4 @@
-# Autopayke (AutoPayKe) — https://autopayke.com
+# Autopayke (AutoPayKe) — https://www.autopayke.com
 # Default policy: crawl and index everything except authenticated / in-flow
 # app screens (see disallow list below). Applies to classic search engines
 # and AI/answer-engine crawlers alike — we want to be discoverable wherever
@@ -80,4 +80,4 @@ Disallow: /signup/pin
 Disallow: /signup/biometrics
 Disallow: /signup/complete
 
-Sitemap: https://autopayke.com/sitemap.xml
+Sitemap: https://www.autopayke.com/sitemap.xml
