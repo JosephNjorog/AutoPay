@@ -20,7 +20,7 @@ export const wagmiAdapter = new WagmiAdapter({ networks, projectId });
 const appUrl =
   typeof window !== "undefined"
     ? window.location.origin
-    : (import.meta.env.VITE_APP_URL as string | undefined) ?? "https://autopayke.com";
+    : (import.meta.env.VITE_APP_URL as string | undefined) ?? "https://www.autopayke.com";
 
 createAppKit({
   adapters: [wagmiAdapter],
