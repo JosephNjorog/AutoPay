@@ -93,7 +93,7 @@ export const TOKEN_ADDRESSES: {
 
 // ── Contract ABIs (minimal) ───────────────────────────────────────────────────
 
-const ERC20_ABI = [
+export const ERC20_ABI = [
   {
     name: "balanceOf",
     type: "function",
@@ -215,7 +215,7 @@ const TUMA_ESCROW_ABI = [
   },
 ] as const;
 
-const SMART_WALLET_ABI = [
+export const SMART_WALLET_ABI = [
   {
     name: "execute",
     type: "function",
