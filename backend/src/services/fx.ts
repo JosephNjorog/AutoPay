@@ -7,7 +7,7 @@ import { desc, eq } from "drizzle-orm";
 
 const SPREAD = parseFloat(process.env.FX_SPREAD ?? "0.023");
 const OXR_APP_ID = process.env.OPEN_EXCHANGE_RATES_APP_ID!;
-const QUOTE_TTL_SECONDS = 35; // 30s lock + 5s grace
+export const QUOTE_TTL_SECONDS = 35; // 30s lock + 5s grace
 const RATE_CACHE_TTL = 60;
 
 // ── Cash-out fee (flat, tiered) ────────────────────────────────────────────────
