@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  HeadContent,
   Outlet,
   Link,
   createRootRouteWithContext,
@@ -113,6 +114,7 @@ function RootComponent() {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
+        <HeadContent />
         <OfflineBanner />
         <Outlet />
         <Toaster position="top-center" richColors />
