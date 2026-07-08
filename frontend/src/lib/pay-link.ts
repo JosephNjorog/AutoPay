@@ -1,4 +1,4 @@
-const APP_URL = (import.meta.env.VITE_APP_URL as string | undefined) ?? "https://autopayke.com";
+const APP_URL = (import.meta.env.VITE_APP_URL as string | undefined) ?? "https://www.autopayke.com";
 
 /** Builds the URL encoded into a user's "pay me" QR code. */
 export function buildPayUrl(phone: string, amountUsd?: number): string {
