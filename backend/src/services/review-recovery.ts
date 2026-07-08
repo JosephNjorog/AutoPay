@@ -103,6 +103,12 @@ export async function resendClaimLink(
     throw new ConflictError(`Escrow is already ${escrow.status}.`);
   }
 
+  // Escrow (non-TUMA-user Send) always has a recipientPhone — merchant Pay
+  // transactions never create escrow rows.
+  if (!tx.recipientPhone) {
+    throw new ConflictError(`Transaction ${tx.id} has no recipientPhone to resend a claim link to.`);
+  }
+
   const sender = await db.query.users.findFirst({
     where: eq(users.id, escrow.senderId),
   });
@@ -233,6 +239,15 @@ export async function retryRailDisbursement(
   if (tx.status !== "onchain" && tx.status !== "routed" && tx.status !== "requires_review") {
     throw new ConflictError(
       `Transaction status is "${tx.status}" — only onchain/routed/requires_review can be retried.`
+    );
+  }
+
+  // This retries the Paystack-backed rail-disbursement leg only — merchant
+  // Pay (B2B) transactions have their own disbursement/refund pipeline and
+  // always have a null recipientPhone.
+  if (!tx.recipientPhone) {
+    throw new ConflictError(
+      `Transaction ${tx.id} has no recipientPhone — use the Pay dead-letter recovery path instead.`
     );
   }
 
