@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, redirect, Link } from "@tanstack/react-router";
 import { useRef, useEffect, useState } from "react";
 import { Phone, Globe, Zap, ShieldCheck, ArrowRight, Download } from "lucide-react";
 import { toast } from "sonner";
@@ -51,8 +51,6 @@ function LandingPage() {
   const [pwaAvailable, setPwaAvailable] = useState(false);
 
   useEffect(() => {
-    document.title = "AutoPayKe - Phone-first money for Africa";
-
     const handler = (e: Event) => {
       pwaPromptRef.current = e as BeforeInstallPromptEvent;
       setPwaAvailable(true);
@@ -168,6 +166,35 @@ function LandingPage() {
             Try demo account
           </button>
         </div>
+
+        {/* Footer — internal links for crawlability plus the country list,
+            which mirrors the areaServed entries in the JSON-LD above so the
+            page's visible text backs up the structured data. */}
+        <footer className="mt-10 pt-6 border-t border-black/[0.06]">
+          <p className="text-[11px] text-gray-400 leading-relaxed mb-3">
+            Send money to Kenya, Ghana, Nigeria, Senegal, Côte d'Ivoire, Tanzania and Uganda —
+            settling on M-Pesa, MTN MoMo, Wave, Orange Money or bank.
+          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-medium text-gray-400">
+            <Link to="/legal/privacy" className="hover:text-orange transition-colors">
+              Privacy Policy
+            </Link>
+            <Link to="/legal/terms" className="hover:text-orange transition-colors">
+              Terms of Service
+            </Link>
+            <a
+              href="https://x.com/AutoPayKe"
+              target="_blank"
+              rel="me noopener noreferrer"
+              className="hover:text-orange transition-colors"
+            >
+              @AutoPayKe on X
+            </a>
+          </div>
+          <p className="mt-3 text-[10px] text-gray-300">
+            &copy; {new Date().getFullYear()} AutoPayKe. All rights reserved.
+          </p>
+        </footer>
       </div>
     </div>
   );
