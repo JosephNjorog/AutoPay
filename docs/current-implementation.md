@@ -230,6 +230,12 @@ process checklist below were touched:
 Test suite grew from 80 to 105 passing tests (`forge test`), including new
 coverage that specifically proves the closed bypasses.
 
+Deployed to Fuji TestNet with these fixes included — see the Contract
+addresses table in [README.md](../README.md#contract-addresses). The
+Paymaster is deployed but not yet funded (`PostDeploy.s.sol` needs the
+deployer wallet funded with more testnet AVAX first — gas sponsorship
+won't work until that runs).
+
 **Still open before MainNet** (acknowledged in `Deploy.s.sol`'s own
 comments but not enforced by anything): move the admin address to a
 multisig, move the relayer private key to a KMS/HSM, verify the ERC-4337
