@@ -9,12 +9,12 @@ import "../src/AutopayPaymaster.sol";
  * @notice Funds the AutopayPaymaster deposit and stake in the ERC-4337 EntryPoint.
  *
  * Run after Deploy.s.sol once the paymaster address is known:
- *   TUMA_PAYMASTER_ADDRESS=0x... forge script script/PostDeploy.s.sol \
+ *   AUTOPAYKE_PAYMASTER_ADDRESS=0x... forge script script/PostDeploy.s.sol \
  *     --rpc-url fuji --broadcast -vvvv
  *
  * Required env vars:
  *   DEPLOYER_PRIVATE_KEY      Admin EOA (holds AVAX for funding)
- *   TUMA_PAYMASTER_ADDRESS    From Deploy.s.sol output
+ *   AUTOPAYKE_PAYMASTER_ADDRESS    From Deploy.s.sol output
  *
  * deposit() is RELAYER_ROLE-gated on AutopayPaymaster; addStake() is
  * DEFAULT_ADMIN_ROLE-gated. This script runs as the admin and briefly
@@ -28,7 +28,7 @@ contract PostDeploy is Script {
 
     function run() external {
         uint256 deployerKey   = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        address paymasterAddr = vm.envAddress("TUMA_PAYMASTER_ADDRESS");
+        address paymasterAddr = vm.envAddress("AUTOPAYKE_PAYMASTER_ADDRESS");
 
         AutopayPaymaster paymaster = AutopayPaymaster(payable(paymasterAddr));
 
@@ -72,7 +72,7 @@ contract PostDeploy is Script {
         console.log("=== Post-deploy checklist ===");
         console.log("[ ] Run ApproveWallets.s.sol to batch-enable existing user wallets");
         console.log("[ ] Alert when deposit < 0.5 AVAX: monitor paymaster.getDeposit()");
-        console.log("[ ] Update TUMA_PAYMASTER_ADDRESS in backend .env");
+        console.log("[ ] Update AUTOPAYKE_PAYMASTER_ADDRESS in backend .env");
         console.log("[ ] Set NODE_ENV=production to switch from Fuji to mainnet");
     }
 }
