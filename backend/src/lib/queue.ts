@@ -27,6 +27,7 @@ export const QUEUE_NAMES = {
   RAIL_DISBURSE: "rail_disburse",
   WHATSAPP_NOTIFY: "whatsapp_notify",
   AGENT_REVIEW: "agent_review",
+  PAY_B2B_DISBURSE: "pay_b2b_disburse",
 } as const;
 
 // ── Job payload types ─────────────────────────────────────────────────────────
@@ -72,11 +73,21 @@ export type AgentReviewJob = {
   detail?: Record<string, unknown>;
 };
 
+export type PayDisburseJob = {
+  transactionId: string;
+  payMethod: "buy_goods" | "paybill";
+  merchantNumber: string;
+  accountNumber?: string;
+  amountKes: number;
+  reference: string;
+};
+
 type SettlementPollJobName = "poll";
 type EscrowExpireJobName = "expire";
 type RailDisburseJobName = "disburse";
 type WhatsAppNotifyJobName = "notify";
 type AgentReviewJobName = "review";
+type PayDisburseJobName = "disburse";
 
 // ── Queue instances ───────────────────────────────────────────────────────────
 
@@ -98,6 +109,9 @@ export const notifyQueue = queueOpts
   : null;
 export const agentReviewQueue = queueOpts
   ? new Queue<AgentReviewJob, unknown, AgentReviewJobName>(QUEUE_NAMES.AGENT_REVIEW, queueOpts)
+  : null;
+export const payQueue = queueOpts
+  ? new Queue<PayDisburseJob, unknown, PayDisburseJobName>(QUEUE_NAMES.PAY_B2B_DISBURSE, queueOpts)
   : null;
 
 // ── Scheduling helpers ────────────────────────────────────────────────────────
@@ -160,6 +174,15 @@ export async function enqueueAgentReview(job: AgentReviewJob): Promise<boolean> 
   await agentReviewQueue.add("review", job, {
     attempts: 3,
     backoff: { type: "exponential", delay: 5_000 },
+  });
+  return true;
+}
+
+export async function enqueuePayB2BDisburse(job: PayDisburseJob): Promise<boolean> {
+  if (!payQueue) return false;
+  await payQueue.add("disburse", job, {
+    attempts: 3,
+    backoff: { type: "fixed", delay: 30_000 },
   });
   return true;
 }
