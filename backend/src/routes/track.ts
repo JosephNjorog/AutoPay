@@ -44,6 +44,16 @@ trackRouter.get("/:id", async (c) => {
       transaction: {
         id: tx.id,
         reference: tx.reference,
+        direction: tx.recipientUserId === userId ? "in" : "out",
+        counterparty:
+          tx.senderId === userId
+            ? tx.recipientPhone ??
+              (tx.merchantTillNumber
+                ? `Till ${tx.merchantTillNumber}`
+                : tx.merchantPaybillNumber
+                ? `PayBill ${tx.merchantPaybillNumber}`
+                : "Merchant")
+            : (tx.senderId ?? "Autopayke"),
         amountUsd: parseFloat(tx.amountUsdc),
         amountLocal: parseFloat(tx.amountLocal),
         localCurrency: tx.localCurrency,
@@ -61,6 +71,12 @@ trackRouter.get("/:id", async (c) => {
         isEscrow: tx.isEscrow,
         escrowRef: tx.escrowRef,
         recipientPhone: tx.recipientPhone,
+        merchantPayMethod: tx.merchantPayMethod,
+        merchantTillNumber: tx.merchantTillNumber,
+        merchantPaybillNumber: tx.merchantPaybillNumber,
+        merchantAccountNumber: tx.merchantAccountNumber,
+        refundTxHash: tx.refundTxHash,
+        refundedAt: tx.refundedAt?.toISOString() ?? null,
         createdAt: tx.createdAt.toISOString(),
         settledAt: tx.settledAt?.toISOString() ?? null,
       },
