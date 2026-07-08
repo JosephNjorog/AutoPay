@@ -15,6 +15,11 @@ import "../src/AutopayPaymaster.sol";
  * Required env vars:
  *   DEPLOYER_PRIVATE_KEY      Admin EOA (holds AVAX for funding)
  *   TUMA_PAYMASTER_ADDRESS    From Deploy.s.sol output
+ *
+ * deposit() is RELAYER_ROLE-gated on AutopayPaymaster; addStake() is
+ * DEFAULT_ADMIN_ROLE-gated. This script runs as the admin and briefly
+ * self-grants RELAYER_ROLE around the deposit() call (revoked immediately
+ * after) rather than requiring a separately-funded relayer key.
  */
 contract PostDeploy is Script {
     uint256 constant DEPOSIT_AMOUNT = 2 ether;  // 2 AVAX into EntryPoint deposit
@@ -31,11 +36,28 @@ contract PostDeploy is Script {
         console.log("Paymaster: ", paymasterAddr);
         console.log("Network:   ", block.chainid == 43114 ? "Avalanche Mainnet" : "Fuji Testnet");
 
+        address deployer = vm.addr(deployerKey);
+        bytes32 relayerRole = paymaster.RELAYER_ROLE();
+
         vm.startBroadcast(deployerKey);
+
+        // deposit() is RELAYER_ROLE-gated, addStake() is DEFAULT_ADMIN_ROLE-gated
+        // — the deployer only holds admin. Since admin can grant any role,
+        // self-grant RELAYER_ROLE just long enough to deposit, then revoke it,
+        // so the deployer doesn't end up with a standing relayer permission it
+        // wasn't meant to have.
+        bool selfGrantedRelayer = !paymaster.hasRole(relayerRole, deployer);
+        if (selfGrantedRelayer) {
+            paymaster.grantRole(relayerRole, deployer);
+        }
 
         // Fund the EntryPoint deposit so the Paymaster can cover user gas
         paymaster.deposit{value: DEPOSIT_AMOUNT}();
         console.log("Deposited", DEPOSIT_AMOUNT / 1e18, "AVAX into EntryPoint");
+
+        if (selfGrantedRelayer) {
+            paymaster.revokeRole(relayerRole, deployer);
+        }
 
         // Add stake — required by EntryPoint for Paymaster to be trusted
         paymaster.addStake{value: STAKE_AMOUNT}(UNSTAKE_DELAY);
