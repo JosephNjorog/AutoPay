@@ -112,8 +112,15 @@ services:
         value: "Autopayke <noreply@autopayke.com>"
 
       # ── Avalanche ─────────────────────────────────────────────────────────
+      # Deliberately explicit and separate from NODE_ENV — see avalanche.ts's
+      # isTestnet comment. Flip to "mainnet" only once the contract addresses
+      # below are real deployed mainnet addresses, not before.
+      - key: AVALANCHE_NETWORK
+        value: testnet
       - key: AVALANCHE_RPC_URL
         value: https://api.avax.network/ext/bc/C/rpc
+      - key: AVALANCHE_FUJI_RPC_URL
+        value: https://api.avax-test.network/ext/bc/C/rpc
       - key: AVALANCHE_CHAIN_ID
         value: "43114"
       - key: RELAYER_PRIVATE_KEY
@@ -127,7 +134,8 @@ services:
       - key: SIGNER_ADDRESS
         sync: false
 
-      # ── Smart contracts (mainnet, chain 43114 — set after mainnet deploy) ──
+      # ── Smart contracts (mainnet, chain 43114 — set after mainnet deploy,
+      #    and only once AVALANCHE_NETWORK above is flipped to "mainnet") ────
       - key: AUTOPAYKE_REGISTRY_ADDRESS
         sync: false
       - key: AUTOPAYKE_FACTORY_ADDRESS
@@ -218,8 +226,12 @@ services:
         value: autopayke_otp
       - key: AT_ENV
         value: production
+      - key: AVALANCHE_NETWORK
+        value: testnet
       - key: AVALANCHE_RPC_URL
         value: https://api.avax.network/ext/bc/C/rpc
+      - key: AVALANCHE_FUJI_RPC_URL
+        value: https://api.avax-test.network/ext/bc/C/rpc
       - key: AVALANCHE_CHAIN_ID
         value: "43114"
       - key: RELAYER_PRIVATE_KEY
