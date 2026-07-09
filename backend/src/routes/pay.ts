@@ -14,7 +14,13 @@ import { and, eq } from "drizzle-orm";
 import { authMiddleware } from "../middleware/auth";
 import { sendMoneyLimiter } from "../middleware/rateLimit";
 import { createPayQuote, consumePayQuote } from "../services/pay";
-import { transferPayUsdc, getPayUsdcBalance } from "../services/avalanche-pay";
+import {
+  transferPayToken,
+  transferPayNativeAvax,
+  getPayTokenBalance,
+  getPayAvaxBalance,
+} from "../services/avalanche-pay";
+import type { StablecoinToken } from "../services/avalanche";
 import { recordSettlementStep } from "../services/settlement";
 import { processPayB2BDisbursement } from "../services/pay-disbursement";
 import { enqueuePayB2BDisburse } from "../lib/queue";
@@ -109,7 +115,7 @@ payRouter.get("/config", async (c) => {
 
 // POST /api/pay/quote
 payRouter.post("/quote", zValidator("json", PayQuoteRequestSchema), async (c) => {
-  const { amountUsd, payMethod } = c.req.valid("json");
+  const { amountUsd, payMethod, token } = c.req.valid("json");
   const { sub: userId, phone } = c.get("user");
 
   const config = await resolveCountryPayConfig(userId, phone);
@@ -118,7 +124,7 @@ payRouter.post("/quote", zValidator("json", PayQuoteRequestSchema), async (c) =>
   }
 
   const rail: PayRail = payMethod === "buy_goods" ? "mpesa_b2b_till" : "mpesa_b2b_paybill";
-  const quote = await createPayQuote(amountUsd, rail);
+  const quote = await createPayQuote(amountUsd, rail, token);
   return c.json({ ok: true, data: quote });
 });
 
@@ -134,6 +140,7 @@ payRouter.post(
       merchantNumber,
       accountNumber,
       amountUsd,
+      token,
       idempotencyKey: bodyKey,
     } = c.req.valid("json");
     const { sub: userId, phone } = c.get("user");
@@ -171,14 +178,29 @@ payRouter.post(
       } catch {
         throw new FxQuoteExpiredError();
       }
-      if (Math.abs(quote.fromAmountUsd - amountUsd) > 0.01) throw new FxQuoteExpiredError();
+      if (
+        Math.abs(quote.fromAmountUsd - amountUsd) > 0.01 ||
+        quote.fromToken !== token
+      ) {
+        throw new FxQuoteExpiredError();
+      }
 
       const sender = await db.query.users.findFirst({ where: eq(users.id, userId) });
       if (!sender?.walletAddress) throw new NotFoundError("Sender wallet");
 
-      const balanceRaw = await getPayUsdcBalance(sender.walletAddress as Address);
-      const requiredRaw = parseUnits(amountUsd.toFixed(6), 6);
-      if (balanceRaw < requiredRaw) throw new InsufficientFundsError();
+      const isAvax = token === "AVAX";
+      if (isAvax) {
+        const avaxAmount = quote.tokenAmount;
+        if (avaxAmount === undefined) throw new FxQuoteExpiredError();
+        const balanceRaw = await getPayAvaxBalance(sender.walletAddress as Address);
+        if (balanceRaw < parseUnits(avaxAmount.toFixed(18), 18)) {
+          throw new InsufficientFundsError();
+        }
+      } else {
+        const balanceRaw = await getPayTokenBalance(token as StablecoinToken, sender.walletAddress as Address);
+        const requiredRaw = parseUnits(amountUsd.toFixed(6), 6);
+        if (balanceRaw < requiredRaw) throw new InsufficientFundsError();
+      }
 
       const treasuryAddress = process.env.TREASURY_ADDRESS as Address | undefined;
       if (!treasuryAddress) throw new BlockchainError("TREASURY_ADDRESS is not configured");
@@ -197,7 +219,7 @@ payRouter.post(
           localCurrency: quote.toCurrency,
           fxRate: quote.tumaRate.toFixed(8),
           fxLockedAt: new Date(quote.lockedUntil),
-          token: "USDC",
+          token,
           rail: quote.rail,
           merchantPayMethod: payMethod,
           merchantTillNumber: payMethod === "buy_goods" ? merchantNumber : null,
@@ -215,11 +237,18 @@ payRouter.post(
         // refunds this exact amount — see webhooks.ts's b2b/result handler.
         // Always Fuji testnet (see services/avalanche-pay.ts), regardless
         // of NODE_ENV, since Merchant Pay is sandbox-only.
-        const txHash = await transferPayUsdc(
-          sender.walletAddress as Address,
-          treasuryAddress,
-          amountUsd
-        );
+        const txHash = isAvax
+          ? await transferPayNativeAvax(
+              sender.walletAddress as Address,
+              treasuryAddress,
+              quote.tokenAmount!
+            )
+          : await transferPayToken(
+              token as StablecoinToken,
+              sender.walletAddress as Address,
+              treasuryAddress,
+              amountUsd
+            );
 
         await db.update(transactions).set({ txHash, updatedAt: new Date() }).where(eq(transactions.id, tx.id));
         await recordSettlementStep(tx.id, "onchain", { txHash });
