@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { ArrowLeft, Check, Loader2, Share2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { MobileFrame } from "@/components/MobileFrame";
+import { PageFrame } from "@/components/PageFrame";
 import { api, type TxSummary } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 import { getStatusLabel, getRailLabel } from "@/lib/status-labels";
@@ -53,22 +53,22 @@ function Track() {
 
   if (isLoading) {
     return (
-      <MobileFrame>
+      <PageFrame sidebar={false} maxWidth="narrow">
         <div className="flex h-full items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      </MobileFrame>
+      </PageFrame>
     );
   }
 
   if (error || !tx) {
     return (
-      <MobileFrame>
+      <PageFrame sidebar={false} maxWidth="narrow">
         <div className="p-10 text-center">
           <p className="text-sm font-bold text-destructive">Couldn't load transaction</p>
           <Link to="/history" className="mt-4 inline-block text-sm text-primary font-semibold">Back to history</Link>
         </div>
-      </MobileFrame>
+      </PageFrame>
     );
   }
 
@@ -102,7 +102,7 @@ function Track() {
   const settledAt = tx.settledAt ? new Date(tx.settledAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
 
   return (
-    <MobileFrame>
+    <PageFrame sidebar={false} maxWidth="narrow">
       <div className="flex min-h-full flex-col">
         <header className="flex items-center justify-between px-5 pt-6 pb-2">
           <Link to="/history" className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
@@ -186,7 +186,7 @@ function Track() {
           <Link to="/dashboard" className="mt-2 block text-center text-xs text-muted-foreground py-2">Back to home</Link>
         </div>
       </div>
-    </MobileFrame>
+    </PageFrame>
   );
 }
 
