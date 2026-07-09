@@ -2,8 +2,9 @@ import { randomUUID } from "crypto";
 import { setex, getJson, keys } from "../lib/redis";
 import { db } from "../db";
 import { fxRates } from "../db/schema";
-import { dialCodeToCountry, type FxQuote, type Rail } from "@tuma/shared";
+import { dialCodeToCountry, type FxQuote, type PayableAsset, type Rail } from "@tuma/shared";
 import { desc, eq } from "drizzle-orm";
+import { getAvaxPriceUsd } from "./avalanche";
 
 const SPREAD = parseFloat(process.env.FX_SPREAD ?? "0.023");
 const OXR_APP_ID = process.env.OPEN_EXCHANGE_RATES_APP_ID!;
@@ -88,7 +89,7 @@ type QuotePayload = FxQuote & { recipientPhone: string };
 export async function createFxQuote(
   amountUsd: number,
   recipientPhone: string,
-  token: "USDC" | "USDT" = "USDC"
+  token: PayableAsset = "USDC"
 ): Promise<FxQuote> {
   const country = dialCodeToCountry(recipientPhone);
   if (!country) {
@@ -107,6 +108,17 @@ export async function createFxQuote(
   const quoteId = randomUUID();
   const lockedUntil = new Date(Date.now() + 30_000).toISOString();
 
+  // AVAX is volatile, unlike USDC/USDT (1:1 with amountUsd) — lock both the
+  // USD/AVAX price and the resulting raw AVAX quantity now, at quote time, so
+  // settlement re-validates against this locked price instead of re-fetching
+  // a possibly-moved one.
+  let tokenPriceUsd: number | undefined;
+  let tokenAmount: number | undefined;
+  if (token === "AVAX") {
+    tokenPriceUsd = await getAvaxPriceUsd();
+    tokenAmount = parseFloat((amountUsd / tokenPriceUsd).toFixed(8));
+  }
+
   const quote: FxQuote = {
     quoteId,
     fromToken: token,
@@ -119,6 +131,7 @@ export async function createFxQuote(
     rail: country.primaryRail as Rail,
     recipientCountry: country.code,
     lockedUntil,
+    ...(tokenPriceUsd !== undefined ? { tokenPriceUsd, tokenAmount } : {}),
   };
 
   // Store quote in Redis with TTL — verified at send time
