@@ -24,7 +24,7 @@ export function stringToBytes32(s: string): `0x${string}` {
 
 // ── Chain setup ───────────────────────────────────────────────────────────────
 
-const isTestnet = process.env.NODE_ENV !== "production";
+export const isTestnet = process.env.NODE_ENV !== "production";
 const chain = isTestnet ? avalancheFuji : avalanche;
 const rpcUrl = isTestnet
   ? process.env.AVALANCHE_FUJI_RPC_URL!
@@ -127,6 +127,13 @@ export const ERC20_ABI = [
     stateMutability: "view",
     inputs: [],
     outputs: [{ name: "", type: "uint8" }],
+  },
+  {
+    name: "symbol",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "string" }],
   },
   {
     name: "Transfer",
@@ -408,6 +415,93 @@ export async function getWalletBalances(
       decimals: 18,
     },
   ];
+}
+
+// ── Testnet token discovery ──────────────────────────────────────────────────
+// Fuji faucets and ad-hoc test tokens don't show up in TOKEN_ADDRESSES (which
+// only knows about USDC/USDT). This scans on-chain Transfer events to find
+// any other ERC20 the wallet has ever received, purely so it's visible on
+// the wallet page for testnet QA — display only, never wired into send/pay.
+
+const DISCOVERY_LOOKBACK_BLOCKS = BigInt(
+  parseInt(process.env.TESTNET_TOKEN_DISCOVERY_LOOKBACK_BLOCKS ?? "", 10) || 20_000
+);
+const DISCOVERY_BATCH_BLOCKS = 2_000n;
+
+export type DiscoveredTokenBalance = TokenBalance & { name: string };
+
+export async function discoverTestnetTokenBalances(
+  walletAddress: Address
+): Promise<DiscoveredTokenBalance[]> {
+  if (!isTestnet) return [];
+
+  const currentBlock = await publicClient.getBlockNumber();
+  const fromBlockFloor =
+    currentBlock > DISCOVERY_LOOKBACK_BLOCKS ? currentBlock - DISCOVERY_LOOKBACK_BLOCKS : 0n;
+
+  const transferEvent = ERC20_ABI.find((i) => i.name === "Transfer")!;
+  const knownAddresses = new Set(
+    [TOKEN_ADDRESSES.USDC, TOKEN_ADDRESSES.USDT]
+      .filter((a): a is Address => !!a)
+      .map((a) => a.toLowerCase())
+  );
+
+  // Public RPCs cap the block range per getLogs call, so scan in batches —
+  // in parallel since this is a bounded, recent-history window, not the
+  // open-ended scan the settlement worker does.
+  const batches: Promise<Address[]>[] = [];
+  for (let from = fromBlockFloor; from <= currentBlock; from += DISCOVERY_BATCH_BLOCKS) {
+    const to = from + DISCOVERY_BATCH_BLOCKS - 1n < currentBlock
+      ? from + DISCOVERY_BATCH_BLOCKS - 1n
+      : currentBlock;
+    batches.push(
+      publicClient
+        .getLogs({
+          event: transferEvent,
+          args: { to: walletAddress },
+          fromBlock: from,
+          toBlock: to,
+        })
+        .then((logs) => logs.map((log) => log.address))
+        .catch(() => [] as Address[])
+    );
+  }
+
+  const candidateAddresses = new Set(
+    (await Promise.all(batches))
+      .flat()
+      .map((a) => a.toLowerCase())
+      .filter((a) => !knownAddresses.has(a))
+  );
+
+  const results = await Promise.all(
+    Array.from(candidateAddresses).map(async (lowerAddress) => {
+      const address = lowerAddress as Address;
+      try {
+        const [balance, symbol, decimals] = await Promise.all([
+          publicClient.readContract({ address, abi: ERC20_ABI, functionName: "balanceOf", args: [walletAddress] }) as Promise<bigint>,
+          publicClient.readContract({ address, abi: ERC20_ABI, functionName: "symbol" }) as Promise<string>,
+          publicClient.readContract({ address, abi: ERC20_ABI, functionName: "decimals" }) as Promise<number>,
+        ]);
+        if (balance <= 0n) return null;
+        const result: DiscoveredTokenBalance = {
+          symbol,
+          name: symbol,
+          address: address as string,
+          balance: formatUnits(balance, decimals),
+          balanceUsd: 0, // no price feed for arbitrary discovered tokens
+          decimals,
+        };
+        return result;
+      } catch {
+        // Not a compliant ERC20 (no symbol()/decimals()), or the call
+        // reverted — skip rather than fail the whole discovery pass.
+        return null;
+      }
+    })
+  );
+
+  return results.filter((r): r is DiscoveredTokenBalance => r !== null);
 }
 
 export type StablecoinToken = "USDC" | "USDT";
