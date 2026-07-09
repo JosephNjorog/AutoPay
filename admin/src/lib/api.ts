@@ -67,6 +67,7 @@ export type Transaction = {
   fxRate: number;
   feeUsdc: number;
   rail: string;
+  token: string;
   status: string;
   isEscrow: boolean;
   txHash: string | null;
@@ -82,7 +83,6 @@ export type TransactionDetail = {
     idempotencyKey: string | null;
     senderWalletAddress: string | null;
     recipientWalletAddress: string | null;
-    token: string;
     railReference: string | null;
     note: string | null;
     escrowRef: string | null;
@@ -109,6 +109,7 @@ export type Escrow = {
   recipientPhone: string;
   localCurrency: string | null;
   amountUsdc: number;
+  token: string;
   status: string;
   expiresAt: string;
   secondsToExpiry: number;
@@ -197,10 +198,34 @@ export type HeartbeatItem = {
 
 export type Pagination = { total: number; page: number; limit: number; pages: number };
 
+export type OpsMeta = { network: "testnet" | "mainnet" };
+
+export type AssetBalance = {
+  symbol: string;
+  address: string;
+  balance: string;
+  balanceUsd: number;
+  decimals: number;
+};
+
+export type Balances = {
+  treasury: { address: string; assets: AssetBalance[] } | null;
+  relayerFloat: { address: string; assets: AssetBalance[] } | null;
+  userWalletsTotal: {
+    totalsBySymbol: Record<string, number>;
+    walletCount: number;
+    asOf: string;
+  };
+};
+
 // ── API client ────────────────────────────────────────────────────────────────
 
 export const opsApi = {
   overview: () => opsRequest<Overview>("/api/ops/overview"),
+
+  meta: () => opsRequest<OpsMeta>("/api/ops/meta"),
+
+  balances: () => opsRequest<Balances>("/api/ops/balances"),
 
   transactions: {
     list: (params: Record<string, string | number | undefined>) => {
