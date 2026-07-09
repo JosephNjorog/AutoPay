@@ -20,6 +20,7 @@ import { Route as FxRouteImport } from './routes/fx'
 import { Route as EscrowRouteImport } from './routes/escrow'
 import { Route as DeadLetterRouteImport } from './routes/dead-letter'
 import { Route as ConfigRouteImport } from './routes/config'
+import { Route as BalancesRouteImport } from './routes/balances'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UsersIndexRouteImport } from './routes/users/index'
@@ -82,6 +83,11 @@ const ConfigRoute = ConfigRouteImport.update({
   path: '/config',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BalancesRoute = BalancesRouteImport.update({
+  id: '/balances',
+  path: '/balances',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuditRoute = AuditRouteImport.update({
   id: '/audit',
   path: '/audit',
@@ -116,6 +122,7 @@ const TransactionsIdRoute = TransactionsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/balances': typeof BalancesRoute
   '/config': typeof ConfigRoute
   '/dead-letter': typeof DeadLetterRoute
   '/escrow': typeof EscrowRoute
@@ -135,6 +142,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/balances': typeof BalancesRoute
   '/config': typeof ConfigRoute
   '/dead-letter': typeof DeadLetterRoute
   '/escrow': typeof EscrowRoute
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/balances': typeof BalancesRoute
   '/config': typeof ConfigRoute
   '/dead-letter': typeof DeadLetterRoute
   '/escrow': typeof EscrowRoute
@@ -176,6 +185,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/audit'
+    | '/balances'
     | '/config'
     | '/dead-letter'
     | '/escrow'
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/audit'
+    | '/balances'
     | '/config'
     | '/dead-letter'
     | '/escrow'
@@ -214,6 +225,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/audit'
+    | '/balances'
     | '/config'
     | '/dead-letter'
     | '/escrow'
@@ -234,6 +246,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuditRoute: typeof AuditRoute
+  BalancesRoute: typeof BalancesRoute
   ConfigRoute: typeof ConfigRoute
   DeadLetterRoute: typeof DeadLetterRoute
   EscrowRoute: typeof EscrowRoute
@@ -330,6 +343,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfigRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/balances': {
+      id: '/balances'
+      path: '/balances'
+      fullPath: '/balances'
+      preLoaderRoute: typeof BalancesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/audit': {
       id: '/audit'
       path: '/audit'
@@ -378,6 +398,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditRoute: AuditRoute,
+  BalancesRoute: BalancesRoute,
   ConfigRoute: ConfigRoute,
   DeadLetterRoute: DeadLetterRoute,
   EscrowRoute: EscrowRoute,
