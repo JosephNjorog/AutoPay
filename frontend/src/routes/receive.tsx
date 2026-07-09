@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Share2, Copy, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import QRCode from "qrcode";
-import { MobileFrame } from "@/components/MobileFrame";
+import { PageFrame } from "@/components/PageFrame";
 import { api } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 import { countries } from "@/lib/tuma-data";
@@ -62,7 +62,7 @@ function Receive() {
   }
 
   return (
-    <MobileFrame>
+    <PageFrame sidebar maxWidth="narrow">
       <div className="flex min-h-full flex-col p-5">
         <header className="flex items-center justify-between">
           <Link to="/dashboard" className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
@@ -135,7 +135,7 @@ function Receive() {
 
         <p className="mt-5 text-center text-[11px] text-muted-foreground">Anyone can scan this QR or send to your number — even if they don't use Autopayke.</p>
       </div>
-    </MobileFrame>
+    </PageFrame>
   );
 }
 
