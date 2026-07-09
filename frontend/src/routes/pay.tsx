@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
-import { MobileFrame } from "@/components/MobileFrame";
+import { PageFrame } from "@/components/PageFrame";
 import { useAuthStore } from "@/lib/auth-store";
 
 type PaySearch = { phone?: string; amount?: string };
@@ -37,11 +37,11 @@ function Pay() {
   }, []);
 
   return (
-    <MobileFrame>
+    <PageFrame sidebar={false} maxWidth="narrow">
       <div className="flex min-h-full flex-col items-center justify-center gap-3 text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin" />
         <p className="text-sm">Opening AutoPayKe…</p>
       </div>
-    </MobileFrame>
+    </PageFrame>
   );
 }
