@@ -56,6 +56,42 @@ function Dashboard() {
     retry: 1,
   });
 
+  // If the user has linked an external wallet (MetaMask, Core, etc. via the
+  // /wallet page), fold its on-chain balance into the dashboard totals too —
+  // same generic address-balance endpoint the wallet page itself uses.
+  const externalAddress = walletQuery.data?.externalWalletAddress ?? null;
+  const externalWalletQuery = useQuery({
+    queryKey: ["wallet", "external-balance", externalAddress],
+    queryFn: () =>
+      apiClient.get<{ address: string; totalUsd: number; assets: AssetBalance[] }>(
+        `/api/wallet/balances/${externalAddress}`
+      ),
+    enabled: !!externalAddress,
+    staleTime: BALANCE_STALE_TIME_MS,
+    refetchInterval: 30000,
+    retry: 1,
+  });
+
+  const combinedAssets = useMemo<AssetBalance[]>(() => {
+    const custodial = walletQuery.data?.assets ?? [];
+    const external = externalWalletQuery.data?.assets ?? [];
+    const bySymbol = new Map<string, AssetBalance>();
+    for (const a of [...custodial, ...external]) {
+      const existing = bySymbol.get(a.symbol);
+      bySymbol.set(a.symbol, existing
+        ? {
+            symbol: a.symbol,
+            balance: (parseFloat(existing.balance) + parseFloat(a.balance)).toString(),
+            balanceUsd: existing.balanceUsd + a.balanceUsd,
+          }
+        : { ...a });
+    }
+    return Array.from(bySymbol.values());
+  }, [walletQuery.data?.assets, externalWalletQuery.data?.assets]);
+
+  const combinedTotalUsd =
+    (walletQuery.data?.totalUsd ?? 0) + (externalWalletQuery.data?.totalUsd ?? 0);
+
   const transactionsQuery = useQuery({
     queryKey: ["transactions", "recent"],
     queryFn: () =>
@@ -71,10 +107,11 @@ function Dashboard() {
   }, [walletQuery.data, setBalance]);
 
   const kesRate = sessionStore.kes_rate || 130;
-  const totalUsd = walletQuery.data?.totalUsd?.toFixed(2) ?? "0";
+  const totalUsd = combinedTotalUsd.toFixed(2);
   const totalKes = useMemo(() => usdcToKes(totalUsd, kesRate), [totalUsd, kesRate]);
 
-  const isRefetching = walletQuery.isRefetching || transactionsQuery.isRefetching;
+  const isRefetching =
+    walletQuery.isRefetching || externalWalletQuery.isRefetching || transactionsQuery.isRefetching;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0]?.clientY ?? 0;
@@ -84,6 +121,7 @@ function Dashboard() {
     const deltaY = (e.changedTouches[0]?.clientY ?? 0) - touchStartY.current;
     if (deltaY > 70 && window.scrollY === 0) {
       void walletQuery.refetch();
+      void externalWalletQuery.refetch();
       void transactionsQuery.refetch();
     }
   };
@@ -156,6 +194,12 @@ function Dashboard() {
             hidden={profile.balanceHidden}
             onToggleHidden={profile.toggleBalanceHidden}
           />
+          {externalAddress && (
+            <p className="text-[11px] text-white/30 mt-2 px-1">
+              Includes your connected external wallet
+              {externalWalletQuery.isLoading && " (loading…)"}
+            </p>
+          )}
         </div>
 
         {/* PIN setup prompt for users who haven't set one yet */}
@@ -178,9 +222,13 @@ function Dashboard() {
           </div>
         )}
 
-        {/* Assets */}
+        {/* Assets — combined custodial + external wallet holdings */}
         <AssetsSection
-          data={walletQuery.data}
+          data={
+            walletQuery.data
+              ? { ...walletQuery.data, assets: combinedAssets, totalUsd: combinedTotalUsd }
+              : undefined
+          }
           isLoading={walletQuery.isLoading}
           hidden={profile.balanceHidden}
           onViewAll={() => navigate({ to: "/wallet" })}
