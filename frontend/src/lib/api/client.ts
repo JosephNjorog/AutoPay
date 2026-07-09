@@ -1,4 +1,4 @@
-import type { CountryPayConfig, PayQuote as PayQuoteData } from "@tuma/shared";
+import type { CountryPayConfig, PayableAsset, PayQuote as PayQuoteData } from "@tuma/shared";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:3001";
 
@@ -72,7 +72,7 @@ export type RecipientVerification = {
 
 export type FxQuote = {
   quoteId: string;
-  fromToken: string;
+  fromToken: PayableAsset;
   fromAmountUsd: number;
   toAmount: number;
   toCurrency: string;
@@ -82,6 +82,9 @@ export type FxQuote = {
   rail: string;
   recipientCountry: string;
   lockedUntil: string;
+  // Only set when fromToken is "AVAX" — see backend's FxQuote for details.
+  tokenPriceUsd?: number;
+  tokenAmount?: number;
 };
 
 // ── Transactions ──────────────────────────────────────────────────────────────
@@ -209,11 +212,11 @@ export const api = {
   },
 
   fx: {
-    quote: (amountUsd: number, recipientPhone: string, token: string) =>
+    quote: (amountUsd: number, recipientPhone: string, asset: PayableAsset, authToken: string) =>
       request<FxQuote>("/api/fx/quote", {
         method: "POST",
-        body: JSON.stringify({ amountUsd, recipientPhone }),
-        token,
+        body: JSON.stringify({ amountUsd, recipientPhone, token: asset }),
+        token: authToken,
       }),
 
     rates: async (token: string) => {
@@ -246,7 +249,7 @@ export const api = {
         quoteId: string;
         recipientPhone: string;
         amountUsd: number;
-        token?: string;
+        token?: PayableAsset;
         note?: string;
         idempotencyKey?: string;
       },
@@ -356,11 +359,16 @@ export const api = {
   pay: {
     config: (token: string) => request<CountryPayConfig>("/api/pay/config", { token }),
 
-    quote: (amountUsd: number, payMethod: "buy_goods" | "paybill", token: string) =>
+    quote: (
+      amountUsd: number,
+      payMethod: "buy_goods" | "paybill",
+      asset: PayableAsset,
+      authToken: string
+    ) =>
       request<PayQuoteData>("/api/pay/quote", {
         method: "POST",
-        body: JSON.stringify({ amountUsd, payMethod }),
-        token,
+        body: JSON.stringify({ amountUsd, payMethod, token: asset }),
+        token: authToken,
       }),
 
     initiate: (
@@ -370,6 +378,7 @@ export const api = {
         merchantNumber: string;
         accountNumber?: string;
         amountUsd: number;
+        token?: PayableAsset;
         idempotencyKey?: string;
       },
       token: string
