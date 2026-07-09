@@ -1,19 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Send, Store, QrCode, Clock, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NAV_ITEMS } from "@/lib/nav-items";
 
 export interface BottomNavProps {
   className?: string;
 }
-
-const NAV_ITEMS = [
-  { label: "Home", icon: Home, route: "/dashboard", isCenter: false },
-  { label: "Send", icon: Send, route: "/send", isCenter: false },
-  { label: "Pay", icon: Store, route: "/pay-merchant", isCenter: false },
-  { label: "", icon: QrCode, route: "/receive", isCenter: true },
-  { label: "History", icon: Clock, route: "/history", isCenter: false },
-  { label: "Wallet", icon: Wallet, route: "/wallet", isCenter: false },
-] as const;
 
 export function BottomNav({ className }: BottomNavProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
