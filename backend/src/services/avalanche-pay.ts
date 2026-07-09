@@ -27,11 +27,27 @@ import {
 import { avalancheFuji } from "viem/chains";
 import { BlockchainError } from "../lib/errors";
 import { getRelayerOrSignerAccount } from "../lib/kms-signer";
-import { ERC20_ABI, SMART_WALLET_ABI } from "./avalanche";
+import { ERC20_ABI, SMART_WALLET_ABI, type StablecoinToken } from "./avalanche";
 
 const FUJI_RPC_URL = process.env.AVALANCHE_FUJI_RPC_URL!;
 // Same Circle-issued Fuji USDC faucet contract avalanche.ts uses for testnet.
 const FUJI_USDC_ADDRESS: Address = "0x5425890298aed601595a70AB815c96711a31Bc65";
+// No canonical Fuji USDT test contract exists (same gap as avalanche.ts) —
+// unset until ops points USDT_ADDRESS at one and it stays unusable here too.
+const FUJI_USDT_ADDRESS: Address | undefined = process.env.USDT_ADDRESS
+  ? (process.env.USDT_ADDRESS as Address)
+  : undefined;
+
+const FUJI_TOKEN_ADDRESSES: Record<StablecoinToken, Address | undefined> = {
+  USDC: FUJI_USDC_ADDRESS,
+  USDT: FUJI_USDT_ADDRESS,
+};
+
+function requirePayTokenAddress(token: StablecoinToken): Address {
+  const address = FUJI_TOKEN_ADDRESSES[token];
+  if (!address) throw new BlockchainError(`${token} is not configured on this network`);
+  return address;
+}
 
 const payPublicClient = createPublicClient({
   chain: avalancheFuji,
@@ -57,25 +73,39 @@ async function requireRelayer() {
   return createWalletClient({ account, chain: avalancheFuji, transport: http(FUJI_RPC_URL) });
 }
 
-export async function getPayUsdcBalance(walletAddress: Address): Promise<bigint> {
+export async function getPayTokenBalance(
+  token: StablecoinToken,
+  walletAddress: Address
+): Promise<bigint> {
   return payPublicClient.readContract({
-    address: FUJI_USDC_ADDRESS,
+    address: requirePayTokenAddress(token),
     abi: ERC20_ABI,
     functionName: "balanceOf",
     args: [walletAddress],
   }) as Promise<bigint>;
 }
 
+export async function getPayUsdcBalance(walletAddress: Address): Promise<bigint> {
+  return getPayTokenBalance("USDC", walletAddress);
+}
+
+/** Native AVAX balance on Fuji, in wei. */
+export async function getPayAvaxBalance(walletAddress: Address): Promise<bigint> {
+  return payPublicClient.getBalance({ address: walletAddress });
+}
+
 /** Debits the user's stablecoin (Fuji testnet only) to Autopayke's treasury. */
-export async function transferPayUsdc(
+export async function transferPayToken(
+  token: StablecoinToken,
   fromWalletAddress: Address,
   toAddress: Address,
   amountUsd: number
 ): Promise<Hash> {
+  const tokenAddress = requirePayTokenAddress(token);
   const amountRaw = parseUnits(amountUsd.toFixed(6), 6);
 
-  const balance = await getPayUsdcBalance(fromWalletAddress);
-  if (balance < amountRaw) throw new BlockchainError("Insufficient USDC balance");
+  const balance = await getPayTokenBalance(token, fromWalletAddress);
+  if (balance < amountRaw) throw new BlockchainError(`Insufficient ${token} balance`);
 
   const transferCalldata = encodeFunctionData({
     abi: ERC20_ABI,
@@ -89,7 +119,44 @@ export async function transferPayUsdc(
     address: fromWalletAddress,
     abi: SMART_WALLET_ABI,
     functionName: "execute",
-    args: [FUJI_USDC_ADDRESS, 0n, transferCalldata],
+    args: [tokenAddress, 0n, transferCalldata],
+  });
+
+  await payPublicClient.waitForTransactionReceipt({ hash });
+  return hash;
+}
+
+export async function transferPayUsdc(
+  fromWalletAddress: Address,
+  toAddress: Address,
+  amountUsd: number
+): Promise<Hash> {
+  return transferPayToken("USDC", fromWalletAddress, toAddress, amountUsd);
+}
+
+/**
+ * Debits native AVAX (Fuji testnet only) to Autopayke's treasury — a plain
+ * value-forwarding call, not an ERC20 transfer. Merchant Pay never uses
+ * escrow (it debits straight to the treasury), so unlike Send, AVAX needs no
+ * extra gating here.
+ */
+export async function transferPayNativeAvax(
+  fromWalletAddress: Address,
+  toAddress: Address,
+  amountAvax: number
+): Promise<Hash> {
+  const amountRaw = parseUnits(amountAvax.toFixed(18), 18);
+
+  const balance = await getPayAvaxBalance(fromWalletAddress);
+  if (balance < amountRaw) throw new BlockchainError("Insufficient AVAX balance");
+
+  const hash = await (await requireRelayer()).writeContract({
+    chain: avalancheFuji,
+    account: await requireRelayerAccount(),
+    address: fromWalletAddress,
+    abi: SMART_WALLET_ABI,
+    functionName: "execute",
+    args: [toAddress, amountRaw, "0x"],
   });
 
   await payPublicClient.waitForTransactionReceipt({ hash });
