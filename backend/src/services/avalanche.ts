@@ -410,13 +410,36 @@ export async function getWalletBalances(
   ];
 }
 
-export async function getUsdcBalance(walletAddress: Address): Promise<bigint> {
+export type StablecoinToken = "USDC" | "USDT";
+
+/** Resolves an ERC20 token address, throwing rather than silently querying `undefined`. */
+function requireTokenAddress(token: StablecoinToken): Address {
+  const address = TOKEN_ADDRESSES[token];
+  if (!address) {
+    throw new BlockchainError(`${token} is not configured on this network`);
+  }
+  return address;
+}
+
+export async function getTokenBalance(
+  token: StablecoinToken,
+  walletAddress: Address
+): Promise<bigint> {
   return publicClient.readContract({
-    address: TOKEN_ADDRESSES.USDC,
+    address: requireTokenAddress(token),
     abi: ERC20_ABI,
     functionName: "balanceOf",
     args: [walletAddress],
   }) as Promise<bigint>;
+}
+
+export async function getUsdcBalance(walletAddress: Address): Promise<bigint> {
+  return getTokenBalance("USDC", walletAddress);
+}
+
+/** Native AVAX balance, in wei. */
+export async function getAvaxBalance(walletAddress: Address): Promise<bigint> {
+  return publicClient.getBalance({ address: walletAddress });
 }
 
 export type IncomingTransfer = {
@@ -514,21 +537,22 @@ export async function verifyIncomingTransfer(
 // ── Token transfers ───────────────────────────────────────────────────────────
 
 /**
- * Transfers USDC from a user's smart wallet to a recipient.
+ * Transfers USDC/USDT from a user's smart wallet to a recipient.
  * The relayer calls execute() on the smart wallet on behalf of the user.
  */
-export async function transferUsdc(
+export async function transferToken(
+  token: StablecoinToken,
   fromPhoneHash: string,
   fromWalletAddress: Address,
   toAddress: Address,
   amountUsd: number
 ): Promise<Hash> {
+  const tokenAddress = requireTokenAddress(token);
   const amountRaw = parseUnits(amountUsd.toFixed(6), 6);
 
-  // Check balance
-  const balance = await getUsdcBalance(fromWalletAddress);
+  const balance = await getTokenBalance(token, fromWalletAddress);
   if (balance < amountRaw) {
-    throw new BlockchainError("Insufficient USDC balance");
+    throw new BlockchainError(`Insufficient ${token} balance`);
   }
 
   const transferCalldata = encodeFunctionData({
@@ -543,18 +567,61 @@ export async function transferUsdc(
     address: fromWalletAddress,
     abi: SMART_WALLET_ABI,
     functionName: "execute",
-    args: [TOKEN_ADDRESSES.USDC, 0n, transferCalldata],
+    args: [tokenAddress, 0n, transferCalldata],
   });
 
   await publicClient.waitForTransactionReceipt({ hash });
   return hash;
 }
 
-/** Approves the escrow contract to pull USDC from a user's wallet. */
-export async function approveEscrow(
+export async function transferUsdc(
+  fromPhoneHash: string,
+  fromWalletAddress: Address,
+  toAddress: Address,
+  amountUsd: number
+): Promise<Hash> {
+  return transferToken("USDC", fromPhoneHash, fromWalletAddress, toAddress, amountUsd);
+}
+
+/**
+ * Transfers native AVAX from a user's smart wallet to a recipient — a plain
+ * value-forwarding call (empty calldata), not an ERC20 transfer. Only used
+ * for the direct (Tuma-to-Tuma) send path and Merchant Pay's treasury debit;
+ * AutopayEscrow is ERC20-only (no payable/receive), so AVAX never goes
+ * through escrow — see the isTumaUser guard in routes/send.ts.
+ */
+export async function transferNativeAvax(
+  fromWalletAddress: Address,
+  toAddress: Address,
+  amountAvax: number
+): Promise<Hash> {
+  const amountRaw = parseUnits(amountAvax.toFixed(18), 18);
+
+  const balance = await getAvaxBalance(fromWalletAddress);
+  if (balance < amountRaw) {
+    throw new BlockchainError("Insufficient AVAX balance");
+  }
+
+  const hash = await (await requireRelayer()).writeContract({
+    chain,
+    account: await requireRelayerAccount(),
+    address: fromWalletAddress,
+    abi: SMART_WALLET_ABI,
+    functionName: "execute",
+    args: [toAddress, amountRaw, "0x"],
+  });
+
+  await publicClient.waitForTransactionReceipt({ hash });
+  return hash;
+}
+
+/** Approves the escrow contract to pull USDC/USDT from a user's wallet. */
+export async function approveEscrowToken(
+  token: StablecoinToken,
   fromWalletAddress: Address,
   amountUsd: number
 ): Promise<Hash> {
+  const tokenAddress = requireTokenAddress(token);
   const escrowAddress = process.env.AUTOPAYKE_ESCROW_ADDRESS as Address;
   const amountRaw = parseUnits(amountUsd.toFixed(6), 6);
 
@@ -570,11 +637,18 @@ export async function approveEscrow(
     address: fromWalletAddress,
     abi: SMART_WALLET_ABI,
     functionName: "execute",
-    args: [TOKEN_ADDRESSES.USDC, 0n, approveCalldata],
+    args: [tokenAddress, 0n, approveCalldata],
   });
 
   await publicClient.waitForTransactionReceipt({ hash });
   return hash;
+}
+
+export async function approveEscrow(
+  fromWalletAddress: Address,
+  amountUsd: number
+): Promise<Hash> {
+  return approveEscrowToken("USDC", fromWalletAddress, amountUsd);
 }
 
 // ── Registry ──────────────────────────────────────────────────────────────────
@@ -605,15 +679,17 @@ export async function registerWalletOnChain(
 // ── Escrow on-chain calls ─────────────────────────────────────────────────────
 
 /**
- * Locks USDC in TumaEscrow on behalf of the sender's smart wallet.
- * The smart wallet must have already approved the escrow contract (via approveEscrow).
+ * Locks USDC/USDT in TumaEscrow on behalf of the sender's smart wallet.
+ * The smart wallet must have already approved the escrow contract (via approveEscrowToken).
  * The relayer calls smartWallet.execute(escrowAddress, 0, depositCalldata).
  */
-export async function depositToEscrow(
+export async function depositToEscrowToken(
+  token: StablecoinToken,
   senderWalletAddress: Address,
   escrowRef: string,
   amountUsd: number
 ): Promise<Hash> {
+  const tokenAddress = requireTokenAddress(token);
   const escrowAddress = process.env.AUTOPAYKE_ESCROW_ADDRESS as Address;
   if (!escrowAddress || escrowAddress === "0x") {
     throw new BlockchainError("AUTOPAYKE_ESCROW_ADDRESS is not configured");
@@ -626,7 +702,7 @@ export async function depositToEscrow(
   const depositCalldata = encodeFunctionData({
     abi: TUMA_ESCROW_ABI,
     functionName: "deposit",
-    args: [claimRefBytes32, TOKEN_ADDRESSES.USDC, amountRaw, EXPIRY_OFFSET],
+    args: [claimRefBytes32, tokenAddress, amountRaw, EXPIRY_OFFSET],
   });
 
   const hash = await (await requireRelayer()).writeContract({
@@ -640,6 +716,14 @@ export async function depositToEscrow(
 
   await publicClient.waitForTransactionReceipt({ hash });
   return hash;
+}
+
+export async function depositToEscrow(
+  senderWalletAddress: Address,
+  escrowRef: string,
+  amountUsd: number
+): Promise<Hash> {
+  return depositToEscrowToken("USDC", senderWalletAddress, escrowRef, amountUsd);
 }
 
 /**
@@ -751,15 +835,26 @@ export async function sponsorWallet(walletAddress: Address): Promise<void> {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function getAvaxPriceUsd(): Promise<number> {
+// Short in-process cache so quote creation (fx.ts, services/pay.ts) and wallet
+// balance display don't each hit CoinGecko on every call — same TTL as fx.ts's
+// OXR fiat-rate cache (RATE_CACHE_TTL) for consistency.
+const AVAX_PRICE_CACHE_TTL_MS = 60_000;
+let cachedAvaxPrice: { price: number; fetchedAt: number } | null = null;
+
+export async function getAvaxPriceUsd(): Promise<number> {
+  if (cachedAvaxPrice && Date.now() - cachedAvaxPrice.fetchedAt < AVAX_PRICE_CACHE_TTL_MS) {
+    return cachedAvaxPrice.price;
+  }
   try {
     const res = await fetch(
       "https://api.coingecko.com/api/v3/simple/price?ids=avalanche-2&vs_currencies=usd"
     );
     const data = (await res.json()) as { "avalanche-2": { usd: number } };
-    return data["avalanche-2"].usd;
+    const price = data["avalanche-2"].usd;
+    cachedAvaxPrice = { price, fetchedAt: Date.now() };
+    return price;
   } catch {
-    return 35; // fallback
+    return cachedAvaxPrice?.price ?? 35; // fall back to last known price, else a rough default
   }
 }
 
