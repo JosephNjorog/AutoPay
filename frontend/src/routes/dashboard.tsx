@@ -21,6 +21,7 @@ import { useProfileStore } from "@/stores/profileStore";
 import { useWalletStore } from "@/stores/walletStore";
 import { Avatar } from "@/components/Avatar";
 import { getGreeting, usdcToKes, formatUSD } from "@/lib/utils";
+import { getAssetMeta } from "@/lib/asset-meta";
 import { BALANCE_STALE_TIME_MS, TRANSACTIONS_STALE_TIME_MS } from "@/lib/constants";
 import { useTransactionSocket } from "@/hooks/useTransactionSocket";
 import type { WalletBalance, Transaction, AssetBalance } from "@/types";
@@ -152,6 +153,8 @@ function Dashboard() {
             totalKes={totalKes}
             walletAddress={walletAddress}
             isLoading={walletQuery.isLoading}
+            hidden={profile.balanceHidden}
+            onToggleHidden={profile.toggleBalanceHidden}
           />
         </div>
 
@@ -179,6 +182,7 @@ function Dashboard() {
         <AssetsSection
           data={walletQuery.data}
           isLoading={walletQuery.isLoading}
+          hidden={profile.balanceHidden}
           onViewAll={() => navigate({ to: "/wallet" })}
         />
 
@@ -214,25 +218,21 @@ interface AssetChipData {
   secondaryAmount: string;
 }
 
-const ASSET_META: Record<string, { color: string; letter: string }> = {
-  USDC: { color: "#2775CA", letter: "U" },
-  USDT: { color: "#26A17B", letter: "U" },
-  AVAX: { color: "#E84142", letter: "A" },
-};
-
 const AssetsSection = memo(function AssetsSection({
   data,
   isLoading,
+  hidden,
   onViewAll,
 }: {
   data: WalletBalance | undefined;
   isLoading: boolean;
+  hidden: boolean;
   onViewAll: () => void;
 }) {
   const chips = useMemo<AssetChipData[]>(() => {
     if (!data?.assets?.length) return [];
     return data.assets.map((asset) => {
-      const meta = ASSET_META[asset.symbol] ?? { color: "#888", letter: asset.symbol[0] ?? "?" };
+      const meta = getAssetMeta(asset.symbol);
       const decimals = asset.symbol === "AVAX" ? 4 : 2;
       return {
         key: asset.symbol.toLowerCase(),
@@ -280,8 +280,12 @@ const AssetsSection = memo(function AssetsSection({
                 <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wide">
                   {chip.name}
                 </span>
-                <span className="text-[14px] font-bold text-white">{chip.primaryAmount}</span>
-                <span className="text-[11px] text-white/30">{chip.secondaryAmount}</span>
+                <span className="text-[14px] font-bold text-white">
+                  {hidden ? "••••" : chip.primaryAmount}
+                </span>
+                <span className="text-[11px] text-white/30">
+                  {hidden ? "••••" : chip.secondaryAmount}
+                </span>
               </div>
             ))}
       </div>
