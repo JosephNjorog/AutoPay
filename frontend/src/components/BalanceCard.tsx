@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Eye, EyeOff } from "lucide-react";
 import { cn, formatUSD, formatKES, truncateAddress } from "@/lib/utils";
 
 export interface BalanceCardProps {
@@ -8,9 +8,19 @@ export interface BalanceCardProps {
   walletAddress: string;
   isLoading?: boolean;
   className?: string;
+  hidden?: boolean;
+  onToggleHidden?: () => void;
 }
 
-export function BalanceCard({ totalUsd, totalKes, walletAddress, isLoading = false, className }: BalanceCardProps) {
+export function BalanceCard({
+  totalUsd,
+  totalKes,
+  walletAddress,
+  isLoading = false,
+  className,
+  hidden = false,
+  onToggleHidden,
+}: BalanceCardProps) {
   const [currency, setCurrency] = useState<"USD" | "KES">("USD");
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -41,21 +51,33 @@ export function BalanceCard({ totalUsd, totalKes, walletAddress, isLoading = fal
         <span className="text-[10px] font-semibold tracking-widest uppercase text-white/70">
           Total balance
         </span>
-        <div className="flex gap-1 bg-black/20 rounded-full p-0.5">
-          {(["USD", "KES"] as const).map((c) => (
+        <div className="flex items-center gap-2">
+          {onToggleHidden && (
             <button
-              key={c}
               type="button"
-              onClick={() => setCurrency(c)}
-              className={cn(
-                "text-[11px] font-bold px-2.5 py-1 rounded-full transition-colors",
-                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/50",
-                currency === c ? "bg-white/25 text-white" : "text-white/60"
-              )}
+              onClick={onToggleHidden}
+              aria-label={hidden ? "Show balance" : "Hide balance"}
+              className="w-6 h-6 rounded-full flex items-center justify-center text-white/60 hover:text-white/90 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/50"
             >
-              {c}
+              {hidden ? <EyeOff size={14} strokeWidth={2} /> : <Eye size={14} strokeWidth={2} />}
             </button>
-          ))}
+          )}
+          <div className="flex gap-1 bg-black/20 rounded-full p-0.5">
+            {(["USD", "KES"] as const).map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCurrency(c)}
+                className={cn(
+                  "text-[11px] font-bold px-2.5 py-1 rounded-full transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/50",
+                  currency === c ? "bg-white/25 text-white" : "text-white/60"
+                )}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -65,7 +87,7 @@ export function BalanceCard({ totalUsd, totalKes, walletAddress, isLoading = fal
           <div className="h-10 w-32 rounded-xl bg-white/20 animate-pulse" />
         ) : (
           <span className="font-display text-[38px] font-black text-white leading-none">
-            {primaryAmount}
+            {hidden ? "••••••" : primaryAmount}
           </span>
         )}
       </div>
@@ -73,7 +95,7 @@ export function BalanceCard({ totalUsd, totalKes, walletAddress, isLoading = fal
       {/* Secondary amount */}
       <div className="relative z-10 mt-1 min-h-5">
         {!isLoading && (
-          <span className="text-[13px] text-white/60">{secondaryAmount}</span>
+          <span className="text-[13px] text-white/60">{hidden ? "••••" : secondaryAmount}</span>
         )}
       </div>
 
