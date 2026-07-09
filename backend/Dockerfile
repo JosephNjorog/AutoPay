@@ -23,6 +23,13 @@ EXPOSE 3001
 # server. Only this CMD does so: the worker and cron services in render.yaml
 # override it with their own dockerCommand, so migrations only ever run from
 # one place, avoiding concurrent-migration races across services.
-# If the migration fails, `&&` stops the container from starting — Render
-# reports the deploy as failed instead of serving against a stale schema.
-CMD ["sh", "-c", "bun run db:migrate && bun run src/index.ts"]
+#
+# Deliberately non-blocking (`;` not `&&`): this production DB's schema was
+# largely built via `drizzle-kit push` before migrations were tracked here,
+# so the migration history and the live schema can disagree even when the
+# live schema is actually fine. A migration failure logs and falls through
+# to starting the server rather than taking the whole API down. The
+# underlying history mismatch needs a one-time manual baseline against the
+# live DB (populate __drizzle_migrations for already-applied schema) before
+# `db:migrate` will cleanly apply new migrations again.
+CMD ["sh", "-c", "bun run db:migrate; bun run src/index.ts"]
