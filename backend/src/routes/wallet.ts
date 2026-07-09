@@ -5,9 +5,10 @@ import { db } from "../db";
 import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { authMiddleware } from "../middleware/auth";
-import { getWalletBalances, explorerUrl } from "../services/avalanche";
+import { getWalletBalances, explorerUrl, discoverTestnetTokenBalances, isTestnet } from "../services/avalanche";
 import { backfillCryptoDeposits } from "../services/deposit-scan";
 import { NotFoundError } from "../lib/errors";
+import { setex, getJson } from "../lib/redis";
 import type { Address } from "viem";
 
 export const walletRouter = new Hono();
@@ -101,6 +102,28 @@ walletRouter.delete("/connect", async (c) => {
     .set({ externalWalletAddress: null, externalWalletType: null, updatedAt: new Date() })
     .where(eq(users.id, userId));
   return c.json({ ok: true });
+});
+
+// GET /api/wallet/testnet-assets — auto-detects any ERC20 balance the wallet
+// holds beyond the known USDC/USDT/AVAX set (e.g. other Fuji faucet tokens),
+// so QA can see what a wallet actually has without the app needing to know
+// about it in advance. Testnet only; display-only (never sendable) — see
+// discoverTestnetTokenBalances's doc comment for why.
+walletRouter.get("/testnet-assets", async (c) => {
+  if (!isTestnet) return c.json({ ok: true, data: { assets: [] } });
+
+  const { sub: userId } = c.get("user");
+  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!user?.walletAddress) return c.json({ ok: true, data: { assets: [] } });
+
+  const cacheKey = `testnet-assets:${user.walletAddress}`;
+  const cached = await getJson<{ assets: unknown[] }>(cacheKey);
+  if (cached !== null) return c.json({ ok: true, data: cached });
+
+  const assets = await discoverTestnetTokenBalances(user.walletAddress as Address);
+  const data = { assets };
+  await setex(cacheKey, 60, data);
+  return c.json({ ok: true, data });
 });
 
 // GET /api/wallet/balances/:address — read live on-chain balances for any address
