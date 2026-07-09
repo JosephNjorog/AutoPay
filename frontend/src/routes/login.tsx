@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Key, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { startAuthentication } from "@simplewebauthn/browser";
@@ -24,6 +25,7 @@ type PinStatus = "idle" | "error" | "success";
 
 function LoginPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const sessionStore = useSessionStore();
   const profile = useProfileStore();
 
@@ -101,6 +103,8 @@ function LoginPage() {
 
       // Biometric verified locally — no server round-trip needed for the lock screen
       sessionStore.setUnlocked(true);
+      // Force a refetch so the dashboard doesn't show data left over from before locking
+      void queryClient.invalidateQueries();
       navigateAfterUnlock();
     } catch (err) {
       if (err instanceof DOMException) {
@@ -140,6 +144,8 @@ function LoginPage() {
     if (inputHash === pin_hash) {
       setPinStatus("success");
       sessionStore.setUnlocked(true);
+      // Force a refetch so the dashboard doesn't show data left over from before locking
+      void queryClient.invalidateQueries();
       setTimeout(() => navigateAfterUnlock(), 300);
     } else {
       const next = pinAttempts + 1;
