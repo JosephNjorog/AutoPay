@@ -25,6 +25,7 @@ export const Route = createFileRoute("/transactions/")({ component: Transactions
 
 const STATUSES = ["initiated", "onchain", "routed", "settled", "requires_review", "failed", "expired"];
 const RAILS = ["mpesa", "momo", "paystack", "wave", "orange_money", "bank", "crypto"];
+const TOKENS = ["USDC", "USDT", "AVAX"];
 
 export default function TransactionsPage() {
   const qc = useQueryClient();
@@ -32,13 +33,14 @@ export default function TransactionsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [rail, setRail] = useState("");
+  const [token, setToken] = useState("");
   const [direction, setDirection] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [closeId, setCloseId] = useState<string | null>(null);
   const [closeReason, setCloseReason] = useState("");
 
-  const params = { page, limit: 50, search, status, rail, direction, dateFrom, dateTo };
+  const params = { page, limit: 50, search, status, rail, token, direction, dateFrom, dateTo };
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["transactions", params],
@@ -114,6 +116,16 @@ export default function TransactionsPage() {
             </SelectContent>
           </Select>
 
+          <Select value={token} onValueChange={(v) => { setToken(v === "all" ? "" : v); setPage(1); }}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="All tokens" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All tokens</SelectItem>
+              {TOKENS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
           <Select value={direction} onValueChange={(v) => { setDirection(v === "all" ? "" : v); setPage(1); }}>
             <SelectTrigger className="w-36">
               <SelectValue placeholder="Direction" />
@@ -152,6 +164,7 @@ export default function TransactionsPage() {
                 <TableHead>Reference</TableHead>
                 <TableHead>Recipient</TableHead>
                 <TableHead>Amount</TableHead>
+                <TableHead>Token</TableHead>
                 <TableHead>Rail</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
@@ -174,6 +187,7 @@ export default function TransactionsPage() {
                       {tx.amountLocal.toLocaleString()} {tx.localCurrency}
                     </div>
                   </TableCell>
+                  <TableCell className="text-sm font-mono">{tx.token}</TableCell>
                   <TableCell className="text-sm">{railLabel(tx.rail)}</TableCell>
                   <TableCell>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor(tx.status)}`}>
