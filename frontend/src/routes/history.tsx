@@ -3,7 +3,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowDownLeft, ArrowUpRight, Filter, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { MobileFrame } from "@/components/MobileFrame";
+import { PageFrame } from "@/components/PageFrame";
 import { BottomNav } from "@/components/BottomNav";
 import { api, type TxSummary } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
@@ -57,7 +57,7 @@ function History() {
   const txs = data?.transactions ?? [];
 
   return (
-    <MobileFrame>
+    <PageFrame sidebar maxWidth="wide">
       <div className="flex min-h-full flex-col">
         <header className="flex items-center justify-between px-5 pt-6 pb-2">
           <Link to="/dashboard" className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
@@ -142,8 +142,8 @@ function History() {
         </div>
 
         <div className="h-24" />
-        <BottomNav />
+        <BottomNav className="md:hidden" />
       </div>
-    </MobileFrame>
+    </PageFrame>
   );
 }
