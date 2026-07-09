@@ -14,6 +14,7 @@ import { reportError } from "../lib/error-reporting";
 import { wagmiConfig } from "../lib/web3";
 import { useSessionStore } from "../stores/sessionStore";
 import { OfflineBanner } from "../components/OfflineBanner";
+import { useAppUpdate } from "../hooks/useAppUpdate";
 
 // Side-effect: initialises Reown AppKit modal
 import "../lib/web3";
@@ -88,6 +89,7 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const setUnlocked = useSessionStore((s) => s.setUnlocked);
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated());
+  const { hasUpdate, applyUpdate } = useAppUpdate();
 
   // Lock the app when it goes to background.
   // 2s grace period avoids false locks from brief visibility changes some mobile
@@ -97,10 +99,21 @@ function RootComponent() {
     let wasBackgrounded = false;
 
     const handleVisibilityChange = () => {
-      if (document.hidden && isAuthenticated) {
-        wasBackgrounded = true;
-        lockTimer = setTimeout(() => setUnlocked(false), 2000);
-      } else if (!document.hidden) {
+      if (document.hidden) {
+        if (isAuthenticated) {
+          wasBackgrounded = true;
+          lockTimer = setTimeout(() => {
+            setUnlocked(false);
+            // Backgrounded and about to show the PIN screen on return either
+            // way — an invisible moment to swap in a new deploy, instead of
+            // making the user hard-refresh to get it.
+            if (hasUpdate) applyUpdate();
+          }, 2000);
+        } else if (hasUpdate) {
+          // No PIN screen guarding this route — safe to apply right away.
+          applyUpdate();
+        }
+      } else {
         if (lockTimer !== null) {
           clearTimeout(lockTimer);
           lockTimer = null;
@@ -121,7 +134,7 @@ function RootComponent() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (lockTimer !== null) clearTimeout(lockTimer);
     };
-  }, [isAuthenticated, setUnlocked, queryClient]);
+  }, [isAuthenticated, setUnlocked, queryClient, hasUpdate, applyUpdate]);
 
   return (
     <WagmiProvider config={wagmiConfig}>
