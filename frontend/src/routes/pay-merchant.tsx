@@ -12,10 +12,12 @@ import { useAuthStore } from "@/lib/auth-store";
 import { midRates } from "@/lib/tuma-data";
 import { getRailLabel, PAY_SENDING_COPY } from "@/lib/status-labels";
 import { FxQuoteSummaryCard, FxReviewHero, KV } from "@/components/FxTransparencyCard";
+import { TokenStep } from "@/components/TokenStep";
 import {
   TILL_PAYBILL_NUMBER_RE,
   PAY_ACCOUNT_NUMBER_RE,
   type CountryPayConfig,
+  type PayableAsset,
   type PayMethodKind,
   type PayQuote,
 } from "@tuma/shared";
@@ -37,7 +39,7 @@ export const Route = createFileRoute("/pay-merchant")({
   component: PayMerchantPage,
 });
 
-type Step = "method" | "merchant" | "amount" | "review" | "sending";
+type Step = "method" | "merchant" | "token" | "amount" | "review" | "sending";
 
 const METHOD_ICONS: Record<PayMethodKind, typeof Store> = {
   buy_goods: Store,
@@ -53,6 +55,7 @@ function PayMerchantPage() {
   const [method, setMethod] = useState<PayMethodKind | null>(null);
   const [merchantNumber, setMerchantNumber] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
+  const [token, setToken] = useState<PayableAsset>("USDC");
   const [amount, setAmount] = useState("500"); // KES
   const [quote, setQuote] = useState<PayQuote | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -91,9 +94,12 @@ function PayMerchantPage() {
     enabled: !!accessToken,
   });
 
-  const maxUsdc = wallet?.assets?.find((a) => a.symbol === "USDC")
-    ? parseFloat(wallet.assets.find((a) => a.symbol === "USDC")!.balance)
-    : 0;
+  // Merchant Pay debits straight to the treasury (no escrow), so unlike Send
+  // every held token — including AVAX — can be offered here.
+  const tokenAssets = (wallet?.assets ?? []).filter((a) => parseFloat(a.balance) > 0);
+  const selectedAsset = wallet?.assets?.find((a) => a.symbol === token);
+  const maxBalance = selectedAsset ? parseFloat(selectedAsset.balance) : 0;
+  const maxBalanceUsd = selectedAsset?.balanceUsd ?? 0;
 
   const methodConfig = config?.methods.find((m) => m.kind === method) ?? null;
 
@@ -103,7 +109,7 @@ function PayMerchantPage() {
     setSendingPhase("quote");
     setStep("sending");
     try {
-      const q = await api.pay.quote(usdApprox, method, accessToken);
+      const q = await api.pay.quote(usdApprox, method, token, accessToken);
       setQuote(q);
       setStep("review");
     } catch (e) {
@@ -117,7 +123,7 @@ function PayMerchantPage() {
   async function refreshQuote() {
     if (!method || !accessToken || kes <= 0) return;
     try {
-      const q = await api.pay.quote(usdApprox, method, accessToken);
+      const q = await api.pay.quote(usdApprox, method, token, accessToken);
       setQuote(q);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Rate expired — couldn't refresh. Try again.");
@@ -137,6 +143,7 @@ function PayMerchantPage() {
           merchantNumber,
           accountNumber: method === "paybill" ? accountNumber : undefined,
           amountUsd: quote.fromAmountUsd,
+          token,
           idempotencyKey,
         },
         accessToken
@@ -152,7 +159,8 @@ function PayMerchantPage() {
   function handleBack() {
     if (step === "method") navigate({ to: "/dashboard" });
     else if (step === "merchant") setStep("method");
-    else if (step === "amount") setStep("merchant");
+    else if (step === "token") setStep("merchant");
+    else if (step === "amount") setStep("token");
     else if (step === "review") setStep("amount");
     else navigate({ to: "/dashboard" });
   }
@@ -167,6 +175,7 @@ function PayMerchantPage() {
           <h1 className="text-sm font-bold">
             {step === "method" && "Pay a merchant"}
             {step === "merchant" && (method === "paybill" ? "PayBill details" : "Till details")}
+            {step === "token" && "Pay with"}
             {step === "amount" && "Enter amount"}
             {step === "review" && "Review & confirm"}
             {step === "sending" && "Sending"}
@@ -197,8 +206,12 @@ function PayMerchantPage() {
             setMerchantNumber={setMerchantNumber}
             accountNumber={accountNumber}
             setAccountNumber={setAccountNumber}
-            onNext={() => setStep("amount")}
+            onNext={() => setStep("token")}
           />
+        )}
+
+        {step === "token" && (
+          <TokenStep assets={tokenAssets} onPick={(t) => { setToken(t); setStep("amount"); }} />
         )}
 
         {step === "amount" && methodConfig && (
@@ -208,7 +221,9 @@ function PayMerchantPage() {
             kes={kes}
             usdApprox={usdApprox}
             kesRate={kesRate}
-            maxUsdc={maxUsdc}
+            token={token}
+            maxBalance={maxBalance}
+            maxBalanceUsd={maxBalanceUsd}
             quote={quote}
             onRefreshQuote={refreshQuote}
             onNext={handleGetQuote}
@@ -393,12 +408,12 @@ function fmtQuick(v: number): string {
   return v >= 1_000 ? `${(v / 1_000).toFixed(v % 1_000 === 0 ? 0 : 1)}K` : String(v);
 }
 
-function AmountStep({ amount, setAmount, kes, usdApprox, kesRate, maxUsdc, quote, onRefreshQuote, onNext }: {
+function AmountStep({ amount, setAmount, kes, usdApprox, kesRate, token, maxBalance, maxBalanceUsd, quote, onRefreshQuote, onNext }: {
   amount: string; setAmount: (v: string) => void;
-  kes: number; usdApprox: number; kesRate: number; maxUsdc: number;
+  kes: number; usdApprox: number; kesRate: number; token: PayableAsset; maxBalance: number; maxBalanceUsd: number;
   quote: PayQuote | null; onRefreshQuote: () => void; onNext: () => void;
 }) {
-  const overBalance = maxUsdc > 0 && usdApprox > maxUsdc;
+  const overBalance = maxBalanceUsd > 0 && usdApprox > maxBalanceUsd;
 
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
@@ -414,10 +429,10 @@ function AmountStep({ amount, setAmount, kes, usdApprox, kesRate, maxUsdc, quote
           />
         </div>
         {kesRate > 0 && (
-          <p className="mt-1 text-[11px] opacity-80">≈ {usdApprox.toFixed(2)} USDC</p>
+          <p className="mt-1 text-[11px] opacity-80">≈ {usdApprox.toFixed(2)} {token}</p>
         )}
         <p className={`mt-2 text-[11px] ${overBalance ? "text-destructive-foreground font-semibold" : "opacity-80"}`}>
-          Available: {maxUsdc.toFixed(2)} USDC
+          Available: {maxBalance.toFixed(2)} {token}
         </p>
 
         <div className="mt-3 flex gap-2">
@@ -447,7 +462,7 @@ function AmountStep({ amount, setAmount, kes, usdApprox, kesRate, maxUsdc, quote
           Review payment <ArrowRight className="h-4 w-4" />
         </button>
         {overBalance && (
-          <p className="mt-2 text-center text-[11px] text-destructive">Not enough USDC for this amount</p>
+          <p className="mt-2 text-center text-[11px] text-destructive">Not enough {token} for this amount</p>
         )}
       </div>
     </div>
@@ -487,8 +502,9 @@ function ReviewStep({ methodConfig, merchantNumber, accountNumber, quote, onConf
         <div className="divide-y divide-border text-xs">
           <KV k="To" v={toLine} mono />
           <KV k="Method" v={methodConfig.label} />
+          <KV k="Paying with" v={quote.tokenAmount !== undefined ? `${quote.tokenAmount.toFixed(4)} ${quote.fromToken}` : quote.fromToken} />
           <KV k="Settles via" v={getRailLabel(quote.rail)} />
-          <KV k="Rate" v={`1 USDC = ${quote.tumaRate.toFixed(2)} ${quote.toCurrency}`} />
+          <KV k="Rate" v={`1 USD = ${quote.tumaRate.toFixed(2)} ${quote.toCurrency}`} />
           <KV k="Network fee" v="Free" />
           <KV k="Arrival" v="Sandbox demo — Daraja sandbox" />
         </div>
