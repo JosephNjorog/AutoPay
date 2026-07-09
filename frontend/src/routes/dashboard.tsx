@@ -14,6 +14,7 @@ import {
 import { BalanceCard } from "@/components/BalanceCard";
 import { TransactionRow } from "@/components/TransactionRow";
 import { BottomNav } from "@/components/BottomNav";
+import { DesktopSidebar } from "@/components/DesktopSidebar";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { apiClient } from "@/lib/api";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -133,10 +134,12 @@ function Dashboard() {
 
   return (
     <div
-      className="min-h-screen bg-dark-gradient relative overflow-hidden"
+      className="min-h-screen bg-dark-gradient relative overflow-hidden md:pl-60"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
+      <DesktopSidebar />
+
       {/* Radial glow */}
       <div className="pointer-events-none absolute -top-15 -right-15 w-50 h-50 rounded-full bg-[radial-gradient(circle,rgba(249,115,22,0.12)_0%,transparent_70%)]" />
 
@@ -147,10 +150,10 @@ function Dashboard() {
         </div>
       )}
 
-      <div className="relative z-10 pb-28 max-w-97.5 mx-auto">
+      <div className="relative z-10 pb-28 md:pb-12 max-w-97.5 md:max-w-6xl mx-auto md:px-10 md:pt-8">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-5 pb-5">
+        <div className="flex items-center justify-between px-4 pt-5 pb-5 md:px-0">
           <button
             type="button"
             onClick={() => navigate({ to: "/settings/profile" })}
@@ -184,73 +187,76 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Balance Card */}
-        <div className="px-4 mb-5">
-          <BalanceCard
-            totalUsd={totalUsd}
-            totalKes={totalKes}
-            walletAddress={walletAddress}
+        <div className="md:grid md:grid-cols-3 md:gap-6 md:items-start">
+
+          {/* Balance Card */}
+          <div className="px-4 mb-5 md:col-span-2 md:order-1 md:px-0 md:mb-0">
+            <BalanceCard
+              totalUsd={totalUsd}
+              totalKes={totalKes}
+              walletAddress={walletAddress}
+              isLoading={walletQuery.isLoading}
+              hidden={profile.balanceHidden}
+              onToggleHidden={profile.toggleBalanceHidden}
+            />
+            {externalAddress && (
+              <p className="text-[11px] text-white/30 mt-2 px-1">
+                Includes your connected external wallet
+                {externalWalletQuery.isLoading && " (loading…)"}
+              </p>
+            )}
+          </div>
+
+          {/* PIN setup prompt for users who haven't set one yet */}
+          {!sessionStore.pin_hash && (
+            <div className="px-4 mb-4 md:col-span-2 md:order-2 md:px-0 md:mb-0">
+              <button
+                type="button"
+                onClick={() => navigate({ to: "/settings/pin" })}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-orange/10 border border-orange/25 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+              >
+                <ShieldAlert size={20} strokeWidth={1.5} className="text-orange shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-bold text-orange">Set up your lock PIN</p>
+                  <p className="text-[11px] text-orange/60 leading-tight mt-0.5">
+                    Protect your account when you leave the app
+                  </p>
+                </div>
+                <ArrowUpRight size={16} strokeWidth={2} className="text-orange/60 shrink-0" />
+              </button>
+            </div>
+          )}
+
+          {/* Assets — combined custodial + external wallet holdings */}
+          <AssetsSection
+            data={
+              walletQuery.data
+                ? { ...walletQuery.data, assets: combinedAssets, totalUsd: combinedTotalUsd }
+                : undefined
+            }
             isLoading={walletQuery.isLoading}
             hidden={profile.balanceHidden}
-            onToggleHidden={profile.toggleBalanceHidden}
+            onViewAll={() => navigate({ to: "/wallet" })}
           />
-          {externalAddress && (
-            <p className="text-[11px] text-white/30 mt-2 px-1">
-              Includes your connected external wallet
-              {externalWalletQuery.isLoading && " (loading…)"}
-            </p>
-          )}
+
+          {/* Quick Actions */}
+          <QuickActions
+            onAddMoney={() => navigate({ to: "/fund" })}
+            onSend={() => navigate({ to: "/send" })}
+            onPay={() => navigate({ to: "/pay-merchant" })}
+            onReceive={() => navigate({ to: "/receive" })}
+          />
+
+          {/* Recent Activity */}
+          <RecentActivity
+            query={transactionsQuery}
+            onViewAll={() => navigate({ to: "/history" })}
+            onAddMoney={() => navigate({ to: "/fund" })}
+          />
         </div>
-
-        {/* PIN setup prompt for users who haven't set one yet */}
-        {!sessionStore.pin_hash && (
-          <div className="px-4 mb-4">
-            <button
-              type="button"
-              onClick={() => navigate({ to: "/settings/pin" })}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-orange/10 border border-orange/25 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
-            >
-              <ShieldAlert size={20} strokeWidth={1.5} className="text-orange shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-bold text-orange">Set up your lock PIN</p>
-                <p className="text-[11px] text-orange/60 leading-tight mt-0.5">
-                  Protect your account when you leave the app
-                </p>
-              </div>
-              <ArrowUpRight size={16} strokeWidth={2} className="text-orange/60 shrink-0" />
-            </button>
-          </div>
-        )}
-
-        {/* Assets — combined custodial + external wallet holdings */}
-        <AssetsSection
-          data={
-            walletQuery.data
-              ? { ...walletQuery.data, assets: combinedAssets, totalUsd: combinedTotalUsd }
-              : undefined
-          }
-          isLoading={walletQuery.isLoading}
-          hidden={profile.balanceHidden}
-          onViewAll={() => navigate({ to: "/wallet" })}
-        />
-
-        {/* Quick Actions */}
-        <QuickActions
-          onAddMoney={() => navigate({ to: "/fund" })}
-          onSend={() => navigate({ to: "/send" })}
-          onPay={() => navigate({ to: "/pay-merchant" })}
-          onReceive={() => navigate({ to: "/receive" })}
-        />
-
-        {/* Recent Activity */}
-        <RecentActivity
-          query={transactionsQuery}
-          onViewAll={() => navigate({ to: "/history" })}
-          onAddMoney={() => navigate({ to: "/fund" })}
-        />
       </div>
 
-      <BottomNav />
+      <BottomNav className="md:hidden" />
     </div>
   );
 }
@@ -294,7 +300,7 @@ const AssetsSection = memo(function AssetsSection({
   }, [data]);
 
   return (
-    <div className="px-4 mb-5">
+    <div className="px-4 mb-5 md:col-span-1 md:order-3 md:row-start-1 md:row-span-2 md:px-0 md:mb-0 md:bg-navy-card md:border md:border-navy-border md:rounded-2xl md:p-5 md:self-stretch">
       <div className="flex items-center justify-between mb-3">
         <span className="font-bold text-[13px] text-white">Assets</span>
         <button
@@ -306,34 +312,36 @@ const AssetsSection = memo(function AssetsSection({
         </button>
       </div>
 
-      <div className="flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-col md:overflow-visible md:pb-0 md:gap-0">
         {isLoading
           ? [0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="shrink-0 w-22.5 h-22 rounded-2xl bg-navy-card animate-pulse"
+                className="shrink-0 w-22.5 h-22 rounded-2xl bg-navy-card animate-pulse md:w-full md:h-14 md:rounded-xl"
               />
             ))
           : chips.map((chip) => (
               <div
                 key={chip.key}
-                className="shrink-0 bg-navy-card border border-navy-border rounded-2xl p-3 flex flex-col gap-1 min-w-22.5"
+                className="shrink-0 bg-navy-card border border-navy-border rounded-2xl p-3 flex flex-col gap-1 min-w-22.5 md:w-full md:min-w-0 md:flex-row md:items-center md:gap-3 md:bg-transparent md:border-0 md:border-b md:border-white/5 md:last:border-0 md:rounded-none md:p-0 md:py-3"
               >
                 <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-black mb-1"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-black mb-1 md:mb-0 md:shrink-0"
                   style={{ backgroundColor: chip.color }}
                 >
                   {chip.letter}
                 </div>
-                <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wide">
+                <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wide md:flex-1 md:text-[13px] md:font-semibold md:text-white/70 md:normal-case md:tracking-normal">
                   {chip.name}
                 </span>
-                <span className="text-[14px] font-bold text-white">
-                  {hidden ? "••••" : chip.primaryAmount}
-                </span>
-                <span className="text-[11px] text-white/30">
-                  {hidden ? "••••" : chip.secondaryAmount}
-                </span>
+                <div className="flex flex-col md:items-end md:shrink-0">
+                  <span className="text-[14px] font-bold text-white">
+                    {hidden ? "••••" : chip.primaryAmount}
+                  </span>
+                  <span className="text-[11px] text-white/30">
+                    {hidden ? "••••" : chip.secondaryAmount}
+                  </span>
+                </div>
               </div>
             ))}
       </div>
@@ -369,8 +377,8 @@ function QuickActions({
   };
 
   return (
-    <div className="px-4 mb-5">
-      <div className="grid grid-cols-4 gap-2">
+    <div className="px-4 mb-5 md:col-span-3 md:order-4 md:px-0 md:mb-0">
+      <div className="grid grid-cols-4 gap-2 md:max-w-lg">
         {/* 4-up layout: touch targets keep their 44px min-height, just with
             tighter horizontal gutters than the previous 3-up grid. */}
         {QUICK_ACTIONS.map(({ label, icon: Icon, isOrange, key }) => (
@@ -429,7 +437,7 @@ function RecentActivity({
   const transactions = query.data?.transactions ?? [];
 
   return (
-    <div className="px-4">
+    <div className="px-4 md:col-span-3 md:order-5 md:px-0 md:bg-navy-card md:border md:border-navy-border md:rounded-2xl md:p-5">
       <div className="flex items-center justify-between mb-4">
         <span className="font-bold text-[13px] text-white">Recent activity</span>
         {transactions.length > 0 && (
