@@ -1,0 +1,19 @@
+# Local dev secrets/config must never be baked into a built image — Bun
+# auto-loads .env files from its working directory at runtime with no
+# explicit dotenv import needed, so a leaked .env here silently overrides
+# whatever the deploy platform actually injects (this shipped NODE_ENV as
+# "development" into what render.yaml declares a production service).
+#
+# Must be **/.env, not a bare .env: our Dockerfiles COPY named subdirectories
+# (e.g. `COPY backend ./backend`) rather than the whole context, and verified
+# empirically that an unanchored `.env` pattern does NOT reach into a
+# subdirectory copied that way with this BuildKit version — only the `**/`
+# form does. Don't "simplify" this back to a bare `.env`.
+**/.env
+**/.env.*
+!**/.env.example
+
+**/node_modules
+**/.git
+**/dist
+**/*.log
