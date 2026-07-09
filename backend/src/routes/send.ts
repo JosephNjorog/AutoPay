@@ -8,10 +8,14 @@ import { authMiddleware } from "../middleware/auth";
 import { sendMoneyLimiter } from "../middleware/rateLimit";
 import { consumeQuote } from "../services/fx";
 import {
-  transferUsdc,
-  approveEscrow,
-  depositToEscrow,
-  getUsdcBalance,
+  transferToken,
+  transferNativeAvax,
+  approveEscrowToken,
+  depositToEscrowToken,
+  getTokenBalance,
+  getAvaxBalance,
+  TOKEN_ADDRESSES,
+  type StablecoinToken,
 } from "../services/avalanche";
 import { recordSettlementStep } from "../services/settlement";
 import {
@@ -220,7 +224,8 @@ sendRouter.post(
     // 2. Validate quote matches request
     if (
       Math.abs(quote.fromAmountUsd - amountUsd) > 0.01 ||
-      quote.recipientPhone !== recipientPhone
+      quote.recipientPhone !== recipientPhone ||
+      quote.fromToken !== token
     ) {
       throw new FxQuoteExpiredError();
     }
@@ -229,18 +234,37 @@ sendRouter.post(
     const sender = await db.query.users.findFirst({ where: eq(users.id, userId) });
     if (!sender?.walletAddress) throw new NotFoundError("Sender wallet");
 
-    // 4. Check USDC balance
-    const balanceRaw = await getUsdcBalance(sender.walletAddress as Address);
-    const requiredRaw = parseUnits(amountUsd.toFixed(6), 6);
-    if (balanceRaw < requiredRaw) throw new InsufficientFundsError();
-
-    // 5. Detect if recipient is a TUMA user
+    // 4. Detect if recipient is a TUMA user
     const recipientHash = hashPhone(recipientPhone);
     const recipient = await db.query.users.findFirst({
       where: eq(users.phoneHash, recipientHash),
     });
 
     const isTumaUser = !!recipient?.walletAddress;
+    const isAvax = token === "AVAX";
+
+    // AVAX is a native asset — AutopayEscrow only accepts ERC20 deposits, so
+    // it can never back a send to a recipient who isn't already a TUMA user.
+    if (isAvax && !isTumaUser) {
+      throw new ValidationError(
+        "AVAX transfers need the recipient to already have an Autopayke account — pick USDC/USDT, or ask them to sign up first."
+      );
+    }
+
+    // 5. Check balance in the chosen token
+    if (isAvax) {
+      const avaxAmount = quote.tokenAmount;
+      if (avaxAmount === undefined) throw new FxQuoteExpiredError();
+      const balanceRaw = await getAvaxBalance(sender.walletAddress as Address);
+      if (balanceRaw < parseUnits(avaxAmount.toFixed(18), 18)) {
+        throw new InsufficientFundsError();
+      }
+    } else {
+      const balanceRaw = await getTokenBalance(token as StablecoinToken, sender.walletAddress as Address);
+      const requiredRaw = parseUnits(amountUsd.toFixed(6), 6);
+      if (balanceRaw < requiredRaw) throw new InsufficientFundsError();
+    }
+
     const reference = generateTxRef();
 
     // 6. Create transaction record (initiated)
@@ -287,12 +311,19 @@ sendRouter.post(
           : quote.toAmount;
 
         stage = "direct_onchain_transfer";
-        const txHash = await transferUsdc(
-          recipientHash,
-          sender.walletAddress as Address,
-          recipient!.walletAddress as Address,
-          netAmountUsd
-        );
+        const txHash = isAvax
+          ? await transferNativeAvax(
+              sender.walletAddress as Address,
+              recipient!.walletAddress as Address,
+              netAmountUsd / quote.tokenPriceUsd!
+            )
+          : await transferToken(
+              token as StablecoinToken,
+              recipientHash,
+              sender.walletAddress as Address,
+              recipient!.walletAddress as Address,
+              netAmountUsd
+            );
 
         stage = "direct_transaction_update";
         await db
@@ -308,12 +339,20 @@ sendRouter.post(
 
         const treasuryAddress = process.env.TREASURY_ADDRESS as Address | undefined;
         if (isMerchantPayment && feeUsd > 0 && treasuryAddress) {
-          transferUsdc(
-            recipientHash,
-            sender.walletAddress as Address,
-            treasuryAddress,
-            feeUsd
-          ).catch((err) =>
+          const feePromise = isAvax
+            ? transferNativeAvax(
+                sender.walletAddress as Address,
+                treasuryAddress,
+                feeUsd / quote.tokenPriceUsd!
+              )
+            : transferToken(
+                token as StablecoinToken,
+                recipientHash,
+                sender.walletAddress as Address,
+                treasuryAddress,
+                feeUsd
+              );
+          feePromise.catch((err) =>
             console.error(`[Send] Merchant fee transfer failed for ${reference}:`, err.message)
           );
         }
@@ -386,14 +425,18 @@ sendRouter.post(
       const escrowRef = generateEscrowRef();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+      // isAvax is guaranteed false here (guarded above — escrow is ERC20-only).
+      const escrowToken = token as StablecoinToken;
+
       let stage = "escrow_approve";
       try {
-        // Approve escrow contract to pull USDC from sender's smart wallet
-        await approveEscrow(sender.walletAddress as Address, amountUsd);
+        // Approve escrow contract to pull the token from sender's smart wallet
+        await approveEscrowToken(escrowToken, sender.walletAddress as Address, amountUsd);
 
-        // Lock USDC in TumaEscrow on-chain (sender's wallet calls escrow.deposit())
+        // Lock the token in TumaEscrow on-chain (sender's wallet calls escrow.deposit())
         stage = "escrow_deposit";
-        const escrowTxHash = await depositToEscrow(
+        const escrowTxHash = await depositToEscrowToken(
+          escrowToken,
           sender.walletAddress as Address,
           escrowRef,
           amountUsd
@@ -419,7 +462,7 @@ sendRouter.post(
           transactionId: tx.id,
           senderId: userId,
           recipientPhone,
-          tokenAddress: process.env.USDC_ADDRESS!,
+          tokenAddress: TOKEN_ADDRESSES[escrowToken]!,
           amountUsdc: amountUsd.toFixed(6),
           onchainRef: escrowRef,
           expiresAt,
