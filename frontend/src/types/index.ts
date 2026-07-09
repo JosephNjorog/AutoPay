@@ -19,6 +19,8 @@ export type WalletBalance = {
   assets: AssetBalance[];
   network?: string;
   status?: "deploying" | "active";
+  externalWalletAddress?: string | null;
+  externalWalletType?: string | null;
 };
 
 export type Transaction = {
