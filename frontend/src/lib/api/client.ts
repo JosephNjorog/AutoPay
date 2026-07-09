@@ -148,6 +148,17 @@ export type WalletData = {
   externalWalletType?: string | null;
 };
 
+// Auto-detected testnet balance — no `balanceUsd` pricing (unknown token, no
+// price feed), display-only, never a send/pay option.
+export type DiscoveredTestnetAsset = {
+  symbol: string;
+  name: string;
+  address: string;
+  balance: string;
+  balanceUsd: number;
+  decimals: number;
+};
+
 // ── API client ────────────────────────────────────────────────────────────────
 
 export const api = {
@@ -209,6 +220,11 @@ export const api = {
         `/api/wallet/balances/${address}`,
         { token }
       ),
+
+    // Testnet-only auto-detected balances beyond USDC/USDT/AVAX — always
+    // returns an empty list in production.
+    testnetAssets: (token: string) =>
+      request<{ assets: DiscoveredTestnetAsset[] }>("/api/wallet/testnet-assets", { token }),
   },
 
   fx: {
