@@ -24,12 +24,12 @@ EXPOSE 3001
 # override it with their own dockerCommand, so migrations only ever run from
 # one place, avoiding concurrent-migration races across services.
 #
-# Deliberately non-blocking (`;` not `&&`): this production DB's schema was
-# largely built via `drizzle-kit push` before migrations were tracked here,
-# so the migration history and the live schema can disagree even when the
-# live schema is actually fine. A migration failure logs and falls through
-# to starting the server rather than taking the whole API down. The
-# underlying history mismatch needs a one-time manual baseline against the
-# live DB (populate __drizzle_migrations for already-applied schema) before
-# `db:migrate` will cleanly apply new migrations again.
-CMD ["sh", "-c", "bun run db:migrate; bun run src/index.ts"]
+# Blocking (`&&`) is deliberate: if a migration fails, the deploy should fail
+# loudly rather than serve traffic against a schema the app doesn't actually
+# have — better a failed deploy than a live server throwing mysterious
+# column-not-found errors. This was briefly relaxed to `;` (non-blocking)
+# during a one-time incident where the DB's migration history didn't match
+# its live schema (backfilled via `drizzle-kit push` before migrations were
+# tracked); that's been fixed and __drizzle_migrations is now baselined
+# against reality, so `db:migrate` runs clean and fail-fast is safe again.
+CMD ["sh", "-c", "bun run db:migrate && bun run src/index.ts"]
