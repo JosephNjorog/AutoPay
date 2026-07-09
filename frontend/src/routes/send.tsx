@@ -607,7 +607,12 @@ function PickRecipient({ accessToken, country, onPick }: {
         )}
         <div className="space-y-2">
           {filtered.map((c) => (
-            <button key={c.id} onClick={() => onPick(c)}
+            // Recents are built from send history, which doesn't carry
+            // registration status — resolve it fresh on pick (same lookup
+            // finalizePick already does for a typed number) rather than
+            // defaulting to "unregistered", which would wrongly hide AVAX
+            // as a send option for a recipient who's actually registered.
+            <button key={c.id} onClick={() => finalizePick(c.name, c.msisdn)}
               className="w-full flex items-center gap-3 rounded-2xl border border-border bg-card hover:bg-muted/50 p-3.5 text-left transition">
               <div className="relative h-11 w-11 rounded-full bg-muted flex items-center justify-center text-xl">{c.flag}</div>
               <div className="flex-1 min-w-0">
