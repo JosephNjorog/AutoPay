@@ -42,7 +42,7 @@ export const publicClient = createPublicClient({
 // the production path; a raw RELAYER_PRIVATE_KEY remains for local dev/testnet.
 let _relayerAccountPromise: ReturnType<typeof getRelayerOrSignerAccount> | null = null;
 
-function requireRelayerAccount() {
+export function requireRelayerAccount() {
   if (!_relayerAccountPromise) {
     _relayerAccountPromise = getRelayerOrSignerAccount("RELAYER_PRIVATE_KEY", "RELAYER_KMS_KEY_ID").catch((err) => {
       _relayerAccountPromise = null;
@@ -90,6 +90,19 @@ export const TOKEN_ADDRESSES: {
     ? undefined
     : MAINNET_TOKEN_ADDRESSES.USDT,
 };
+
+/**
+ * Reverse of TOKEN_ADDRESSES — used by admin/ops views that only have a raw
+ * escrow tokenAddress on hand and want to show a symbol instead of hex.
+ * Escrow can only ever hold USDC/USDT (it's ERC20-only, see AutopayEscrow.sol),
+ * so "unknown" here would itself be a signal something's wrong.
+ */
+export function symbolForTokenAddress(address: string): "USDC" | "USDT" | "unknown" {
+  const lower = address.toLowerCase();
+  if (TOKEN_ADDRESSES.USDC.toLowerCase() === lower) return "USDC";
+  if (TOKEN_ADDRESSES.USDT?.toLowerCase() === lower) return "USDT";
+  return "unknown";
+}
 
 // ── Contract ABIs (minimal) ───────────────────────────────────────────────────
 
