@@ -6,7 +6,7 @@ import {
   Loader2, Lock, AlertCircle, Info, Clock,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { MobileFrame } from "@/components/MobileFrame";
+import { PageFrame } from "@/components/PageFrame";
 import { api, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 import { midRates } from "@/lib/tuma-data";
@@ -166,7 +166,7 @@ function PayMerchantPage() {
   }
 
   return (
-    <MobileFrame>
+    <PageFrame sidebar maxWidth="narrow">
       <div className="flex min-h-full flex-col">
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-5 py-4 flex items-center justify-between">
           <button onClick={handleBack} className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
@@ -262,7 +262,7 @@ function PayMerchantPage() {
 
         <div className="h-6" />
       </div>
-    </MobileFrame>
+    </PageFrame>
   );
 }
 
