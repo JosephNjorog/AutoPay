@@ -26,11 +26,13 @@ type ProfileState = {
   avatarKey: AnimalKey | null;
   avatarDataUrl: string | null;
   displayName: string | null;
+  balanceHidden: boolean;
 
   setAvatarAnimal: (key: AnimalKey) => void;
   setAvatarPhoto: (dataUrl: string) => void;
   setDisplayName: (name: string) => void;
   clearAvatar: () => void;
+  toggleBalanceHidden: () => void;
 };
 
 export const useProfileStore = create<ProfileState>()(
@@ -39,11 +41,13 @@ export const useProfileStore = create<ProfileState>()(
       avatarKey: null,
       avatarDataUrl: null,
       displayName: null,
+      balanceHidden: false,
 
       setAvatarAnimal: (avatarKey) => set({ avatarKey, avatarDataUrl: null }),
       setAvatarPhoto: (avatarDataUrl) => set({ avatarDataUrl, avatarKey: null }),
       setDisplayName: (displayName) => set({ displayName }),
       clearAvatar: () => set({ avatarKey: null, avatarDataUrl: null }),
+      toggleBalanceHidden: () => set((s) => ({ balanceHidden: !s.balanceHidden })),
     }),
     {
       name: "autopayke_profile",
