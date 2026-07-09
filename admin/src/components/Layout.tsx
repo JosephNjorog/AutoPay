@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   ArrowLeftRight,
@@ -18,9 +19,12 @@ import {
   ChevronRight,
   Menu,
   X,
+  Wallet,
+  AlertCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuthStore } from "@/lib/auth-store";
+import { opsApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -31,6 +35,7 @@ const NAV = [
   { label: "Dead Letter Queue", to: "/dead-letter", icon: Skull },
   { label: "Users", to: "/users", icon: Users },
   { label: "Merchants", to: "/merchants", icon: Store },
+  { label: "Balances", to: "/balances", icon: Wallet },
   { label: "FX Rates", to: "/fx", icon: TrendingUp },
   { label: "Worker Health", to: "/health", icon: Activity },
   { label: "Notifications", to: "/notifications", icon: Bell },
@@ -109,6 +114,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const pathname = routerState.location.pathname;
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Fetched once per session — the backend process this admin talks to
+  // doesn't change network mid-session, so there's no need to re-poll.
+  const { data: meta } = useQuery({
+    queryKey: ["ops-meta"],
+    queryFn: opsApi.meta,
+    staleTime: Infinity,
+  });
+  const isTestnet = meta?.network === "testnet";
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Desktop sidebar */}
@@ -159,6 +173,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-sm font-semibold">AutoPayKe Ops</span>
           </div>
         </div>
+
+        {isTestnet && (
+          <div className="flex items-center justify-center gap-2 bg-amber-500/15 text-amber-700 dark:text-amber-400 border-b border-amber-500/30 px-4 py-1.5 text-xs font-medium shrink-0">
+            <AlertCircle className="h-3.5 w-3.5" />
+            Connected to Fuji testnet — this is not live/mainnet data
+          </div>
+        )}
 
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
