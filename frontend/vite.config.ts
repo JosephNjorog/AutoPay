@@ -14,7 +14,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "auto",
+      // Registered manually (see hooks/useAppUpdate.ts) instead of the
+      // auto-injected script, so the app controls *when* a ready update
+      // reloads the page — never mid-transaction, only at the background/
+      // lock checkpoint or on initial load.
+      injectRegister: false,
       manifest: {
         name: "AutoPayKe — Send money by phone",
         short_name: "AutoPayKe",
@@ -43,6 +47,14 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         navigateFallback: "/index.html",
+        // New SW takes control of network requests the moment it activates,
+        // and stale precaches from the previous deploy are dropped — the
+        // in-memory JS on an already-open tab doesn't change until the app
+        // itself reloads (see hooks/useAppUpdate.ts), so this can't yank the
+        // app out from under someone mid-flow.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           // Same-origin static assets not already swept into the precache
           // manifest (e.g. a lazy route chunk fetched after a deploy while
