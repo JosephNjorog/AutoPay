@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, QrCode, Image as ImageIcon, AlertCircle, Keyboard } from "lucide-react";
 import jsQR from "jsqr";
-import { MobileFrame } from "@/components/MobileFrame";
+import { PageFrame } from "@/components/PageFrame";
 import { parsePayUrl } from "@/lib/pay-link";
 
 export const Route = createFileRoute("/scan")({
@@ -109,7 +109,7 @@ function Scan() {
   }
 
   return (
-    <MobileFrame>
+    <PageFrame sidebar maxWidth="narrow">
       <div className="relative flex min-h-full flex-col bg-foreground text-background">
         <header className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-5">
           <Link to="/dashboard" className="h-9 w-9 rounded-full bg-background/15 backdrop-blur flex items-center justify-center text-background">
@@ -176,6 +176,6 @@ function Scan() {
         </div>
       </div>
       <style>{`@keyframes scan { 0%,100% { top: 8%; } 50% { top: 92%; } }`}</style>
-    </MobileFrame>
+    </PageFrame>
   );
 }
