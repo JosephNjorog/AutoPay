@@ -27,6 +27,15 @@ import {
 } from "../services/review-recovery";
 import { listHeartbeatStatus } from "../services/worker-heartbeat";
 import {
+  symbolForTokenAddress,
+  isTestnet,
+  getWalletBalances,
+  requireRelayerAccount,
+  type TokenBalance,
+} from "../services/avalanche";
+import { getJson, setex } from "../lib/redis";
+import type { Address } from "viem";
+import {
   settlementQueue,
   escrowQueue,
   railQueue,
@@ -196,11 +205,89 @@ opsRouter.get("/overview", async (c) => {
   });
 });
 
+// GET /api/ops/meta — which network this backend is actually pointed at.
+// Deliberately separate from /overview so the admin shell's persistent
+// network banner doesn't couple to that page's data/loading state.
+opsRouter.get("/meta", async (c) => {
+  return c.json({
+    ok: true,
+    data: { network: isTestnet ? "testnet" : "mainnet" },
+  });
+});
+
+// GET /api/ops/balances — treasury + relayer float + aggregate user holdings.
+// The user-wallets aggregate is the one expensive part (one getWalletBalances
+// call per wallet) — run with bounded concurrency and cache the result, since
+// this is a point-in-time snapshot for an ops dashboard, not something that
+// needs to be live to the second.
+const USER_BALANCE_CONCURRENCY = 15;
+const USER_BALANCES_CACHE_KEY = "ops:balances:user-wallets-total";
+const USER_BALANCES_CACHE_TTL_SECONDS = 300;
+
+async function sumUserWalletBalances(): Promise<{
+  totalsBySymbol: Record<string, number>;
+  walletCount: number;
+}> {
+  const cached = await getJson<{ totalsBySymbol: Record<string, number>; walletCount: number }>(
+    USER_BALANCES_CACHE_KEY
+  );
+  if (cached !== null) return cached;
+
+  const wallets = await db
+    .select({ walletAddress: users.walletAddress })
+    .from(users)
+    .where(sql`${users.walletAddress} is not null`);
+
+  const totalsBySymbol: Record<string, number> = {};
+  for (let i = 0; i < wallets.length; i += USER_BALANCE_CONCURRENCY) {
+    const batch = wallets.slice(i, i + USER_BALANCE_CONCURRENCY);
+    const batchResults = await Promise.all(
+      batch.map((w) =>
+        getWalletBalances(w.walletAddress as Address).catch(() => [] as TokenBalance[])
+      )
+    );
+    for (const assets of batchResults) {
+      for (const asset of assets) {
+        totalsBySymbol[asset.symbol] = (totalsBySymbol[asset.symbol] ?? 0) + asset.balanceUsd;
+      }
+    }
+  }
+
+  const result = { totalsBySymbol, walletCount: wallets.length };
+  await setex(USER_BALANCES_CACHE_KEY, USER_BALANCES_CACHE_TTL_SECONDS, result);
+  return result;
+}
+
+opsRouter.get("/balances", async (c) => {
+  const treasuryAddress = process.env.TREASURY_ADDRESS as Address | undefined;
+
+  const [treasury, relayerFloat, userWalletsTotal] = await Promise.all([
+    treasuryAddress ? getWalletBalances(treasuryAddress) : Promise.resolve(null),
+    requireRelayerAccount()
+      .then((account) => getWalletBalances(account.address as Address).then((assets) => ({ address: account.address, assets })))
+      .catch(() => null),
+    sumUserWalletBalances(),
+  ]);
+
+  return c.json({
+    ok: true,
+    data: {
+      treasury: treasury ? { address: treasuryAddress, assets: treasury } : null,
+      relayerFloat,
+      userWalletsTotal: {
+        ...userWalletsTotal,
+        asOf: new Date().toISOString(),
+      },
+    },
+  });
+});
+
 // ── Transactions ──────────────────────────────────────────────────────────────
 
 const TxListQuerySchema = PaginationSchema.extend({
   status: z.string().optional(),
   rail: z.string().optional(),
+  token: z.enum(["USDC", "USDT", "AVAX"]).optional(),
   direction: z.enum(["in", "out", "escrow"]).optional(),
   country: z.string().optional(),
   dateFrom: z.string().optional(),
@@ -213,7 +300,7 @@ opsRouter.get(
   "/transactions",
   zValidator("query", TxListQuerySchema),
   async (c) => {
-    const { page, limit, status, rail, direction, country, dateFrom, dateTo, search } =
+    const { page, limit, status, rail, token, direction, country, dateFrom, dateTo, search } =
       c.req.valid("query");
     const offset = (page - 1) * limit;
 
@@ -228,6 +315,7 @@ opsRouter.get(
       }
     }
     if (rail) filters.push(eq(transactions.rail, rail as any));
+    if (token) filters.push(eq(transactions.token, token));
     if (direction === "escrow") filters.push(eq(transactions.isEscrow, true));
     if (dateFrom) filters.push(gte(transactions.createdAt, new Date(dateFrom)));
     if (dateTo) filters.push(lte(transactions.createdAt, new Date(dateTo)));
@@ -271,6 +359,7 @@ opsRouter.get(
           fxRate: parseFloat(tx.fxRate),
           feeUsdc: parseFloat(tx.feeUsdc),
           rail: tx.rail,
+          token: tx.token,
           status: tx.status,
           isEscrow: tx.isEscrow,
           txHash: tx.txHash,
@@ -712,6 +801,7 @@ opsRouter.get(
           recipientPhone: e.recipientPhone,
           localCurrency: (e as any).transaction?.localCurrency ?? null,
           amountUsdc: parseFloat(e.amountUsdc),
+          token: symbolForTokenAddress(e.tokenAddress),
           status: e.status,
           expiresAt: e.expiresAt.toISOString(),
           secondsToExpiry: Math.max(0, Math.floor((e.expiresAt.getTime() - now.getTime()) / 1000)),
