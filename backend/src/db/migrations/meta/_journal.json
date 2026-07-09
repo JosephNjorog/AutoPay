@@ -50,6 +50,13 @@
       "when": 1783548549434,
       "tag": "0006_pay_b2b_till_paybill",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783559146116,
+      "tag": "0007_freezing_joseph",
+      "breakpoints": true
     }
   ]
 }
