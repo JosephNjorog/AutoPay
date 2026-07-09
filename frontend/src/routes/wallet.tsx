@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAccount, useDisconnect, useSwitchChain } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
 import { avalanche } from "@reown/appkit/networks";
-import { MobileFrame } from "@/components/MobileFrame";
+import { PageFrame } from "@/components/PageFrame";
 import { BottomNav } from "@/components/BottomNav";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { api, type WalletAsset, type WalletData, ApiError } from "@/lib/api/client";
@@ -144,7 +144,7 @@ function Wallet() {
   }
 
   return (
-    <MobileFrame>
+    <PageFrame sidebar maxWidth="wide">
       <div className="flex min-h-full flex-col">
         <header className="flex items-center justify-between px-5 pt-6 pb-2">
           <Link to="/dashboard" className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
@@ -356,8 +356,8 @@ function Wallet() {
         </div>
 
         <div className="h-24" />
-        <BottomNav />
+        <BottomNav className="md:hidden" />
       </div>
-    </MobileFrame>
+    </PageFrame>
   );
 }
