@@ -20,6 +20,14 @@ export type TransactionRail = Rail | "crypto" | "mpesa_b2b_till" | "mpesa_b2b_pa
 export const SUPPORTED_TOKENS = ["USDC", "USDT"] as const;
 export type Token = (typeof SUPPORTED_TOKENS)[number];
 
+// AVAX is a settleable asset like USDC/USDT but, being a native (non-ERC20)
+// token, needs different handling wherever code branches on Token — kept as
+// a separate union rather than folded into SUPPORTED_TOKENS/Token so that
+// exhaustive Token switches (escrow/token-address logic, which is ERC20-only)
+// don't silently need an AVAX case added everywhere.
+export const PAYABLE_ASSETS = ["USDC", "USDT", "AVAX"] as const;
+export type PayableAsset = (typeof PAYABLE_ASSETS)[number];
+
 export type CountryConfig = {
   name: string;
   code: string;
@@ -182,6 +190,7 @@ export const InitiatePaymentSchema = z.object({
   merchantNumber: z.string().regex(TILL_PAYBILL_NUMBER_RE, "Enter a 5-7 digit number"),
   accountNumber: z.string().regex(PAY_ACCOUNT_NUMBER_RE).max(20).optional(),
   amountUsd: z.number().positive().max(10_000),
+  token: z.enum(PAYABLE_ASSETS).default("USDC"),
   idempotencyKey: z
     .string()
     .min(8)
@@ -193,12 +202,14 @@ export const InitiatePaymentSchema = z.object({
 export const PayQuoteRequestSchema = z.object({
   amountUsd: z.number().positive().max(10_000),
   payMethod: z.enum(["buy_goods", "paybill"]),
+  token: z.enum(PAYABLE_ASSETS).default("USDC"),
 });
 
 export type PayRail = "mpesa_b2b_till" | "mpesa_b2b_paybill";
 
 export type PayQuote = {
   quoteId: string;
+  fromToken: PayableAsset;
   fromAmountUsd: number;
   toAmount: number;
   toCurrency: string;
@@ -207,6 +218,12 @@ export type PayQuote = {
   savingsVsBank: number;
   rail: PayRail;
   lockedUntil: string;
+  // Only set when fromToken is "AVAX" — the locked AVAX/USD price and the
+  // resulting raw AVAX quantity, since unlike USDC/USDT it isn't 1:1 with
+  // fromAmountUsd. Re-validated (not re-fetched) at settlement time the same
+  // way the stablecoin path re-checks the quote against lockedUntil.
+  tokenPriceUsd?: number;
+  tokenAmount?: number;
 };
 
 // ── Shared Zod schemas ────────────────────────────────────────────────────────
@@ -248,14 +265,14 @@ export const LoginSchema = z.object({
 export const FxQuoteRequestSchema = z.object({
   amountUsd: z.number().positive().max(10_000),
   recipientPhone: PhoneSchema,
-  token: z.enum(SUPPORTED_TOKENS).default("USDC"),
+  token: z.enum(PAYABLE_ASSETS).default("USDC"),
 });
 
 export const SendMoneySchema = z.object({
   quoteId: z.string().uuid(),
   recipientPhone: PhoneSchema,
   amountUsd: z.number().positive().max(10_000),
-  token: z.enum(SUPPORTED_TOKENS).default("USDC"),
+  token: z.enum(PAYABLE_ASSETS).default("USDC"),
   note: z.string().max(140).optional(),
   idempotencyKey: z
     .string()
@@ -291,7 +308,7 @@ export type ApiResponse<T> =
 
 export type FxQuote = {
   quoteId: string;
-  fromToken: Token;
+  fromToken: PayableAsset;
   fromAmountUsd: number;
   toAmount: number;
   toCurrency: string;
@@ -301,6 +318,9 @@ export type FxQuote = {
   rail: Rail;
   recipientCountry: string;
   lockedUntil: string;
+  // Only set when fromToken is "AVAX" — see PayQuote's matching fields.
+  tokenPriceUsd?: number;
+  tokenAmount?: number;
 };
 
 export type TransactionStatus =
