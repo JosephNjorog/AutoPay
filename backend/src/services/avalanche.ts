@@ -24,7 +24,14 @@ export function stringToBytes32(s: string): `0x${string}` {
 
 // ── Chain setup ───────────────────────────────────────────────────────────────
 
-export const isTestnet = process.env.NODE_ENV !== "production";
+// Deliberately its own env var, not derived from NODE_ENV — which blockchain
+// moves real money is a much higher-stakes decision than generic app-mode
+// flags, and coupling the two means a bug or misconfiguration affecting
+// NODE_ENV (e.g. a leaked .env silently overriding it in production) can
+// silently redirect fund flows to the wrong chain/contracts. Defaults to
+// testnet; going live requires explicitly setting AVALANCHE_NETWORK=mainnet
+// (see render.yaml) once the mainnet contract addresses below are real.
+export const isTestnet = (process.env.AVALANCHE_NETWORK ?? "testnet").toLowerCase() !== "mainnet";
 const chain = isTestnet ? avalancheFuji : avalanche;
 const rpcUrl = isTestnet
   ? process.env.AVALANCHE_FUJI_RPC_URL!
