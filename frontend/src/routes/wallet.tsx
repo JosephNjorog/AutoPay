@@ -63,6 +63,16 @@ function Wallet() {
     enabled: !!accessToken && !!extAddress,
   });
 
+  // Separate, lower-priority query — never blocks the main wallet render.
+  // No-ops (empty list) outside testnet, so this is always cheap in prod.
+  const { data: testnetAssetsData, isLoading: testnetAssetsLoading } = useQuery({
+    queryKey: ["wallet", "testnet-assets"],
+    queryFn: () => api.wallet.testnetAssets(accessToken!),
+    enabled: !!accessToken,
+    staleTime: 60_000,
+  });
+  const discoveredAssets = testnetAssetsData?.assets ?? [];
+
   // Both mutations update the linked/unlinked wallet address optimistically
   // — this is account metadata, not a financial transaction, so it's safe
   // to reflect immediately with rollback on failure (4.4).
@@ -223,6 +233,37 @@ function Wallet() {
             </div>
           ))}
         </div>
+
+        {/* Auto-detected testnet balances — anything held beyond USDC/USDT/
+            AVAX, found by scanning recent on-chain transfers. Read-only:
+            not priced, not selectable anywhere in Send/Pay. */}
+        {(testnetAssetsLoading || discoveredAssets.length > 0) && (
+          <div className="px-5 mt-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Other testnet balances (auto-detected)
+              </p>
+              {testnetAssetsLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+            </div>
+            <div className="space-y-2">
+              {discoveredAssets.map((a) => (
+                <div key={a.address} className="rounded-2xl border border-dashed border-border bg-card p-4 flex items-center gap-3">
+                  <div
+                    className="h-11 w-11 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                    style={{ backgroundColor: getAssetMeta(a.symbol).color }}
+                  >
+                    {getAssetMeta(a.symbol).letter}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate">{a.symbol}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{a.address}</p>
+                  </div>
+                  <p className="text-sm font-bold">{parseFloat(a.balance).toFixed(4)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* External wallet connect */}
         <div className="px-5 mt-5">
