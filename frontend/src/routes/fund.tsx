@@ -25,7 +25,7 @@ import {
 } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
 import { parseUnits } from "viem";
-import { MobileFrame } from "@/components/MobileFrame";
+import { PageFrame } from "@/components/PageFrame";
 import { api, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -154,7 +154,7 @@ function Fund() {
     method === "mobile" ? mobileCfg.quick : [20, 50, 100, 250];
 
   return (
-    <MobileFrame>
+    <PageFrame sidebar maxWidth="narrow">
       <div className="flex min-h-full flex-col p-5 pb-10">
         <header className="flex items-center justify-between">
           <button
@@ -327,7 +327,7 @@ function Fund() {
           </div>
         )}
       </div>
-    </MobileFrame>
+    </PageFrame>
   );
 }
 
