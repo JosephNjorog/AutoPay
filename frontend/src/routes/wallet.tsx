@@ -14,6 +14,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { useCurrencyStore } from "@/lib/currency-store";
 import { useKesRate } from "@/hooks/use-kes-rate";
 import { formatMoney } from "@/lib/tuma-data";
+import { getAssetMeta } from "@/lib/asset-meta";
 
 export const Route = createFileRoute("/wallet")({
   beforeLoad: () => {
@@ -26,13 +27,6 @@ export const Route = createFileRoute("/wallet")({
   head: () => ({ meta: [{ title: "Wallet · Autopayke" }, { name: "description", content: "Your non-custodial smart wallet on Avalanche." }] }),
   component: Wallet,
 });
-
-function assetColor(symbol: string) {
-  if (symbol === "USDC") return "bg-blue-600";
-  if (symbol === "USDT") return "bg-emerald-500";
-  if (symbol === "AVAX") return "bg-red-500";
-  return "bg-muted";
-}
 
 function Wallet() {
   const navigate = useNavigate();
@@ -212,7 +206,12 @@ function Wallet() {
           )}
           {assets.map((a) => (
             <div key={a.symbol} className="rounded-2xl border border-border bg-card p-4 flex items-center gap-3">
-              <div className={`h-11 w-11 rounded-full ${assetColor(a.symbol)} flex items-center justify-center text-sm font-bold text-white`}>{a.symbol[0]}</div>
+              <div
+                className="h-11 w-11 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                style={{ backgroundColor: getAssetMeta(a.symbol).color }}
+              >
+                {getAssetMeta(a.symbol).letter}
+              </div>
               <div className="flex-1">
                 <p className="text-sm font-bold">{a.symbol}</p>
                 <p className="text-[11px] text-muted-foreground">Avalanche C-Chain</p>
