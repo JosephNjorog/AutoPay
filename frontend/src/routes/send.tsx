@@ -12,6 +12,8 @@ import { api, type FxQuote, type Corridor, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 import { usePwaInstall } from "@/lib/use-pwa-install";
 import { QuoteCountdown, KV, FxQuoteSummaryCard, FxReviewHero } from "@/components/FxTransparencyCard";
+import { TokenStep } from "@/components/TokenStep";
+import type { PayableAsset } from "@tuma/shared";
 
 type SendSearch = { to?: string; amount?: string };
 
@@ -31,7 +33,7 @@ export const Route = createFileRoute("/send")({
   component: SendPage,
 });
 
-type Step = "country" | "pick" | "verify" | "amount" | "review" | "sending" | "done";
+type Step = "country" | "pick" | "verify" | "token" | "amount" | "review" | "sending" | "done";
 
 function SendPage() {
   const navigate = useNavigate();
@@ -41,7 +43,8 @@ function SendPage() {
   const [step, setStep] = useState<Step>("country");
   const [country, setCountry] = useState<Corridor | null>(null);
   const [recipient, setRecipient] = useState<Contact | null>(null);
-  const [amount, setAmount] = useState("25"); // always USDC
+  const [token, setToken] = useState<PayableAsset>("USDC");
+  const [amount, setAmount] = useState("25");
   const [note, setNote] = useState("");
   const [quote, setQuote] = useState<FxQuote | null>(null);
   const [sendResult, setSendResult] = useState<{
@@ -71,7 +74,7 @@ function SendPage() {
     setCountry(matched);
     setRecipient({ id: "scanned", name: search.to, msisdn: search.to, country: matched.name, flag: matched.flag, rail: matched.rail });
     if (search.amount) setAmount(search.amount);
-    setStep("amount");
+    setStep("token");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [corridors]);
 
@@ -81,16 +84,26 @@ function SendPage() {
     enabled: !!accessToken,
   });
 
-  const maxUsdc = wallet?.assets?.find((a) => a.symbol === "USDC")
-    ? parseFloat(wallet.assets.find((a) => a.symbol === "USDC")!.balance)
-    : 0;
+  // AutopayEscrow (which backs sends to recipients who aren't registered yet)
+  // is ERC20-only, so AVAX is only offered once the recipient is a verified
+  // existing Autopayke user. `registered` is unset for the scanned-QR path,
+  // which correctly defaults to "no AVAX" too.
+  const canUseAvax = recipient?.registered === true;
+  const tokenAssets = (wallet?.assets ?? []).filter(
+    (a) => parseFloat(a.balance) > 0 && (a.symbol !== "AVAX" || canUseAvax)
+  );
+  const selectedAsset = wallet?.assets?.find((a) => a.symbol === token);
+  const maxBalance = selectedAsset ? parseFloat(selectedAsset.balance) : 0;
+  // In USD terms (not raw token units) so the "can I afford this" check works
+  // the same way for AVAX (volatile, 18dp) as it does for USDC/USDT (1:1).
+  const maxBalanceUsd = selectedAsset?.balanceUsd ?? 0;
 
   async function handleQuoteAndReview() {
     if (!recipient || !accessToken || usd <= 0) return;
     setError(null);
     setStep("sending");
     try {
-      const q = await api.fx.quote(usd, recipient.msisdn, accessToken);
+      const q = await api.fx.quote(usd, recipient.msisdn, token, accessToken);
       setQuote(q);
       setStep("review");
     } catch (e) {
@@ -105,7 +118,7 @@ function SendPage() {
   async function refreshQuote() {
     if (!recipient || !accessToken || usd <= 0) return;
     try {
-      const q = await api.fx.quote(usd, recipient.msisdn, accessToken);
+      const q = await api.fx.quote(usd, recipient.msisdn, token, accessToken);
       setQuote(q);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Rate expired — couldn't refresh. Try again.");
@@ -118,7 +131,7 @@ function SendPage() {
     setStep("sending");
     try {
       const result = await api.send.send(
-        { quoteId: quote.quoteId, recipientPhone: recipient.msisdn, amountUsd: usd, note: note || undefined },
+        { quoteId: quote.quoteId, recipientPhone: recipient.msisdn, amountUsd: usd, token, note: note || undefined },
         accessToken,
       );
       setSendResult({ id: result.transactionId, type: result.type, rail: result.rail, amountLocal: result.amountLocal, localCurrency: result.localCurrency });
@@ -133,7 +146,8 @@ function SendPage() {
     if (step === "country") navigate({ to: "/dashboard" });
     else if (step === "pick") setStep("country");
     else if (step === "verify") setStep("pick");
-    else if (step === "amount") setStep(recipient?.id === "scanned" ? "country" : "pick");
+    else if (step === "token") setStep(recipient?.id === "scanned" ? "country" : "pick");
+    else if (step === "amount") setStep("token");
     else if (step === "review") setStep("amount");
     else navigate({ to: "/dashboard" });
   }
@@ -149,6 +163,7 @@ function SendPage() {
             {step === "country" && "Send money"}
             {step === "pick" && "Choose recipient"}
             {step === "verify" && "Verify recipient"}
+            {step === "token" && "Pay with"}
             {step === "amount" && "Enter amount"}
             {step === "review" && "Review & confirm"}
             {(step === "sending" || step === "done") && "Sending"}
@@ -179,15 +194,19 @@ function SendPage() {
             accessToken={accessToken}
             country={country}
             recipient={recipient}
-            onConfirmed={() => setStep("amount")}
+            onConfirmed={() => setStep("token")}
             onRejected={() => { setRecipient(null); setStep("pick"); }}
           />
+        )}
+
+        {step === "token" && (
+          <TokenStep assets={tokenAssets} onPick={(t) => { setToken(t); setStep("amount"); }} />
         )}
 
         {step === "amount" && recipient && country && (
           <AmountStep
             recipient={recipient} country={country} amount={amount} setAmount={setAmount}
-            usd={usd} maxUsdc={maxUsdc} quote={quote} onRefreshQuote={refreshQuote}
+            usd={usd} token={token} maxBalance={maxBalance} maxBalanceUsd={maxBalanceUsd} quote={quote} onRefreshQuote={refreshQuote}
             onNext={handleQuoteAndReview}
           />
         )}
@@ -682,9 +701,9 @@ function fmtQuick(v: number): string {
   return String(v);
 }
 
-function AmountStep({ recipient, country, amount, setAmount, usd, maxUsdc, quote, onRefreshQuote, onNext }: {
+function AmountStep({ recipient, country, amount, setAmount, usd, token, maxBalance, maxBalanceUsd, quote, onRefreshQuote, onNext }: {
   recipient: Contact; country: Corridor; amount: string; setAmount: (v: string) => void;
-  usd: number; maxUsdc: number; quote: FxQuote | null; onRefreshQuote: () => void;
+  usd: number; token: PayableAsset; maxBalance: number; maxBalanceUsd: number; quote: FxQuote | null; onRefreshQuote: () => void;
   onNext: () => void;
 }) {
   const [mode, setMode] = useState<AmountMode>("usdc");
@@ -718,7 +737,7 @@ function AmountStep({ recipient, country, amount, setAmount, usd, maxUsdc, quote
   }
 
   const displayValue = mode === "local" ? localInput : amount;
-  const displayCurrency = mode === "local" ? country.currency : "USDC";
+  const displayCurrency = mode === "local" ? country.currency : token;
 
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
@@ -742,7 +761,7 @@ function AmountStep({ recipient, country, amount, setAmount, usd, maxUsdc, quote
               onClick={() => switchMode("usdc")}
               className={`rounded-full px-3 py-1 text-[10px] font-bold transition ${mode === "usdc" ? "bg-white text-foreground shadow" : "text-white/70"}`}
             >
-              USDC
+              {token}
             </button>
             <button
               onClick={() => switchMode("local")}
@@ -769,11 +788,11 @@ function AmountStep({ recipient, country, amount, setAmount, usd, maxUsdc, quote
 
         {mode === "local" && localRate && (
           <p className="mt-1 text-[11px] opacity-80">
-            ≈ {((parseFloat(localInput) || 0) / localRate).toFixed(2)} USDC
+            ≈ {((parseFloat(localInput) || 0) / localRate).toFixed(2)} {token}
           </p>
         )}
         {mode === "usdc" && (
-          <p className="mt-2 text-[11px] opacity-80">Available: {maxUsdc.toFixed(2)} USDC</p>
+          <p className="mt-2 text-[11px] opacity-80">Available: {maxBalance.toFixed(2)} {token}</p>
         )}
 
         <div className="mt-3 flex gap-2">
@@ -795,7 +814,7 @@ function AmountStep({ recipient, country, amount, setAmount, usd, maxUsdc, quote
 
       <div className="mt-auto pt-6">
         <button
-          disabled={usd <= 0 || (maxUsdc > 0 && usd > maxUsdc)}
+          disabled={usd <= 0 || (maxBalanceUsd > 0 && usd > maxBalanceUsd)}
           onClick={onNext}
           className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground disabled:opacity-40 shadow-(--shadow-elegant)"
           style={{ background: "var(--gradient-portfolio)" }}
@@ -828,8 +847,9 @@ function ReviewStep({ recipient, country, usd, quote, note, setNote, onSend, onR
         <div className="divide-y divide-border text-xs">
           <KV k="To" v={`${recipient.name !== recipient.msisdn ? recipient.name : recipient.msisdn} ${country.flag}`} />
           <KV k="Number" v={recipient.msisdn} mono />
+          <KV k="Paying with" v={quote.tokenAmount !== undefined ? `${quote.tokenAmount.toFixed(4)} ${quote.fromToken}` : quote.fromToken} />
           <KV k="Settles via" v={quote.rail} />
-          <KV k="Rate" v={`1 USDC = ${quote.tumaRate.toFixed(2)} ${quote.toCurrency}`} />
+          <KV k="Rate" v={`1 USD = ${quote.tumaRate.toFixed(2)} ${quote.toCurrency}`} />
           <KV k="Network fee" v="Free" />
           <KV k="Arrival" v="≈ 12 seconds" />
         </div>
