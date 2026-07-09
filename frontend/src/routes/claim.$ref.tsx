@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowRight, Gift, ShieldCheck, Loader2, Check, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { MobileFrame } from "@/components/MobileFrame";
+import { PageFrame } from "@/components/PageFrame";
 import { api, ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -44,7 +44,7 @@ function Claim() {
 
   if (claimResult) {
     return (
-      <MobileFrame>
+      <PageFrame sidebar={false} maxWidth="narrow">
         <div className="flex min-h-full flex-col p-6 pb-10">
           <div className="flex-1 flex flex-col items-center justify-center text-center">
             <div className="h-20 w-20 rounded-full bg-success-soft flex items-center justify-center">
@@ -63,31 +63,31 @@ function Claim() {
             </button>
           </div>
         </div>
-      </MobileFrame>
+      </PageFrame>
     );
   }
 
   if (isLoading) {
     return (
-      <MobileFrame>
+      <PageFrame sidebar={false} maxWidth="narrow">
         <div className="flex h-full items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      </MobileFrame>
+      </PageFrame>
     );
   }
 
   if (loadError || (claimInfo && claimInfo.status !== "pending")) {
     const msg = claimInfo?.message ?? (claimInfo?.status === "claimed" ? "This transfer has already been claimed." : claimInfo?.status === "expired" ? "This transfer has expired." : "This claim link is invalid or not found.");
     return (
-      <MobileFrame>
+      <PageFrame sidebar={false} maxWidth="narrow">
         <div className="flex min-h-full flex-col items-center justify-center p-6 text-center">
           <AlertCircle className="h-12 w-12 text-destructive" />
           <h2 className="mt-4 text-xl font-black">Unable to claim</h2>
           <p className="mt-2 text-sm text-muted-foreground">{msg}</p>
           <Link to="/" className="mt-6 text-sm text-primary font-semibold">Go home</Link>
         </div>
-      </MobileFrame>
+      </PageFrame>
     );
   }
 
@@ -96,7 +96,7 @@ function Claim() {
   const expiresAt = claimInfo?.expiresAt ? new Date(claimInfo.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : null;
 
   return (
-    <MobileFrame>
+    <PageFrame sidebar={false} maxWidth="narrow">
       <div className="flex min-h-full flex-col p-6 pb-10">
         <div className="mt-6 flex flex-col items-center text-center">
           <div className="relative h-24 w-24">
@@ -145,6 +145,6 @@ function Claim() {
           <p className="text-center text-[11px] text-muted-foreground">Powered by AutoPayKe · Settled on Avalanche</p>
         </div>
       </div>
-    </MobileFrame>
+    </PageFrame>
   );
 }
