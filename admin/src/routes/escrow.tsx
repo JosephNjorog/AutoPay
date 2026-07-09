@@ -87,6 +87,7 @@ export default function EscrowPage() {
                 <TableHead>Ref</TableHead>
                 <TableHead>Recipient</TableHead>
                 <TableHead>Amount</TableHead>
+                <TableHead>Token</TableHead>
                 <TableHead>Rail</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Expires / Time Left</TableHead>
@@ -108,6 +109,13 @@ export default function EscrowPage() {
                     <div className="font-medium">{fmtUsd(e.amountUsdc)}</div>
                     {e.localCurrency && (
                       <div className="text-xs text-muted-foreground">{e.localCurrency}</div>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-mono text-sm">
+                    {e.token === "unknown" ? (
+                      <Badge variant="destructive">unknown</Badge>
+                    ) : (
+                      e.token
                     )}
                   </TableCell>
                   <TableCell>{e.rail ? railLabel(e.rail) : "—"}</TableCell>
