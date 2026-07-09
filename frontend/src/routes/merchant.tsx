@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowLeft, TrendingUp, Settings } from "lucide-react";
-import { MobileFrame } from "@/components/MobileFrame";
+import { PageFrame } from "@/components/PageFrame";
 import { BottomNav } from "@/components/BottomNav";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -20,7 +20,7 @@ function Merchant() {
   }, [isLoggedIn, navigate]);
 
   return (
-    <MobileFrame>
+    <PageFrame sidebar maxWidth="narrow">
       <div className="flex min-h-full flex-col">
         <header className="flex items-center justify-between px-5 pt-6 pb-2">
           <Link to="/dashboard" className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
@@ -86,8 +86,8 @@ function Merchant() {
         </div>
 
         <div className="h-24" />
-        <BottomNav />
+        <BottomNav className="md:hidden" />
       </div>
-    </MobileFrame>
+    </PageFrame>
   );
 }
