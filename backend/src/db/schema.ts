@@ -41,7 +41,7 @@ export const railEnum = pgEnum("rail", [
   "mpesa_b2b_paybill",
 ]);
 
-export const tokenEnum = pgEnum("token", ["USDC", "USDT"]);
+export const tokenEnum = pgEnum("token", ["USDC", "USDT", "AVAX"]);
 
 export const payMethodEnum = pgEnum("pay_method", ["buy_goods", "paybill"]);
 
