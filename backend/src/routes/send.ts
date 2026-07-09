@@ -360,6 +360,45 @@ sendRouter.post(
         stage = "direct_onchain_record";
         await recordSettlementStep(tx.id, "onchain", { txHash });
 
+        // AVAX settles purely on-chain, straight to the recipient's own
+        // wallet — there's no rail disbursement for it (M-Pesa payouts are
+        // backed by stablecoin treasury liquidity, not AVAX), so once the
+        // transfer above lands, the send is done. Routing it through the
+        // rail-disbursement path would try to pay the recipient a *second*
+        // time via M-Pesa for money they already received in their wallet.
+        if (isAvax) {
+          stage = "direct_settled";
+          await recordSettlementStep(tx.id, "settled", { txHash, reason: "AVAX settles directly to recipient wallet" });
+
+          enqueueWhatsAppNotify({
+            to: recipientPhone,
+            templateName: "tuma_received",
+            params: [quote.toAmount.toFixed(2), quote.toCurrency, sender.phone],
+          })
+            .then((queued) => {
+              if (!queued) {
+                return sendReceivedNotification(
+                  recipientPhone,
+                  quote.toAmount.toFixed(2),
+                  quote.toCurrency,
+                  sender.phone
+                );
+              }
+            })
+            .catch(console.error);
+
+          return c.json({
+            ok: true,
+            data: txToSendResponse(tx, false, {
+              txHash,
+              status: "settled",
+              amountLocal: netAmountLocal,
+              railReference: null,
+              railQueued: false,
+            }),
+          });
+        }
+
         const railJob: RailDisburseJob = {
           transactionId: tx.id,
           rail: quote.rail,
