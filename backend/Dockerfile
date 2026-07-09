@@ -18,5 +18,11 @@ WORKDIR /app/backend
 
 EXPOSE 3001
 
-# Run schema push (idempotent — safe on every deploy) then start the server
-CMD ["bun", "run", "src/index.ts"]
+# Apply any pending drizzle migrations (idempotent — tracked in the
+# __drizzle_migrations table, so a no-op boot costs one query) then start the
+# server. Only this CMD does so: the worker and cron services in render.yaml
+# override it with their own dockerCommand, so migrations only ever run from
+# one place, avoiding concurrent-migration races across services.
+# If the migration fails, `&&` stops the container from starting — Render
+# reports the deploy as failed instead of serving against a stale schema.
+CMD ["sh", "-c", "bun run db:migrate && bun run src/index.ts"]
