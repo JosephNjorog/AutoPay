@@ -94,13 +94,25 @@ function RootComponent() {
   // browsers fire during in-app navigation transitions.
   useEffect(() => {
     let lockTimer: ReturnType<typeof setTimeout> | null = null;
+    let wasBackgrounded = false;
 
     const handleVisibilityChange = () => {
       if (document.hidden && isAuthenticated) {
+        wasBackgrounded = true;
         lockTimer = setTimeout(() => setUnlocked(false), 2000);
-      } else if (!document.hidden && lockTimer !== null) {
-        clearTimeout(lockTimer);
-        lockTimer = null;
+      } else if (!document.hidden) {
+        if (lockTimer !== null) {
+          clearTimeout(lockTimer);
+          lockTimer = null;
+        }
+        // Mobile browsers can freeze the tab's JS entirely while backgrounded,
+        // so timers (react-query's refetchInterval included) don't run. If we
+        // come back without having been fully locked out, force a refetch so
+        // the UI doesn't sit on data that's now stale.
+        if (wasBackgrounded) {
+          wasBackgrounded = false;
+          void queryClient.invalidateQueries();
+        }
       }
     };
 
@@ -109,7 +121,7 @@ function RootComponent() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (lockTimer !== null) clearTimeout(lockTimer);
     };
-  }, [isAuthenticated, setUnlocked]);
+  }, [isAuthenticated, setUnlocked, queryClient]);
 
   return (
     <WagmiProvider config={wagmiConfig}>
