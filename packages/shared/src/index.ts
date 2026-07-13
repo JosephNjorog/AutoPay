@@ -318,6 +318,11 @@ export type FxQuote = {
   rail: Rail;
   recipientCountry: string;
   lockedUntil: string;
+  // Flat fee charged to the sender to cover the relayer's on-chain gas cost
+  // (direct TUMA-to-TUMA sends only) — see services/fx.ts's
+  // computeNetworkFeeUsd(). Additive on top of fromAmountUsd, unrelated to
+  // any merchant Till/PayBill fee.
+  networkFeeUsd: number;
   // Only set when fromToken is "AVAX" — see PayQuote's matching fields.
   tokenPriceUsd?: number;
   tokenAmount?: number;
