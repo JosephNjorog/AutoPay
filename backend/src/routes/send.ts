@@ -251,17 +251,26 @@ sendRouter.post(
       );
     }
 
-    // 5. Check balance in the chosen token
+    // Network fee recoups the relayer's on-chain gas cost from the sender —
+    // direct TUMA-to-TUMA transfers only (escrow-branch sends aren't fee'd
+    // in this pass), and only when there's a treasury address to sweep it
+    // to (otherwise it'd be "charged" without ever actually being collected).
+    const treasuryAddress = process.env.TREASURY_ADDRESS as Address | undefined;
+    const networkFeeUsd = isTumaUser && treasuryAddress ? quote.networkFeeUsd : 0;
+
+    // 5. Check balance in the chosen token — sender must cover the send
+    // amount plus the network fee.
     if (isAvax) {
       const avaxAmount = quote.tokenAmount;
       if (avaxAmount === undefined) throw new FxQuoteExpiredError();
+      const feeAvaxAmount = networkFeeUsd > 0 ? networkFeeUsd / quote.tokenPriceUsd! : 0;
       const balanceRaw = await getAvaxBalance(sender.walletAddress as Address);
-      if (balanceRaw < parseUnits(avaxAmount.toFixed(18), 18)) {
+      if (balanceRaw < parseUnits((avaxAmount + feeAvaxAmount).toFixed(18), 18)) {
         throw new InsufficientFundsError();
       }
     } else {
       const balanceRaw = await getTokenBalance(token as StablecoinToken, sender.walletAddress as Address);
-      const requiredRaw = parseUnits(amountUsd.toFixed(6), 6);
+      const requiredRaw = parseUnits((amountUsd + networkFeeUsd).toFixed(6), 6);
       if (balanceRaw < requiredRaw) throw new InsufficientFundsError();
     }
 
@@ -333,11 +342,11 @@ sendRouter.post(
             isMerchantPayment,
             merchantId: isMerchantPayment ? recipient!.id : null,
             feeUsdc: feeUsd.toFixed(6),
+            networkFeeUsdc: networkFeeUsd.toFixed(6),
             updatedAt: new Date(),
           })
           .where(eq(transactions.id, tx.id));
 
-        const treasuryAddress = process.env.TREASURY_ADDRESS as Address | undefined;
         if (isMerchantPayment && feeUsd > 0 && treasuryAddress) {
           const feePromise = isAvax
             ? transferNativeAvax(
@@ -354,6 +363,28 @@ sendRouter.post(
               );
           feePromise.catch((err) =>
             console.error(`[Send] Merchant fee transfer failed for ${reference}:`, err.message)
+          );
+        }
+
+        // Network fee is a separate leg from the merchant fee above — it's
+        // charged on the sender's side regardless of whether this send also
+        // happens to be a merchant payment.
+        if (networkFeeUsd > 0 && treasuryAddress) {
+          const networkFeePromise = isAvax
+            ? transferNativeAvax(
+                sender.walletAddress as Address,
+                treasuryAddress,
+                networkFeeUsd / quote.tokenPriceUsd!
+              )
+            : transferToken(
+                token as StablecoinToken,
+                recipientHash,
+                sender.walletAddress as Address,
+                treasuryAddress,
+                networkFeeUsd
+              );
+          networkFeePromise.catch((err) =>
+            console.error(`[Send] Network fee transfer failed for ${reference}:`, err.message)
           );
         }
 
@@ -395,6 +426,7 @@ sendRouter.post(
               amountLocal: netAmountLocal,
               railReference: null,
               railQueued: false,
+              networkFeeUsd,
             }),
           });
         }
@@ -453,6 +485,7 @@ sendRouter.post(
             amountLocal: netAmountLocal,
             railReference,
             railQueued,
+            networkFeeUsd,
           }),
         });
       } catch (err) {
