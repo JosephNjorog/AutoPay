@@ -1,0 +1,2 @@
+ALTER TABLE "transactions" ADD COLUMN "hidden_for_sender" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "transactions" ADD COLUMN "hidden_for_recipient" boolean DEFAULT false NOT NULL;
