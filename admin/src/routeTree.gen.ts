@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WebhooksRouteImport } from './routes/webhooks'
 import { Route as ReviewRouteImport } from './routes/review'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as ReceiptsRouteImport } from './routes/receipts'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as MerchantsRouteImport } from './routes/merchants'
 import { Route as LoginRouteImport } from './routes/login'
@@ -41,6 +42,11 @@ const ReviewRoute = ReviewRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReceiptsRoute = ReceiptsRouteImport.update({
+  id: '/receipts',
+  path: '/receipts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotificationsRoute = NotificationsRouteImport.update({
@@ -131,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/merchants': typeof MerchantsRoute
   '/notifications': typeof NotificationsRoute
+  '/receipts': typeof ReceiptsRoute
   '/reports': typeof ReportsRoute
   '/review': typeof ReviewRoute
   '/webhooks': typeof WebhooksRoute
@@ -151,6 +158,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/merchants': typeof MerchantsRoute
   '/notifications': typeof NotificationsRoute
+  '/receipts': typeof ReceiptsRoute
   '/reports': typeof ReportsRoute
   '/review': typeof ReviewRoute
   '/webhooks': typeof WebhooksRoute
@@ -172,6 +180,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/merchants': typeof MerchantsRoute
   '/notifications': typeof NotificationsRoute
+  '/receipts': typeof ReceiptsRoute
   '/reports': typeof ReportsRoute
   '/review': typeof ReviewRoute
   '/webhooks': typeof WebhooksRoute
@@ -194,6 +203,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/merchants'
     | '/notifications'
+    | '/receipts'
     | '/reports'
     | '/review'
     | '/webhooks'
@@ -214,6 +224,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/merchants'
     | '/notifications'
+    | '/receipts'
     | '/reports'
     | '/review'
     | '/webhooks'
@@ -234,6 +245,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/merchants'
     | '/notifications'
+    | '/receipts'
     | '/reports'
     | '/review'
     | '/webhooks'
@@ -255,6 +267,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MerchantsRoute: typeof MerchantsRoute
   NotificationsRoute: typeof NotificationsRoute
+  ReceiptsRoute: typeof ReceiptsRoute
   ReportsRoute: typeof ReportsRoute
   ReviewRoute: typeof ReviewRoute
   WebhooksRoute: typeof WebhooksRoute
@@ -285,6 +298,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/receipts': {
+      id: '/receipts'
+      path: '/receipts'
+      fullPath: '/receipts'
+      preLoaderRoute: typeof ReceiptsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notifications': {
@@ -407,6 +427,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MerchantsRoute: MerchantsRoute,
   NotificationsRoute: NotificationsRoute,
+  ReceiptsRoute: ReceiptsRoute,
   ReportsRoute: ReportsRoute,
   ReviewRoute: ReviewRoute,
   WebhooksRoute: WebhooksRoute,
