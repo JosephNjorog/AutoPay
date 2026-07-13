@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate, redirect } from "@tanstack/react-router";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowDownLeft, ArrowUpRight, Filter, Loader2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, ArrowDownLeft, ArrowUpRight, Filter, Loader2, Trash2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { PageFrame } from "@/components/PageFrame";
 import { BottomNav } from "@/components/BottomNav";
 import { api, type TxSummary } from "@/lib/api/client";
@@ -41,6 +42,7 @@ function statusBadge(status: TxSummary["status"]) {
 
 function History() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { accessToken, isLoggedIn } = useAuthStore();
   const [tab, setTab] = useState<"all" | "in" | "out">("all");
 
@@ -55,6 +57,25 @@ function History() {
   });
 
   const txs = data?.transactions ?? [];
+
+  async function handleRemove(id: string) {
+    if (!accessToken) return;
+    try {
+      await api.history.hide(id, accessToken);
+      queryClient.invalidateQueries({ queryKey: ["history"] });
+      toast.success("Removed from history", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            await api.history.restore(id, accessToken);
+            queryClient.invalidateQueries({ queryKey: ["history"] });
+          },
+        },
+      });
+    } catch {
+      toast.error("Couldn't remove that transaction. Try again.");
+    }
+  }
 
   return (
     <PageFrame sidebar maxWidth="wide">
@@ -102,40 +123,49 @@ function History() {
               const fxLine = tx.fxRate ? `1 USDC = ${tx.fxRate.toFixed(2)} ${tx.localCurrency}` : null;
 
               return (
-                <Link key={tx.id} to="/track/$id" params={{ id: tx.id }} className="block rounded-2xl border border-border bg-card p-3.5 hover:bg-muted/40 transition">
-                  <div className="flex items-center gap-3">
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${tx.direction === "in" ? "bg-success-soft text-success" : "bg-primary-soft text-primary"}`}>
-                      {tx.direction === "in" ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                <div key={tx.id} className="flex items-stretch gap-2">
+                  <Link to="/track/$id" params={{ id: tx.id }} className="flex-1 min-w-0 block rounded-2xl border border-border bg-card p-3.5 hover:bg-muted/40 transition">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${tx.direction === "in" ? "bg-success-soft text-success" : "bg-primary-soft text-primary"}`}>
+                        {tx.direction === "in" ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{tx.counterparty}</p>
+                        <p className="text-[11px] text-muted-foreground">{tx.rail} · {fmtDate(tx.createdAt)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-sm font-bold ${tx.direction === "in" ? "text-success" : ""}`}>
+                          {tx.direction === "in" ? "+" : "−"}${tx.amountUsd.toFixed(2)}
+                        </p>
+                        {localLine && <p className="text-[10px] text-muted-foreground">{localLine}</p>}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{tx.counterparty}</p>
-                      <p className="text-[11px] text-muted-foreground">{tx.rail} · {fmtDate(tx.createdAt)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-bold ${tx.direction === "in" ? "text-success" : ""}`}>
-                        {tx.direction === "in" ? "+" : "−"}${tx.amountUsd.toFixed(2)}
-                      </p>
-                      {localLine && <p className="text-[10px] text-muted-foreground">{localLine}</p>}
-                    </div>
-                  </div>
-                  {(fxLine || badge) && (
-                    <div className="mt-2.5 flex items-center justify-between border-t border-border pt-2.5 text-[10px]">
-                      {fxLine && <span className="text-muted-foreground">{fxLine}</span>}
-                      {badge && (
-                        <span className={`ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold ${
-                          tx.status === "failed" || tx.status === "expired" || tx.status === "requires_review"
-                            ? "text-destructive bg-destructive/10"
-                            : "text-warning bg-warning-soft"
-                        }`}>
-                          {(tx.status === "initiated" || tx.status === "onchain" || tx.status === "routed") && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
-                          )}
-                          {badge}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </Link>
+                    {(fxLine || badge) && (
+                      <div className="mt-2.5 flex items-center justify-between border-t border-border pt-2.5 text-[10px]">
+                        {fxLine && <span className="text-muted-foreground">{fxLine}</span>}
+                        {badge && (
+                          <span className={`ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold ${
+                            tx.status === "failed" || tx.status === "expired" || tx.status === "requires_review"
+                              ? "text-destructive bg-destructive/10"
+                              : "text-warning bg-warning-soft"
+                          }`}>
+                            {(tx.status === "initiated" || tx.status === "onchain" || tx.status === "routed") && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                            )}
+                            {badge}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </Link>
+                  <button
+                    onClick={() => handleRemove(tx.id)}
+                    aria-label="Remove from history"
+                    className="shrink-0 w-9 rounded-2xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               );
             })}
           </div>
