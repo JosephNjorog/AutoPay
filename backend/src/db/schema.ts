@@ -195,6 +195,12 @@ export const transactions = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     settledAt: timestamp("settled_at"),
+    // Per-party "delete from my history" — hides the transaction from that
+    // party's own History list only. The row itself, its settlement
+    // timeline, and its visibility to ops/admin are all unaffected; this is
+    // purely a personal-view flag, not a real delete.
+    hiddenForSender: boolean("hidden_for_sender").default(false).notNull(),
+    hiddenForRecipient: boolean("hidden_for_recipient").default(false).notNull(),
   },
   (t) => [
     index("transactions_sender_id_idx").on(t.senderId),
