@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Check, Loader2, Share2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { PageFrame } from "@/components/PageFrame";
@@ -26,6 +26,7 @@ function Track() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const { accessToken, isLoggedIn } = useAuthStore();
+  const [isSharing, setIsSharing] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn()) navigate({ to: "/signup" });
@@ -101,6 +102,34 @@ function Track() {
   const fxLine = tx.fxRate ? `1 USDC = ${tx.fxRate.toFixed(2)} ${tx.localCurrency}` : null;
   const settledAt = tx.settledAt ? new Date(tx.settledAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
 
+  const shareReceipt = async () => {
+    if (!accessToken || isSharing) return;
+    setIsSharing(true);
+    try {
+      const blob = await api.track.receipt(tx.id, accessToken);
+      const filename = `autopayke-receipt-${tx.reference}.pdf`;
+      const file = new File([blob], filename, { type: "application/pdf" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "AutoPayKe Receipt", text: `Ref: ${tx.reference}` });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      if ((err as Error)?.name !== "AbortError") {
+        console.error("Failed to generate receipt", err);
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   return (
     <PageFrame sidebar={false} maxWidth="narrow">
       <div className="flex min-h-full flex-col">
@@ -109,9 +138,9 @@ function Track() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <h1 className="text-sm font-bold">Transfer tracker</h1>
-          <button onClick={() => navigator.share?.({ title: "AutoPayKe Transfer", text: `Ref: ${tx.reference}` })}
-            className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
-            <Share2 className="h-4 w-4" />
+          <button onClick={shareReceipt} disabled={isSharing}
+            className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center disabled:opacity-60">
+            {isSharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
           </button>
         </header>
 
@@ -178,10 +207,11 @@ function Track() {
         </div>
 
         <div className="px-5 mt-5 pb-8">
-          <button onClick={() => navigator.share?.({ title: "AutoPayKe Receipt", text: `Transfer ref ${tx.reference} — ${tx.status}` })}
-            className="w-full rounded-2xl py-3.5 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant)"
+          <button onClick={shareReceipt} disabled={isSharing}
+            className="w-full rounded-2xl py-3.5 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant) disabled:opacity-70 flex items-center justify-center gap-2"
             style={{ background: "var(--gradient-portfolio)" }}>
-            Share receipt
+            {isSharing && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isSharing ? "Preparing receipt…" : "Share receipt"}
           </button>
           <Link to="/dashboard" className="mt-2 block text-center text-xs text-muted-foreground py-2">Back to home</Link>
         </div>
