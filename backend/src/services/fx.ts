@@ -27,6 +27,18 @@ export function computeCashoutFeeUsd(amountUsd: number): number {
   return parseFloat((tier.feeKes / KES_BASELINE_RATE).toFixed(4));
 }
 
+// ── Network fee (flat, direct TUMA-to-TUMA sends only) ─────────────────────────
+// Recoups the relayer's real on-chain gas cost from the sender instead of
+// AutoPayKe absorbing it. Flat, not tiered by amount — unlike the cash-out
+// fee above, gas cost for a relayer execute() call doesn't scale with the
+// value being transferred. Avalanche C-Chain gas is cheap, so this default
+// is deliberately small; tune via env if observed real cost drifts from it.
+const NETWORK_FEE_USD = parseFloat(process.env.NETWORK_FEE_USD ?? "0.02");
+
+export function computeNetworkFeeUsd(): number {
+  return NETWORK_FEE_USD;
+}
+
 type OxrRates = { rates: Record<string, number> };
 
 // ── Rate fetching ─────────────────────────────────────────────────────────────
@@ -131,6 +143,7 @@ export async function createFxQuote(
     rail: country.primaryRail as Rail,
     recipientCountry: country.code,
     lockedUntil,
+    networkFeeUsd: computeNetworkFeeUsd(),
     ...(tokenPriceUsd !== undefined ? { tokenPriceUsd, tokenAmount } : {}),
   };
 
