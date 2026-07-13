@@ -21,6 +21,7 @@ import {
   X,
   Wallet,
   AlertCircle,
+  Receipt,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuthStore } from "@/lib/auth-store";
@@ -40,6 +41,7 @@ const NAV = [
   { label: "Worker Health", to: "/health", icon: Activity },
   { label: "Notifications", to: "/notifications", icon: Bell },
   { label: "Reports", to: "/reports", icon: BarChart3 },
+  { label: "Receipts", to: "/receipts", icon: Receipt },
   { label: "Audit Log", to: "/audit", icon: ScrollText },
   { label: "Webhooks", to: "/webhooks", icon: Webhook },
   { label: "Config", to: "/config", icon: Settings },
