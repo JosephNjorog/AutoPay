@@ -18,7 +18,7 @@ import {
   verifyPaystackWebhook,
   verifyTransaction,
 } from "../services/rails/paystack";
-import { creditFromFloat, verifyIncomingTransfer, TOKEN_ADDRESSES } from "../services/avalanche";
+import { creditFromFloat, verifyIncomingTransfer, getAvaxPriceUsd, TOKEN_ADDRESSES } from "../services/avalanche";
 import { recordSettlementStep } from "../services/settlement";
 import { generateTxRef } from "../lib/crypto";
 import { NotFoundError, ValidationError } from "../lib/errors";
@@ -322,7 +322,12 @@ fundRouter.post(
       throw new ValidationError("Couldn't verify that transaction as a transfer to your wallet.");
     }
 
-    const amountUsd = parseFloat(formatUnits(result.amount, 6));
+    // USDC/USDT are 6dp and pegged 1:1 to USD; AVAX is 18dp and priced live —
+    // the ledger's amountUsdc column is always a USD-equivalent value, so AVAX
+    // needs an explicit price conversion rather than treating 1 token = $1.
+    const isAvax = result.token === "AVAX";
+    const tokenAmount = parseFloat(formatUnits(result.amount, isAvax ? 18 : 6));
+    const amountUsd = isAvax ? tokenAmount * (await getAvaxPriceUsd()) : tokenAmount;
 
     const [tx] = await db
       .insert(transactions)
