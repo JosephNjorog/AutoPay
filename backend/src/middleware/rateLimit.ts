@@ -41,3 +41,6 @@ export const loginLimiter = rateLimit({ max: 5, windowSeconds: 300, route: "logi
 export const sendMoneyLimiter = rateLimit({ max: 10, windowSeconds: 60, route: "send" });
 export const withdrawLimiter = rateLimit({ max: 5, windowSeconds: 300, route: "withdraw" });
 export const generalLimiter = rateLimit({ max: 120, windowSeconds: 60, route: "general" });
+// PDF generation (font embedding + QR rendering) is heavier per-request than
+// a typical JSON route and isn't cached — keep it well below abuse territory.
+export const receiptLimiter = rateLimit({ max: 10, windowSeconds: 60, route: "receipt" });
