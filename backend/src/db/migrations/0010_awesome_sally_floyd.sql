@@ -1,0 +1,1 @@
+ALTER TABLE "transactions" ADD COLUMN "network_fee_usdc" numeric(20, 6) DEFAULT '0' NOT NULL;
