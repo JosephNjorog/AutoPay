@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { eq, desc, and, or, gte, lte, like, sql, count, sum, ilike, inArray, ne } from "drizzle-orm";
+import { eq, desc, and, or, gte, lte, like, sql, count, countDistinct, sum, ilike, inArray, ne } from "drizzle-orm";
 import { db } from "../db";
 import {
   users,
@@ -12,6 +12,7 @@ import {
   fxRates,
   workerHeartbeats,
   sessions,
+  receiptEvents,
 } from "../db/schema";
 import { opsAuthMiddleware } from "../middleware/ops";
 import { verifyPassword } from "../lib/crypto";
@@ -1531,3 +1532,119 @@ opsRouter.get("/reports/escrow-claim-rate", async (c) => {
     },
   });
 });
+
+// ── Receipts ──────────────────────────────────────────────────────────────────
+// One receiptEvents row per PDF receipt generated (see routes/track.ts's
+// GET /:id/receipt) — logged unconditionally on every generation, so the
+// raw count and the distinct-transaction count are reported separately
+// (re-sharing the same receipt shouldn't read as "5 receipts").
+
+// GET /api/ops/receipts/overview
+opsRouter.get("/receipts/overview", async (c) => {
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const start7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const start30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const windowSelect = () => ({
+    generated: count(),
+    uniqueTransactions: countDistinct(receiptEvents.transactionId),
+  });
+
+  const [totalRow, todayRow, row7d, row30d, chartRows] = await Promise.all([
+    db.select(windowSelect()).from(receiptEvents),
+    db.select(windowSelect()).from(receiptEvents).where(gte(receiptEvents.createdAt, startOfDay)),
+    db.select(windowSelect()).from(receiptEvents).where(gte(receiptEvents.createdAt, start7d)),
+    db.select(windowSelect()).from(receiptEvents).where(gte(receiptEvents.createdAt, start30d)),
+    db
+      .select({
+        date: sql<string>`date_trunc('day', ${receiptEvents.createdAt})::date`,
+        generated: count(),
+        uniqueTransactions: countDistinct(receiptEvents.transactionId),
+      })
+      .from(receiptEvents)
+      .where(gte(receiptEvents.createdAt, start30d))
+      .groupBy(sql`date_trunc('day', ${receiptEvents.createdAt})::date`)
+      .orderBy(sql`date_trunc('day', ${receiptEvents.createdAt})::date`),
+  ]);
+
+  return c.json({
+    ok: true,
+    data: {
+      total: {
+        generated: Number(totalRow[0]?.generated ?? 0),
+        uniqueTransactions: Number(totalRow[0]?.uniqueTransactions ?? 0),
+      },
+      today: {
+        generated: Number(todayRow[0]?.generated ?? 0),
+        uniqueTransactions: Number(todayRow[0]?.uniqueTransactions ?? 0),
+      },
+      "7d": {
+        generated: Number(row7d[0]?.generated ?? 0),
+        uniqueTransactions: Number(row7d[0]?.uniqueTransactions ?? 0),
+      },
+      "30d": {
+        generated: Number(row30d[0]?.generated ?? 0),
+        uniqueTransactions: Number(row30d[0]?.uniqueTransactions ?? 0),
+      },
+      chart: chartRows.map((r) => ({
+        date: r.date,
+        generated: Number(r.generated),
+        uniqueTransactions: Number(r.uniqueTransactions),
+      })),
+    },
+  });
+});
+
+// GET /api/ops/receipts — paginated list of recent receipt-generation events
+opsRouter.get(
+  "/receipts",
+  zValidator("query", PaginationSchema),
+  async (c) => {
+    const { page, limit } = c.req.valid("query");
+    const offset = (page - 1) * limit;
+
+    const [rows, totalRows] = await Promise.all([
+      db
+        .select({
+          id: receiptEvents.id,
+          createdAt: receiptEvents.createdAt,
+          transactionId: transactions.id,
+          reference: transactions.reference,
+          amountUsdc: transactions.amountUsdc,
+          status: transactions.status,
+          generatedByPhone: users.phone,
+          generatedByName: users.fullName,
+          merchantBusinessName: merchantSettings.businessName,
+        })
+        .from(receiptEvents)
+        .leftJoin(transactions, eq(transactions.id, receiptEvents.transactionId))
+        .leftJoin(users, eq(users.id, receiptEvents.userId))
+        .leftJoin(merchantSettings, eq(merchantSettings.userId, transactions.merchantId))
+        .orderBy(desc(receiptEvents.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db.select({ cnt: count() }).from(receiptEvents),
+    ]);
+
+    const total = Number(totalRows[0]?.cnt ?? 0);
+
+    return c.json({
+      ok: true,
+      data: {
+        receipts: rows.map((r) => ({
+          id: r.id,
+          createdAt: r.createdAt.toISOString(),
+          transactionId: r.transactionId,
+          reference: r.reference,
+          amountUsdc: r.amountUsdc ? parseFloat(r.amountUsdc) : null,
+          status: r.status,
+          generatedByPhone: r.generatedByPhone,
+          generatedByName: r.generatedByName,
+          merchantBusinessName: r.merchantBusinessName,
+        })),
+        pagination: { total, page, limit, pages: Math.ceil(total / limit) },
+      },
+    });
+  }
+);
