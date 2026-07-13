@@ -370,6 +370,19 @@ export const api = {
         };
         events: { step: string; metadata: Record<string, unknown>; createdAt: string }[];
       }>(`/api/track/${id}`, { token }),
+
+    // Binary PDF response — can't go through request<T>()'s unconditional
+    // res.json(), so this fetches directly and hands back a Blob.
+    receipt: async (id: string, token: string): Promise<Blob> => {
+      const res = await fetch(`${API_BASE}/api/track/${id}/receipt`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+        throw new ApiError(res.status, json.error ?? `HTTP ${res.status}`, json.code);
+      }
+      return res.blob();
+    },
   },
 
   pay: {
