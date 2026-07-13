@@ -613,7 +613,7 @@ export async function getIncomingTransfers(
 }
 
 /**
- * Verifies a transaction hash is a confirmed USDC/USDT transfer to the
+ * Verifies a transaction hash is a confirmed USDC/USDT/AVAX transfer to the
  * expected wallet address, returning the real on-chain amount — used by the
  * "pay with connected wallet" funding flow so the credited amount always
  * comes from the chain itself, never from client-supplied input.
@@ -621,7 +621,7 @@ export async function getIncomingTransfers(
 export async function verifyIncomingTransfer(
   txHash: Hash,
   expectedTo: Address
-): Promise<{ from: Address; amount: bigint; token: "USDC" | "USDT" } | null> {
+): Promise<{ from: Address; amount: bigint; token: "USDC" | "USDT" | "AVAX" } | null> {
   const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
   if (receipt.status !== "success") return null;
 
@@ -643,6 +643,13 @@ export async function verifyIncomingTransfer(
     const from = `0x${log.topics[1]!.slice(-40)}` as Address;
     const amount = BigInt(log.data);
     return { from, amount, token: token.symbol };
+  }
+
+  // No ERC-20 Transfer log matched — check whether this was instead a plain
+  // native AVAX transfer straight to the expected address.
+  const tx = await publicClient.getTransaction({ hash: txHash });
+  if (tx.to && tx.to.toLowerCase() === expectedTo.toLowerCase() && tx.value > 0n) {
+    return { from: tx.from, amount: tx.value, token: "AVAX" };
   }
 
   return null;
