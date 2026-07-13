@@ -418,4 +418,30 @@ export const opsApi = {
         claimRate: number;
       }>("/api/ops/reports/escrow-claim-rate"),
   },
+
+  receipts: {
+    overview: () =>
+      opsRequest<{
+        total: { generated: number; uniqueTransactions: number };
+        today: { generated: number; uniqueTransactions: number };
+        "7d": { generated: number; uniqueTransactions: number };
+        "30d": { generated: number; uniqueTransactions: number };
+        chart: { date: string; generated: number; uniqueTransactions: number }[];
+      }>("/api/ops/receipts/overview"),
+    list: (page = 1, limit = 50) =>
+      opsRequest<{
+        receipts: {
+          id: string;
+          createdAt: string;
+          transactionId: string | null;
+          reference: string | null;
+          amountUsdc: number | null;
+          status: string | null;
+          generatedByPhone: string | null;
+          generatedByName: string | null;
+          merchantBusinessName: string | null;
+        }[];
+        pagination: Pagination;
+      }>(`/api/ops/receipts?page=${page}&limit=${limit}`),
+  },
 };
