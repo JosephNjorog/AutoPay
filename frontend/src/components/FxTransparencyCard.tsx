@@ -55,6 +55,9 @@ type QuoteLike = {
   tumaRate: number;
   midRate: number;
   lockedUntil: string;
+  // Optional — only Send's quotes carry a network fee today (see
+  // routes/send.ts); Pay's merchant quotes don't set this.
+  networkFeeUsd?: number;
 };
 
 export function FxQuoteSummaryCard({
@@ -78,6 +81,9 @@ export function FxQuoteSummaryCard({
         {quote.toCurrency} {quote.toAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })}
       </p>
       <p className="mt-1 text-[11px] text-muted-foreground">1 USD = {quote.tumaRate.toFixed(2)} {quote.toCurrency}</p>
+      {!!quote.networkFeeUsd && (
+        <p className="mt-1 text-[11px] text-muted-foreground">Network fee: ${quote.networkFeeUsd.toFixed(2)}</p>
+      )}
       <div className="mt-3 pt-3 border-t border-border text-[11px] flex justify-between">
         <span className="text-success font-semibold flex items-center gap-1">
           <Sparkles className="h-3 w-3" /> Saving vs banks
@@ -101,7 +107,7 @@ export function FxReviewHero({
   toLabel = "Recipient gets",
 }: {
   usd: number;
-  quote: { toCurrency: string; toAmount: number; lockedUntil: string; fromToken?: string };
+  quote: { toCurrency: string; toAmount: number; lockedUntil: string; fromToken?: string; networkFeeUsd?: number };
   onRefreshQuote: () => void;
   icon?: LucideIcon;
   fromLabel?: string;
@@ -111,6 +117,9 @@ export function FxReviewHero({
     <div className="p-5 text-center" style={{ background: "var(--gradient-mesh)" }}>
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{fromLabel}</p>
       <p className="mt-1 text-3xl font-black">{usd.toFixed(2)} {quote.fromToken ?? "USDC"}</p>
+      {!!quote.networkFeeUsd && (
+        <p className="text-[11px] text-muted-foreground">+ ${quote.networkFeeUsd.toFixed(2)} network fee</p>
+      )}
       <div className="my-3 flex items-center justify-center text-muted-foreground">
         <div className="h-px flex-1 bg-border" />
         <Icon className="h-4 w-4 mx-3 text-primary" />
