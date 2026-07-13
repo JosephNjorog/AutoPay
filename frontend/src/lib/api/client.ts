@@ -349,6 +349,14 @@ export const api = {
         pagination: { total: number; page: number; limit: number; pages: number };
       }>(`/api/history?${q}`, { token });
     },
+
+    // "Delete" only hides the transaction from the caller's own History list
+    // — the underlying record is untouched. hide/restore are symmetric.
+    hide: (id: string, token: string) =>
+      request<void>(`/api/history/${id}`, { method: "DELETE", token }),
+
+    restore: (id: string, token: string) =>
+      request<void>(`/api/history/${id}/restore`, { method: "POST", token }),
   },
 
   track: {
