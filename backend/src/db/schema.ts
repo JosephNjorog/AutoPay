@@ -178,6 +178,11 @@ export const transactions = pgTable(
     isMerchantPayment: boolean("is_merchant_payment").default(false).notNull(),
     merchantId: uuid("merchant_id").references(() => users.id),
     feeUsdc: numeric("fee_usdc", { precision: 20, scale: 6 }).default("0").notNull(),
+    // Flat network/gas-recoup fee charged to the sender on a direct
+    // TUMA-to-TUMA transfer — kept separate from feeUsdc (merchant
+    // Till/PayBill fee, withdrawal cash-out fee) so fee reporting can tell
+    // the reasons apart. See services/fx.ts's computeNetworkFeeUsd().
+    networkFeeUsdc: numeric("network_fee_usdc", { precision: 20, scale: 6 }).default("0").notNull(),
     // Merchant Pay (Till/PayBill) fields — populated only when rail is
     // mpesa_b2b_till / mpesa_b2b_paybill.
     merchantPayMethod: payMethodEnum("merchant_pay_method"),
