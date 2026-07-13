@@ -222,6 +222,30 @@ export const settlementEvents = pgTable(
   (t) => [index("settlement_events_tx_id_idx").on(t.transactionId)]
 );
 
+// ── Receipt Events ────────────────────────────────────────────────────────────
+// One row per PDF receipt generation (see services/receipt.ts) — the source
+// of truth for the admin "Receipts" tab's counts. Logged unconditionally on
+// every generation (no dedup), so admin aggregates report both the raw count
+// and a distinct-transaction count.
+
+export const receiptEvents = pgTable(
+  "receipt_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    transactionId: uuid("transaction_id")
+      .notNull()
+      .references(() => transactions.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("receipt_events_transaction_id_idx").on(t.transactionId),
+    index("receipt_events_created_at_idx").on(t.createdAt),
+  ]
+);
+
 // ── Chain Scan Cursors ───────────────────────────────────────────────────────
 
 export const chainScanCursors = pgTable("chain_scan_cursors", {
