@@ -13,6 +13,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { usePwaInstall } from "@/lib/use-pwa-install";
 import { QuoteCountdown, KV, FxQuoteSummaryCard, FxReviewHero } from "@/components/FxTransparencyCard";
 import { TokenStep } from "@/components/TokenStep";
+import { TopUpFromWallet } from "@/components/TopUpFromWallet";
 import type { PayableAsset } from "@tuma/shared";
 
 type SendSearch = { to?: string; amount?: string };
@@ -744,6 +745,14 @@ function AmountStep({ recipient, country, amount, setAmount, usd, token, maxBala
   const displayValue = mode === "local" ? localInput : amount;
   const displayCurrency = mode === "local" ? country.currency : token;
 
+  // Insufficient AutoPayKe balance for the entered amount — the token
+  // quantity actually needed comes straight from the FX quote for AVAX
+  // (non-1:1 with USD), or is just `usd` itself for the 1:1-pegged tokens.
+  const insufficientBalance = usd > 0 && usd > maxBalanceUsd;
+  const quoteReady = token !== "AVAX" || quote?.tokenAmount != null;
+  const neededTokenAmount = token === "AVAX" ? (quote?.tokenAmount ?? 0) : usd;
+  const tokenShortfall = Math.max(0, neededTokenAmount - maxBalance);
+
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
       {/* Recipient row */}
@@ -813,13 +822,17 @@ function AmountStep({ recipient, country, amount, setAmount, usd, token, maxBala
         </div>
       </div>
 
+      {insufficientBalance && quoteReady && (
+        <TopUpFromWallet token={token} tokenShortfall={tokenShortfall} />
+      )}
+
       {quote && (
         <FxQuoteSummaryCard quote={quote} usd={usd} onRefreshQuote={onRefreshQuote} />
       )}
 
       <div className="mt-auto pt-6">
         <button
-          disabled={usd <= 0 || (maxBalanceUsd > 0 && usd > maxBalanceUsd)}
+          disabled={usd <= 0 || insufficientBalance}
           onClick={onNext}
           className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground disabled:opacity-40 shadow-(--shadow-elegant)"
           style={{ background: "var(--gradient-portfolio)" }}
