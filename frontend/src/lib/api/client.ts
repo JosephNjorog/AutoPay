@@ -82,6 +82,9 @@ export type FxQuote = {
   rail: string;
   recipientCountry: string;
   lockedUntil: string;
+  // Flat fee charged to the sender to cover the relayer's on-chain gas cost
+  // — direct TUMA-to-TUMA sends only, additive on top of fromAmountUsd.
+  networkFeeUsd: number;
   // Only set when fromToken is "AVAX" — see backend's FxQuote for details.
   tokenPriceUsd?: number;
   tokenAmount?: number;
