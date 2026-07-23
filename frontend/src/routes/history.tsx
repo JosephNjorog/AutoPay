@@ -79,22 +79,22 @@ function History() {
 
   return (
     <PageFrame sidebar maxWidth="wide">
-      <div className="flex min-h-full flex-col">
+      <div className="flex min-h-full flex-col font-manrope">
         <header className="flex items-center justify-between px-5 pt-6 pb-2">
-          <Link to="/dashboard" className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
+          <Link to="/dashboard" className="h-9 w-9 rounded-full border border-ink/10 bg-paper flex items-center justify-center">
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <h1 className="text-sm font-bold">Activity</h1>
-          <button className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
+          <button className="h-9 w-9 rounded-full border border-ink/10 bg-paper flex items-center justify-center">
             <Filter className="h-4 w-4" />
           </button>
         </header>
 
         <div className="px-5 mt-4">
-          <div className="inline-flex w-full p-1 rounded-2xl bg-muted">
+          <div className="inline-flex w-full p-1 rounded-2xl bg-ink/8">
             {(["all","in","out"] as const).map((t) => (
               <button key={t} onClick={() => setTab(t)}
-                className={`flex-1 py-2 text-xs font-semibold rounded-xl capitalize transition ${tab === t ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>
+                className={`flex-1 py-2 text-xs font-semibold rounded-xl capitalize transition ${tab === t ? "bg-paper shadow-sm text-ink" : "text-slate"}`}>
                 {t === "in" ? "Received" : t === "out" ? "Sent" : "All"}
               </button>
             ))}
@@ -104,16 +104,16 @@ function History() {
         <div className="px-5 mt-5 flex-1">
           {isLoading && (
             <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Loader2 className="h-6 w-6 animate-spin text-slate" />
             </div>
           )}
 
           {error && (
-            <p className="py-12 text-center text-sm text-destructive">Failed to load transactions. Pull to refresh.</p>
+            <p className="py-12 text-center text-sm text-rust">Failed to load transactions. Pull to refresh.</p>
           )}
 
           {!isLoading && !error && txs.length === 0 && (
-            <p className="py-12 text-center text-sm text-muted-foreground">No transactions yet.</p>
+            <p className="py-12 text-center text-sm text-slate">No transactions yet.</p>
           )}
 
           <div className="space-y-2">
@@ -124,33 +124,33 @@ function History() {
 
               return (
                 <div key={tx.id} className="flex items-stretch gap-2">
-                  <Link to="/track/$id" params={{ id: tx.id }} className="flex-1 min-w-0 block rounded-2xl border border-border bg-card p-3.5 hover:bg-muted/40 transition">
+                  <Link to="/track/$id" params={{ id: tx.id }} className="flex-1 min-w-0 block rounded-2xl border border-ink/10 bg-paper p-3.5 hover:bg-ink/5 transition">
                     <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${tx.direction === "in" ? "bg-success-soft text-success" : "bg-primary-soft text-primary"}`}>
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${tx.direction === "in" ? "bg-forest/15 text-forest-light" : "bg-ink/8 text-ink"}`}>
                         {tx.direction === "in" ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">{tx.counterparty}</p>
-                        <p className="text-[11px] text-muted-foreground">{tx.rail} · {fmtDate(tx.createdAt)}</p>
+                        <p className="text-[11px] text-slate">{tx.rail} · {fmtDate(tx.createdAt)}</p>
                       </div>
                       <div className="text-right">
-                        <p className={`text-sm font-bold ${tx.direction === "in" ? "text-success" : ""}`}>
+                        <p className={`text-sm font-bold ${tx.direction === "in" ? "text-forest-light" : ""}`}>
                           {tx.direction === "in" ? "+" : "−"}${tx.amountUsd.toFixed(2)}
                         </p>
-                        {localLine && <p className="text-[10px] text-muted-foreground">{localLine}</p>}
+                        {localLine && <p className="text-[10px] text-slate">{localLine}</p>}
                       </div>
                     </div>
                     {(fxLine || badge) && (
-                      <div className="mt-2.5 flex items-center justify-between border-t border-border pt-2.5 text-[10px]">
-                        {fxLine && <span className="text-muted-foreground">{fxLine}</span>}
+                      <div className="mt-2.5 flex items-center justify-between border-t border-ink/10 pt-2.5 text-[10px]">
+                        {fxLine && <span className="text-slate">{fxLine}</span>}
                         {badge && (
                           <span className={`ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold ${
                             tx.status === "failed" || tx.status === "expired" || tx.status === "requires_review"
-                              ? "text-destructive bg-destructive/10"
-                              : "text-warning bg-warning-soft"
+                              ? "text-rust bg-rust/10"
+                              : "text-amber-deep bg-amber/16"
                           }`}>
                             {(tx.status === "initiated" || tx.status === "onchain" || tx.status === "routed") && (
-                              <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber animate-pulse" />
                             )}
                             {badge}
                           </span>
@@ -161,7 +161,7 @@ function History() {
                   <button
                     onClick={() => handleRemove(tx.id)}
                     aria-label="Remove from history"
-                    className="shrink-0 w-9 rounded-2xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition"
+                    className="shrink-0 w-9 rounded-2xl border border-ink/10 bg-paper flex items-center justify-center text-slate hover:text-rust hover:bg-rust/5 transition"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
