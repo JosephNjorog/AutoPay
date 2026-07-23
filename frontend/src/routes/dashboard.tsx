@@ -140,14 +140,11 @@ function Dashboard() {
 
   return (
     <div
-      className="min-h-screen bg-dark-gradient relative overflow-hidden md:pl-60"
+      className="min-h-screen bg-linen relative overflow-hidden md:pl-60 font-manrope"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
       <DesktopSidebar />
-
-      {/* Radial glow */}
-      <div className="pointer-events-none absolute -top-15 -right-15 w-50 h-50 rounded-full bg-[radial-gradient(circle,rgba(249,115,22,0.12)_0%,transparent_70%)]" />
 
       {/* Pull-to-refresh indicator */}
       {isRefetching && (
@@ -172,9 +169,9 @@ function Dashboard() {
               size="md"
             />
             <div className="text-left">
-              <p className="text-[11px] text-white/30 font-medium">{greeting}</p>
+              <p className="text-[11px] text-slate font-medium">{greeting}</p>
               {firstName && (
-                <p className="font-display text-[16px] font-extrabold text-white leading-tight">
+                <p className="font-display text-[16px] font-extrabold text-ink leading-tight">
                   {firstName}
                 </p>
               )}
@@ -186,9 +183,9 @@ function Dashboard() {
               type="button"
               onClick={() => {}}
               aria-label="Notifications"
-              className="w-9 h-9 rounded-xl bg-white/10 border border-navy-border flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-orange"
+              className="w-9 h-9 rounded-xl bg-paper border border-ink/10 flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber"
             >
-              <Bell size={18} strokeWidth={1.5} className="text-white/50" />
+              <Bell size={18} strokeWidth={1.5} className="text-ink/60" />
             </button>
           </div>
         </div>
@@ -206,7 +203,7 @@ function Dashboard() {
               onToggleHidden={profile.toggleBalanceHidden}
             />
             {externalAddress && (
-              <p className="text-[11px] text-white/30 mt-2 px-1">
+              <p className="text-[11px] text-slate mt-2 px-1">
                 Includes your connected external wallet
                 {externalWalletQuery.isLoading && " (loading…)"}
               </p>
@@ -219,16 +216,16 @@ function Dashboard() {
               <button
                 type="button"
                 onClick={() => navigate({ to: "/settings/pin" })}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-orange/10 border border-orange/25 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-amber/14 border border-amber/50 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber"
               >
-                <ShieldAlert size={20} strokeWidth={1.5} className="text-orange shrink-0" />
+                <ShieldAlert size={20} strokeWidth={1.5} className="text-ink shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-bold text-orange">Set up your lock PIN</p>
-                  <p className="text-[11px] text-orange/60 leading-tight mt-0.5">
+                  <p className="text-[13px] font-bold text-ink">Set up your lock PIN</p>
+                  <p className="text-[11px] text-charcoal/70 leading-tight mt-0.5">
                     Protect your account when you leave the app
                   </p>
                 </div>
-                <ArrowUpRight size={16} strokeWidth={2} className="text-orange/60 shrink-0" />
+                <ArrowUpRight size={16} strokeWidth={2} className="text-ink/60 shrink-0" />
               </button>
             </div>
           )}
@@ -312,13 +309,13 @@ const AssetsSection = memo(function AssetsSection({
   }, [data]);
 
   return (
-    <div className="px-4 mb-5 md:col-span-1 md:order-3 md:row-start-1 md:row-span-2 md:px-0 md:mb-0 md:bg-navy-card md:border md:border-navy-border md:rounded-2xl md:p-5 md:self-stretch">
+    <div className="px-4 mb-5 md:col-span-1 md:order-3 md:row-start-1 md:row-span-2 md:px-0 md:mb-0 md:bg-paper md:border md:border-ink/10 md:rounded-2xl md:p-5 md:self-stretch">
       <div className="flex items-center justify-between mb-3">
-        <span className="font-bold text-[13px] text-white">Assets</span>
+        <span className="font-bold text-[13px] text-charcoal">Assets</span>
         <button
           type="button"
           onClick={onViewAll}
-          className="text-[12px] text-orange font-semibold cursor-pointer focus-visible:outline-none"
+          className="text-[12px] text-forest font-semibold cursor-pointer focus-visible:outline-none"
         >
           View all
         </button>
@@ -329,13 +326,13 @@ const AssetsSection = memo(function AssetsSection({
           ? [0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="shrink-0 w-22.5 h-22 rounded-2xl bg-navy-card animate-pulse md:w-full md:h-14 md:rounded-xl"
+                className="shrink-0 w-22.5 h-22 rounded-2xl bg-ink/6 animate-pulse md:w-full md:h-14 md:rounded-xl"
               />
             ))
           : chips.map((chip) => (
               <div
                 key={chip.key}
-                className="shrink-0 bg-navy-card border border-navy-border rounded-2xl p-3 flex flex-col gap-1 min-w-22.5 md:w-full md:min-w-0 md:flex-row md:items-center md:gap-3 md:bg-transparent md:border-0 md:border-b md:border-white/5 md:last:border-0 md:rounded-none md:p-0 md:py-3"
+                className="shrink-0 bg-paper border border-ink/10 rounded-2xl p-3 flex flex-col gap-1 min-w-22.5 md:w-full md:min-w-0 md:flex-row md:items-center md:gap-3 md:bg-transparent md:border-0 md:border-b md:border-ink/6 md:last:border-0 md:rounded-none md:p-0 md:py-3"
               >
                 <div
                   className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-black mb-1 md:mb-0 md:shrink-0"
@@ -343,14 +340,14 @@ const AssetsSection = memo(function AssetsSection({
                 >
                   {chip.letter}
                 </div>
-                <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wide md:flex-1 md:text-[13px] md:font-semibold md:text-white/70 md:normal-case md:tracking-normal">
+                <span className="text-[10px] font-semibold text-slate uppercase tracking-wide md:flex-1 md:text-[13px] md:font-semibold md:text-charcoal/70 md:normal-case md:tracking-normal">
                   {chip.name}
                 </span>
                 <div className="flex flex-col md:items-end md:shrink-0">
-                  <span className="text-[14px] font-bold text-white">
+                  <span className="text-[14px] font-bold text-charcoal">
                     {hidden ? "••••" : chip.primaryAmount}
                   </span>
-                  <span className="text-[11px] text-white/30">
+                  <span className="text-[11px] text-slate">
                     {hidden ? "••••" : chip.secondaryAmount}
                   </span>
                 </div>
@@ -363,14 +360,32 @@ const AssetsSection = memo(function AssetsSection({
 
 // ── Quick Actions ─────────────────────────────────────────────────────────────
 
+// Tone matches Autopayke.dc.html's home quick-action colors: Send=amber,
+// Pay=ink (navy), Receive=forest, Withdraw=ink-tint. "Add money" isn't one
+// of the mockup's grid tiles (it's a separate pill on its balance card) so
+// it gets the same calm ink-tint treatment as Withdraw.
 const QUICK_ACTIONS = [
-  { label: "Add money", icon: Plus,           isOrange: true,  key: "add"      },
-  { label: "Send",      icon: ArrowUpRight,   isOrange: false, key: "send"     },
-  { label: "Pay",       icon: Store,          isOrange: false, key: "pay"      },
-  { label: "Receive",   icon: QrCode,         isOrange: false, key: "receive"  },
+  { label: "Add money", icon: Plus,         tone: "soft",   key: "add"     },
+  { label: "Send",      icon: ArrowUpRight, tone: "amber",  key: "send"    },
+  { label: "Pay",       icon: Store,        tone: "ink",    key: "pay"     },
+  { label: "Receive",   icon: QrCode,       tone: "forest", key: "receive" },
 ] as const;
 
-const WITHDRAW_ACTION = { label: "Withdraw", icon: ArrowDownToLine, isOrange: false, key: "withdraw" } as const;
+const WITHDRAW_ACTION = { label: "Withdraw", icon: ArrowDownToLine, tone: "soft", key: "withdraw" } as const;
+
+const QUICK_ACTION_TILE_CLASSES: Record<string, string> = {
+  amber: "bg-amber shadow-[0_4px_16px_rgba(232,163,61,0.35)]",
+  ink: "bg-ink",
+  forest: "bg-forest",
+  soft: "bg-ink/10",
+};
+
+const QUICK_ACTION_ICON_CLASSES: Record<string, string> = {
+  amber: "text-ink",
+  ink: "text-paper",
+  forest: "text-paper",
+  soft: "text-ink",
+};
 
 function QuickActions({
   onAddMoney,
@@ -405,7 +420,7 @@ function QuickActions({
       <div className={cn("grid gap-2 md:max-w-lg", showWithdraw ? "grid-cols-5" : "grid-cols-4")}>
         {/* 4-up layout: touch targets keep their 44px min-height, just with
             tighter horizontal gutters than the previous 3-up grid. */}
-        {actions.map(({ label, icon: Icon, isOrange, key }) => (
+        {actions.map(({ label, icon: Icon, tone, key }) => (
           <button
             key={key}
             type="button"
@@ -415,18 +430,16 @@ function QuickActions({
             <div
               className={cn(
                 "w-15 h-15 rounded-[18px] flex items-center justify-center active:scale-90 transition-transform",
-                isOrange
-                  ? "bg-orange-gradient shadow-[0_4px_16px_rgba(249,115,22,0.35)]"
-                  : "bg-navy-surface border border-navy-border"
+                QUICK_ACTION_TILE_CLASSES[tone]
               )}
             >
-              {isOrange ? (
-                <Icon size={22} strokeWidth={2.5} className="text-white" />
-              ) : (
-                <Icon size={20} strokeWidth={1.5} className="text-white" />
-              )}
+              <Icon
+                size={tone === "amber" ? 22 : 20}
+                strokeWidth={tone === "amber" ? 2.5 : 1.5}
+                className={QUICK_ACTION_ICON_CLASSES[tone]}
+              />
             </div>
-            <span className="text-[11px] font-semibold text-white/60">{label}</span>
+            <span className="text-[11px] font-semibold text-charcoal">{label}</span>
           </button>
         ))}
       </div>
@@ -438,13 +451,13 @@ function QuickActions({
 
 function TransactionSkeleton() {
   return (
-    <div className="flex items-center gap-3 py-3 border-b border-white/5">
-      <div className="w-9.5 h-9.5 rounded-xl bg-navy-card animate-pulse shrink-0" />
+    <div className="flex items-center gap-3 py-3 border-b border-ink/6">
+      <div className="w-9.5 h-9.5 rounded-xl bg-ink/6 animate-pulse shrink-0" />
       <div className="flex-1">
-        <div className="h-3.5 w-32 rounded bg-navy-card animate-pulse" />
-        <div className="h-3 w-20 rounded bg-navy-card animate-pulse mt-1.5" />
+        <div className="h-3.5 w-32 rounded bg-ink/6 animate-pulse" />
+        <div className="h-3 w-20 rounded bg-ink/6 animate-pulse mt-1.5" />
       </div>
-      <div className="h-4 w-14 rounded bg-navy-card animate-pulse ml-auto" />
+      <div className="h-4 w-14 rounded bg-ink/6 animate-pulse ml-auto" />
     </div>
   );
 }
@@ -461,14 +474,14 @@ function RecentActivity({
   const transactions = query.data?.transactions ?? [];
 
   return (
-    <div className="px-4 md:col-span-3 md:order-5 md:px-0 md:bg-navy-card md:border md:border-navy-border md:rounded-2xl md:p-5">
+    <div className="px-4 md:col-span-3 md:order-5 md:px-0 md:bg-paper md:border md:border-ink/10 md:rounded-2xl md:p-5">
       <div className="flex items-center justify-between mb-4">
-        <span className="font-bold text-[13px] text-white">Recent activity</span>
+        <span className="font-bold text-[13px] text-charcoal">Recent activity</span>
         {transactions.length > 0 && (
           <button
             type="button"
             onClick={onViewAll}
-            className="text-[12px] text-orange font-semibold cursor-pointer focus-visible:outline-none"
+            className="text-[12px] text-forest font-semibold cursor-pointer focus-visible:outline-none"
           >
             See all
           </button>
@@ -485,12 +498,12 @@ function RecentActivity({
 
       {!query.isLoading && query.isError && (
         <div className="flex flex-col items-center py-8 text-center">
-          <AlertCircle size={24} strokeWidth={1.5} className="text-white/20 mb-2" />
-          <p className="text-[13px] text-white/30">Could not load transactions.</p>
+          <AlertCircle size={24} strokeWidth={1.5} className="text-ink/25 mb-2" />
+          <p className="text-[13px] text-slate">Could not load transactions.</p>
           <button
             type="button"
             onClick={() => void query.refetch()}
-            className="mt-2 text-[12px] text-orange font-semibold cursor-pointer focus-visible:outline-none"
+            className="mt-2 text-[12px] text-forest font-semibold cursor-pointer focus-visible:outline-none"
           >
             Retry
           </button>
@@ -499,13 +512,13 @@ function RecentActivity({
 
       {!query.isLoading && !query.isError && transactions.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <Activity size={28} strokeWidth={1.5} className="text-white/20 mb-3" />
-          <p className="text-[14px] font-bold text-white/40 mb-1">No transactions yet</p>
-          <p className="text-[12px] text-white/25">Add money to get started.</p>
+          <Activity size={28} strokeWidth={1.5} className="text-ink/25 mb-3" />
+          <p className="text-[14px] font-bold text-charcoal/70 mb-1">No transactions yet</p>
+          <p className="text-[12px] text-slate">Add money to get started.</p>
           <button
             type="button"
             onClick={onAddMoney}
-            className="mt-4 px-5 py-2.5 rounded-xl bg-orange/15 border border-orange/25 text-orange text-[13px] font-semibold focus-visible:outline-none"
+            className="mt-4 px-5 py-2.5 rounded-xl bg-amber/15 border border-amber/40 text-ink text-[13px] font-semibold focus-visible:outline-none"
           >
             Add money
           </button>
