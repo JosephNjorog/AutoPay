@@ -13,9 +13,9 @@ const DEFAULT_LABELS: Record<StatusPillProps["status"], string> = {
 };
 
 const STATUS_CLASSES: Record<StatusPillProps["status"], string> = {
-  pending: "bg-warning/15 text-warning",
-  completed: "bg-success/15 text-success",
-  failed: "bg-danger/15 text-danger",
+  pending: "bg-amber/16 text-amber-deep",
+  completed: "bg-forest/12 text-forest-light",
+  failed: "bg-rust/12 text-rust",
 };
 
 export function StatusPill({ status, label, className }: StatusPillProps) {
