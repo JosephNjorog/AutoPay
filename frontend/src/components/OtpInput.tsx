@@ -114,12 +114,12 @@ export const OtpInput = forwardRef<OtpInputRef, OtpInputProps>(
               onClick={(e) => (e.target as HTMLInputElement).select()}
               aria-label={`OTP digit ${i + 1}`}
               className={cn(
-                "w-11 h-[52px] rounded-2xl border-2 text-[22px] font-bold text-navy text-center outline-none transition-all duration-150",
+                "w-11 h-[52px] rounded-2xl border-2 text-[22px] font-bold text-ink text-center outline-none transition-all duration-150 font-manrope",
                 "focus-visible:outline-none",
-                !isFilled && !isActive && !error && "border-black/12 bg-white/80",
-                isFilled && !error && "border-orange bg-white",
-                isActive && !error && "border-orange shadow-[0_0_0_3px_rgba(249,115,22,0.2)] bg-white",
-                error && "border-danger bg-red-50",
+                !isFilled && !isActive && !error && "border-ink/12 bg-paper/80",
+                isFilled && !error && "border-amber bg-paper",
+                isActive && !error && "border-amber shadow-[0_0_0_3px_rgba(232,163,61,0.2)] bg-paper",
+                error && "border-rust bg-rust/8",
                 disabled && "opacity-50 cursor-not-allowed"
               )}
             />
