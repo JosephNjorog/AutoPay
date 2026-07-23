@@ -132,15 +132,15 @@ function ProfileSettings() {
   };
 
   return (
-    <div className="min-h-screen bg-auth-gradient relative">
-      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-white/30" />
+    <div className="min-h-screen bg-linen relative font-manrope">
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-paper/40" />
 
       <div className="relative z-10 px-5 pt-6 pb-10 max-w-97.5 mx-auto min-h-screen flex flex-col">
         {/* Back */}
         <button
           type="button"
           onClick={() => navigate({ to: "/dashboard" })}
-          className="w-9 h-9 rounded-xl bg-white/50 border border-white/60 flex items-center justify-center cursor-pointer mb-6 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+          className="w-9 h-9 rounded-xl bg-paper/70 border border-paper flex items-center justify-center cursor-pointer mb-6 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber"
           aria-label="Go back"
         >
           <ChevronLeft size={16} strokeWidth={2} />
@@ -160,7 +160,7 @@ function ProfileSettings() {
               fallbackLetter={fallback}
               size="xl"
             />
-            <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-orange flex items-center justify-center border-2 border-white shadow-md group-active:scale-90 transition-transform">
+            <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-amber flex items-center justify-center border-2 border-paper shadow-md group-active:scale-90 transition-transform">
               <Edit2 size={13} strokeWidth={2.5} className="text-white" />
             </div>
           </button>
@@ -177,12 +177,12 @@ function ProfileSettings() {
                   if (e.key === "Escape") setEditingName(false);
                 }}
                 maxLength={32}
-                className="font-display font-bold text-[20px] text-navy bg-transparent border-b-2 border-orange outline-none text-center min-w-0 w-36"
+                className="font-display font-bold text-[20px] text-ink bg-transparent border-b-2 border-amber outline-none text-center min-w-0 w-36"
               />
-              <button type="button" onClick={handleSaveName} className="text-success focus-visible:outline-none">
+              <button type="button" onClick={handleSaveName} className="text-forest-light focus-visible:outline-none">
                 <Check size={18} strokeWidth={2.5} />
               </button>
-              <button type="button" onClick={() => setEditingName(false)} className="text-black/30 focus-visible:outline-none">
+              <button type="button" onClick={() => setEditingName(false)} className="text-ink/30 focus-visible:outline-none">
                 <X size={18} strokeWidth={2} />
               </button>
             </div>
@@ -192,18 +192,18 @@ function ProfileSettings() {
               onClick={() => setEditingName(true)}
               className="flex items-center gap-1.5 group focus-visible:outline-none"
             >
-              <span className="font-display font-bold text-[22px] text-navy">{displayedName}</span>
-              <Edit2 size={14} strokeWidth={2} className="text-black/30 group-hover:text-orange transition-colors" />
+              <span className="font-display font-bold text-[22px] text-ink">{displayedName}</span>
+              <Edit2 size={14} strokeWidth={2} className="text-ink/30 group-hover:text-amber-deep transition-colors" />
             </button>
           )}
 
-          <p className="text-[13px] text-black/40 mt-0.5">{session.phone}</p>
+          <p className="text-[13px] text-slate mt-0.5">{session.phone}</p>
         </div>
 
         {/* Account info */}
         <div className="mb-4">
-          <p className="text-[10px] font-semibold tracking-widest text-black/40 uppercase mb-2 px-1">Account</p>
-          <div className="bg-white/80 backdrop-blur-sm border border-white/90 rounded-2xl overflow-hidden divide-y divide-black/5">
+          <p className="text-[10px] font-semibold tracking-widest text-slate uppercase mb-2 px-1">Account</p>
+          <div className="bg-paper/80 backdrop-blur-sm border border-paper rounded-2xl overflow-hidden divide-y divide-ink/5">
             <InfoRow label="Phone" value={session.phone ?? "—"} />
             <InfoRow label="Email" value={session.display_name?.includes("@") ? session.display_name : "—"} />
             <InfoRow label="Wallet" value={
@@ -216,32 +216,32 @@ function ProfileSettings() {
 
         {/* Security */}
         <div className="mb-4">
-          <p className="text-[10px] font-semibold tracking-widest text-black/40 uppercase mb-2 px-1">Security</p>
-          <div className="bg-white/80 backdrop-blur-sm border border-white/90 rounded-2xl overflow-hidden divide-y divide-black/5">
+          <p className="text-[10px] font-semibold tracking-widest text-slate uppercase mb-2 px-1">Security</p>
+          <div className="bg-paper/80 backdrop-blur-sm border border-paper rounded-2xl overflow-hidden divide-y divide-ink/5">
             <ActionRow
-              icon={<Shield size={16} strokeWidth={1.5} className="text-orange" />}
+              icon={<Shield size={16} strokeWidth={1.5} className="text-amber-deep" />}
               label={session.pin_hash ? "Change PIN" : "Set up PIN"}
               onPress={() => navigate({ to: "/settings/pin" })}
             />
             <div className="flex items-center gap-3 px-4 py-3.5">
-              <div className="w-8 h-8 rounded-xl bg-orange/10 flex items-center justify-center shrink-0">
-                <Fingerprint size={16} strokeWidth={1.5} className="text-orange" />
+              <div className="w-8 h-8 rounded-xl bg-amber/12 flex items-center justify-center shrink-0">
+                <Fingerprint size={16} strokeWidth={1.5} className="text-amber-deep" />
               </div>
               <div className="flex-1">
-                <p className="text-[14px] font-semibold text-navy">Biometric unlock</p>
-                <p className="text-[11px] text-black/40">
+                <p className="text-[14px] font-semibold text-ink">Biometric unlock</p>
+                <p className="text-[11px] text-slate">
                   {biometricsEnabled ? "Fingerprint / Face ID enabled" : "Tap to enable fingerprint or Face ID"}
                 </p>
               </div>
               {biometricsLoading ? (
-                <div className="w-5 h-5 border-2 border-orange/30 border-t-orange rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-amber/50 border-t-amber rounded-full animate-spin" />
               ) : (
                 <button
                   type="button"
                   onClick={handleToggleBiometrics}
                   className={cn(
-                    "relative w-11 h-6 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-1",
-                    biometricsEnabled ? "bg-orange" : "bg-black/15"
+                    "relative w-11 h-6 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-1",
+                    biometricsEnabled ? "bg-amber" : "bg-ink/15"
                   )}
                 >
                   <span
@@ -260,23 +260,23 @@ function ProfileSettings() {
 
         {/* Log out */}
         {showLogout ? (
-          <div className="bg-white/80 border border-white/90 rounded-2xl p-4 mb-3">
-            <p className="text-[14px] font-semibold text-navy mb-1">Log out of AutoPayKe?</p>
-            <p className="text-[12px] text-black/50 leading-relaxed mb-3">
+          <div className="bg-paper/80 border border-paper rounded-2xl p-4 mb-3">
+            <p className="text-[14px] font-semibold text-ink mb-1">Log out of AutoPayKe?</p>
+            <p className="text-[12px] text-slate leading-relaxed mb-3">
               You will need to verify your phone number to log back in.
             </p>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setShowLogout(false)}
-                className="flex-1 py-2.5 rounded-xl border border-black/10 text-[13px] text-black/50 font-semibold focus-visible:outline-none"
+                className="flex-1 py-2.5 rounded-xl border border-ink/10 text-[13px] text-slate font-semibold focus-visible:outline-none"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex-1 py-2.5 rounded-xl bg-danger/10 border border-danger/20 text-[13px] text-danger font-semibold focus-visible:outline-none"
+                className="flex-1 py-2.5 rounded-xl bg-rust/10 border border-rust/20 text-[13px] text-rust font-semibold focus-visible:outline-none"
               >
                 Log out
               </button>
@@ -286,7 +286,7 @@ function ProfileSettings() {
           <button
             type="button"
             onClick={() => setShowLogout(true)}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-danger/20 bg-danger/8 text-danger text-[14px] font-semibold focus-visible:outline-none"
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-rust/20 bg-rust/8 text-rust text-[14px] font-semibold focus-visible:outline-none"
           >
             <LogOut size={16} strokeWidth={2} />
             Log out
@@ -310,8 +310,8 @@ function ProfileSettings() {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between px-4 py-3.5">
-      <span className="text-[13px] text-black/50">{label}</span>
-      <span className="text-[13px] font-medium text-navy">{value}</span>
+      <span className="text-[13px] text-slate">{label}</span>
+      <span className="text-[13px] font-medium text-ink">{value}</span>
     </div>
   );
 }
@@ -329,13 +329,13 @@ function ActionRow({
     <button
       type="button"
       onClick={onPress}
-      className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-black/3 transition-colors focus-visible:outline-none"
+      className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-ink/3 transition-colors focus-visible:outline-none"
     >
-      <div className="w-8 h-8 rounded-xl bg-orange/10 flex items-center justify-center shrink-0">
+      <div className="w-8 h-8 rounded-xl bg-amber/12 flex items-center justify-center shrink-0">
         {icon}
       </div>
-      <span className="flex-1 text-[14px] font-semibold text-navy text-left">{label}</span>
-      <ChevronRight size={16} strokeWidth={1.5} className="text-black/30" />
+      <span className="flex-1 text-[14px] font-semibold text-ink text-left">{label}</span>
+      <ChevronRight size={16} strokeWidth={1.5} className="text-ink/30" />
     </button>
   );
 }
