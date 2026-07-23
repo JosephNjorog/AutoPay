@@ -55,21 +55,21 @@ function SignupComplete() {
   const activating = !done;
 
   return (
-    <div className="min-h-screen bg-dark-gradient relative flex flex-col items-center justify-center px-5">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_60%,rgba(249,115,22,0.18)_0%,transparent_70%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_40%_30%_at_50%_25%,rgba(249,115,22,0.08)_0%,transparent_70%)]" />
+    <div className="min-h-screen bg-ink relative flex flex-col items-center justify-center px-5 font-manrope">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_60%,rgba(232,163,61,0.18)_0%,transparent_70%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_40%_30%_at_50%_25%,rgba(232,163,61,0.08)_0%,transparent_70%)]" />
 
       <div className="relative z-10 w-full max-w-97.5 flex flex-col items-center text-center">
         <div
           className={cn(
             "w-20 h-20 rounded-3xl flex items-center justify-center mb-7 transition-colors duration-500",
-            done ? "bg-success/20 border border-success/30" : "bg-orange/15 border border-orange/25"
+            done ? "bg-forest/20 border border-forest/30" : "bg-amber/15 border border-amber/40"
           )}
         >
           {activating ? (
             <LoadingSpinner size={28} color="orange" />
           ) : (
-            <Check size={32} strokeWidth={2.5} className="text-success" />
+            <Check size={32} strokeWidth={2.5} className="text-forest-light" />
           )}
         </div>
 
@@ -98,13 +98,13 @@ function SignupComplete() {
                   className={cn(
                     "w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors duration-300",
                     checked
-                      ? "bg-success/20 border-success/50"
+                      ? "bg-forest/20 border-forest/50"
                       : activating
                       ? "border-white/20 bg-transparent animate-pulse"
                       : "border-white/10 bg-transparent"
                   )}
                 >
-                  {checked && <Check size={11} strokeWidth={3} className="text-success" />}
+                  {checked && <Check size={11} strokeWidth={3} className="text-forest-light" />}
                 </div>
                 <span
                   className={cn(
@@ -124,9 +124,9 @@ function SignupComplete() {
             type="button"
             onClick={handleContinue}
             className={cn(
-              "w-full py-4 rounded-2xl bg-orange-gradient text-white font-display font-bold text-[15px]",
-              "shadow-[0_6px_20px_rgba(249,115,22,0.35)] flex items-center justify-center gap-2",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2"
+              "w-full py-4 rounded-2xl bg-amber text-ink font-display font-bold text-[15px]",
+              "shadow-[0_6px_20px_rgba(232,163,61,0.35)] flex items-center justify-center gap-2",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2"
             )}
           >
             Go to dashboard
