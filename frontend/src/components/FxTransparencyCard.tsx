@@ -30,7 +30,7 @@ export function QuoteCountdown({ lockedUntil, onExpire }: { lockedUntil: string;
   const expiring = secondsLeft <= 5;
 
   return (
-    <span className={`normal-case flex items-center gap-1 ${expiring ? "text-warning" : "text-success"}`}>
+    <span className={`normal-case flex items-center gap-1 font-manrope font-semibold ${expiring ? "text-rust" : "text-amber-deep"}`}>
       <Lock className="h-3 w-3" /> {secondsLeft > 0 ? `Rate locked · ${secondsLeft}s` : "Refreshing rate…"}
     </span>
   );
@@ -40,9 +40,9 @@ export function QuoteCountdown({ lockedUntil, onExpire }: { lockedUntil: string;
 
 export function KV({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{k}</span>
-      <span className={`text-xs font-semibold ${mono ? "font-mono" : ""}`}>{v}</span>
+    <div className="flex items-center justify-between px-4 py-3 font-manrope">
+      <span className="text-[11px] uppercase tracking-wider text-slate">{k}</span>
+      <span className={`text-xs font-semibold text-charcoal ${mono ? "font-mono" : ""}`}>{v}</span>
     </div>
   );
 }
@@ -72,23 +72,23 @@ export function FxQuoteSummaryCard({
   label?: string;
 }) {
   return (
-    <div className="mt-4 rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+    <div className="mt-4 rounded-2xl border border-ink/10 bg-paper p-4 font-manrope">
+      <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-slate">
         <span>{label}</span>
         <QuoteCountdown lockedUntil={quote.lockedUntil} onExpire={onRefreshQuote} />
       </div>
-      <p className="mt-1 text-3xl font-black">
+      <p className="mt-1 text-3xl font-black font-display text-ink">
         {quote.toCurrency} {quote.toAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })}
       </p>
-      <p className="mt-1 text-[11px] text-muted-foreground">1 USD = {quote.tumaRate.toFixed(2)} {quote.toCurrency}</p>
+      <p className="mt-1 text-[11px] text-slate">1 USD = {quote.tumaRate.toFixed(2)} {quote.toCurrency}</p>
       {!!quote.networkFeeUsd && (
-        <p className="mt-1 text-[11px] text-muted-foreground">Network fee: ${quote.networkFeeUsd.toFixed(2)}</p>
+        <p className="mt-1 text-[11px] text-slate">Network fee: ${quote.networkFeeUsd.toFixed(2)}</p>
       )}
-      <div className="mt-3 pt-3 border-t border-border text-[11px] flex justify-between">
-        <span className="text-success font-semibold flex items-center gap-1">
+      <div className="mt-3 pt-3 border-t border-ink/10 text-[11px] flex justify-between">
+        <span className="text-forest-light font-semibold flex items-center gap-1">
           <Sparkles className="h-3 w-3" /> Saving vs banks
         </span>
-        <span className="text-success font-semibold">
+        <span className="text-forest-light font-semibold">
           {quote.toCurrency} {((quote.midRate - quote.tumaRate) * usd).toLocaleString("en-US", { maximumFractionDigits: 2 })}
         </span>
       </div>
@@ -114,19 +114,19 @@ export function FxReviewHero({
   toLabel?: string;
 }) {
   return (
-    <div className="p-5 text-center" style={{ background: "var(--gradient-mesh)" }}>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{fromLabel}</p>
-      <p className="mt-1 text-3xl font-black">{usd.toFixed(2)} {quote.fromToken ?? "USDC"}</p>
+    <div className="p-5 text-center bg-paper font-manrope">
+      <p className="text-[10px] uppercase tracking-wider text-slate">{fromLabel}</p>
+      <p className="mt-1 text-3xl font-black font-display text-ink">{usd.toFixed(2)} {quote.fromToken ?? "USDC"}</p>
       {!!quote.networkFeeUsd && (
-        <p className="text-[11px] text-muted-foreground">+ ${quote.networkFeeUsd.toFixed(2)} network fee</p>
+        <p className="text-[11px] text-slate">+ ${quote.networkFeeUsd.toFixed(2)} network fee</p>
       )}
-      <div className="my-3 flex items-center justify-center text-muted-foreground">
-        <div className="h-px flex-1 bg-border" />
-        <Icon className="h-4 w-4 mx-3 text-primary" />
-        <div className="h-px flex-1 bg-border" />
+      <div className="my-3 flex items-center justify-center text-slate">
+        <div className="h-px flex-1 bg-ink/10" />
+        <Icon className="h-4 w-4 mx-3 text-ink" />
+        <div className="h-px flex-1 bg-ink/10" />
       </div>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{toLabel}</p>
-      <p className="mt-1 text-3xl font-black">
+      <p className="text-[10px] uppercase tracking-wider text-slate">{toLabel}</p>
+      <p className="mt-1 text-3xl font-black font-display text-ink">
         {quote.toCurrency} {quote.toAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })}
       </p>
       <div className="mt-2 flex justify-center text-[10px]">
