@@ -222,11 +222,11 @@ function SendPage() {
 
   return (
     <PageFrame sidebar maxWidth="narrow">
-      <div className="flex min-h-full flex-col">
-        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-5 py-4 flex items-center justify-between">
+      <div className="flex min-h-full flex-col bg-linen font-manrope">
+        <header className="sticky top-0 z-10 bg-linen/95 backdrop-blur border-b border-ink/10 px-5 py-4 flex items-center justify-between">
           <button
             onClick={handleBack}
-            className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center"
+            className="h-9 w-9 rounded-full border border-ink/10 bg-paper flex items-center justify-center"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -243,7 +243,7 @@ function SendPage() {
         </header>
 
         {error && (
-          <div className="mx-5 mt-3 flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
+          <div className="mx-5 mt-3 flex items-center gap-2 rounded-2xl border border-rust/30 bg-rust/10 px-4 py-3 text-xs text-rust">
             <AlertCircle className="h-4 w-4 shrink-0" />
             {error}
           </div>
@@ -326,14 +326,8 @@ function SendPage() {
         {step === "sending" && (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
             <div className="relative h-24 w-24">
-              <div
-                className="absolute inset-0 rounded-full opacity-40 blur-2xl"
-                style={{ background: "var(--gradient-portfolio)" }}
-              />
-              <div
-                className="relative h-full w-full rounded-full flex items-center justify-center text-primary-foreground"
-                style={{ background: "var(--gradient-portfolio)" }}
-              >
+              <div className="absolute inset-0 rounded-full opacity-40 blur-2xl bg-ink" />
+              <div className="relative h-full w-full rounded-full flex items-center justify-center text-paper bg-ink">
                 <Loader2 className="h-8 w-8 animate-spin" />
               </div>
             </div>
@@ -343,7 +337,7 @@ function SendPage() {
                 : "Getting quote…"}
             </h2>
             {quote && (
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-slate">
                 Broadcasting on Avalanche → routing to {quote.rail}
               </p>
             )}
@@ -353,13 +347,13 @@ function SendPage() {
         {step === "done" && sendResult && recipient && (
           <div className="flex-1 flex flex-col p-5">
             <div className="mt-8 flex flex-col items-center text-center">
-              <div className="h-20 w-20 rounded-full bg-success-soft flex items-center justify-center">
-                <Check className="h-10 w-10 text-success" />
+              <div className="h-20 w-20 rounded-full bg-forest/15 flex items-center justify-center">
+                <Check className="h-10 w-10 text-forest-light" />
               </div>
               <h2 className="mt-6 text-3xl font-black">
                 {sendResult.type === "direct" ? "Sent!" : "Link sent!"}
               </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-2 text-sm text-slate">
                 {sendResult.type === "direct"
                   ? `${sendResult.localCurrency} ${sendResult.amountLocal.toLocaleString("en-US", { maximumFractionDigits: 2 })} is settling via ${sendResult.rail}.`
                   : `We texted ${recipient.msisdn} a claim link. Funds stay in escrow until they verify their number.`}
@@ -367,11 +361,11 @@ function SendPage() {
             </div>
 
             {sendResult.type === "escrow" && (
-              <div className="mt-6 rounded-2xl border border-border bg-card p-4 flex items-start gap-3">
-                <MessageCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+              <div className="mt-6 rounded-2xl border border-ink/10 bg-paper p-4 flex items-start gap-3">
+                <MessageCircle className="h-5 w-5 text-forest shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-semibold">SMS preview</p>
-                  <p className="mt-1 text-[11px] text-muted-foreground italic">
+                  <p className="mt-1 text-[11px] text-slate italic">
                     "Someone sent you {sendResult.localCurrency}{" "}
                     {sendResult.amountLocal.toFixed(2)} on Autopayke. Tap to
                     claim: autopayke.com/claim/…"
@@ -383,14 +377,14 @@ function SendPage() {
             {canInstall && (
               <button
                 onClick={install}
-                className="mt-6 w-full flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left hover:bg-muted/50 transition"
+                className="mt-6 w-full flex items-center gap-3 rounded-2xl border border-ink/10 bg-paper p-4 text-left hover:bg-ink/5 transition"
               >
-                <div className="h-10 w-10 rounded-full bg-primary-soft flex items-center justify-center shrink-0">
-                  <Download className="h-4 w-4 text-primary" />
+                <div className="h-10 w-10 rounded-full bg-amber/16 flex items-center justify-center shrink-0">
+                  <Download className="h-4 w-4 text-ink" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold">Install Autopayke</p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-[11px] text-slate">
                     One tap for faster, full-screen access next time.
                   </p>
                 </div>
@@ -401,14 +395,13 @@ function SendPage() {
               <Link
                 to="/track/$id"
                 params={{ id: sendResult.id }}
-                className="w-full block text-center rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant)"
-                style={{ background: "var(--gradient-portfolio)" }}
+                className="w-full block text-center rounded-2xl px-6 py-4 text-sm font-semibold text-paper bg-ink"
               >
                 Track settlement
               </Link>
               <Link
                 to="/dashboard"
-                className="w-full block text-center rounded-2xl border border-border bg-card py-4 text-sm font-semibold"
+                className="w-full block text-center rounded-2xl border border-ink/10 bg-paper py-4 text-sm font-semibold"
               >
                 Back to home
               </Link>
@@ -463,25 +456,25 @@ function CountryStep({
 
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
-      <div className="flex items-center gap-2 rounded-2xl bg-card border border-border px-4 py-3">
-        <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+      <div className="flex items-center gap-2 rounded-2xl bg-paper border border-ink/10 px-4 py-3">
+        <Search className="h-4 w-4 text-slate shrink-0" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search countries"
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate"
         />
       </div>
 
       {!corridors && (
         <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="h-6 w-6 animate-spin text-slate" />
         </div>
       )}
 
       {recents.length > 0 && !q && (
         <div className="mt-5">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+          <p className="text-[10px] uppercase tracking-wider text-slate mb-2">
             Recent
           </p>
           <div className="flex flex-wrap gap-2">
@@ -489,7 +482,7 @@ function CountryStep({
               <button
                 key={c.code}
                 onClick={() => onPick(c)}
-                className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted/50 transition"
+                className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-paper px-3 py-1.5 text-xs font-semibold hover:bg-ink/5 transition"
               >
                 <span>{c.flag}</span>
                 {c.name}
@@ -504,22 +497,22 @@ function CountryStep({
           <button
             key={c.code}
             onClick={() => onPick(c)}
-            className="w-full flex items-center gap-3 rounded-2xl border border-border bg-card hover:bg-muted/50 p-3.5 text-left transition"
+            className="w-full flex items-center gap-3 rounded-2xl border border-ink/10 bg-paper hover:bg-ink/5 p-3.5 text-left transition"
           >
-            <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xl">
+            <div className="h-10 w-10 rounded-full bg-ink/8 flex items-center justify-center text-xl">
               {c.flag}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate">{c.name}</p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-slate">
                 {c.dial} · {c.currency}
               </p>
             </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            <ArrowRight className="h-4 w-4 text-slate" />
           </button>
         ))}
         {corridors && filtered.length === 0 && (
-          <p className="py-12 text-center text-sm text-muted-foreground">
+          <p className="py-12 text-center text-sm text-slate">
             No match for "{q}"
           </p>
         )}
@@ -705,7 +698,7 @@ function PickRecipient({
   return (
     <>
       <div className="px-5 pt-5">
-        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 rounded-2xl border border-ink/10 bg-paper px-3 py-2 text-xs text-slate">
           <span>{country.flag}</span>
           <span>
             Sending to {country.name} · {country.dial}
@@ -713,7 +706,7 @@ function PickRecipient({
         </div>
 
         {pendingContact && (
-          <div className="mt-3 rounded-2xl border border-primary/30 bg-primary-soft/30 p-4">
+          <div className="mt-3 rounded-2xl border border-amber/50 bg-amber/16 p-4">
             <p className="text-sm font-semibold">
               "{pendingContact.rawNumber}" doesn't have a country code — treat
               it as a {country.name} number ({country.dial})?
@@ -721,13 +714,13 @@ function PickRecipient({
             <div className="mt-3 flex gap-2">
               <button
                 onClick={confirmPendingContact}
-                className="flex-1 rounded-xl bg-primary py-2 text-xs font-semibold text-primary-foreground"
+                className="flex-1 rounded-xl bg-ink py-2 text-xs font-semibold text-paper"
               >
                 Yes, use {country.dial}
               </button>
               <button
                 onClick={() => setPendingContact(null)}
-                className="flex-1 rounded-xl border border-border bg-card py-2 text-xs font-semibold"
+                className="flex-1 rounded-xl border border-ink/10 bg-paper py-2 text-xs font-semibold"
               >
                 Cancel
               </button>
@@ -736,14 +729,14 @@ function PickRecipient({
         )}
 
         {inlineError && (
-          <div className="mt-3 flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-xs text-destructive">
+          <div className="mt-3 flex items-center gap-2 rounded-2xl border border-rust/30 bg-rust/10 px-4 py-2.5 text-xs text-rust">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
             {inlineError}
           </div>
         )}
 
-        <div className="mt-3 flex items-center gap-2 rounded-2xl bg-card border border-border px-4 py-3">
-          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+        <div className="mt-3 flex items-center gap-2 rounded-2xl bg-paper border border-ink/10 px-4 py-3">
+          <Search className="h-4 w-4 text-slate shrink-0" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -751,18 +744,18 @@ function PickRecipient({
             type="tel"
             inputMode="tel"
             autoComplete="tel"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate"
           />
           {hasContactPicker && (
             <button
               onClick={importFromContacts}
               title="Import from phone contacts"
-              className="h-8 w-8 rounded-xl bg-muted flex items-center justify-center shrink-0 hover:bg-primary/10 transition"
+              className="h-8 w-8 rounded-xl bg-ink/8 flex items-center justify-center shrink-0 hover:bg-ink/10 transition"
             >
               {importing ? (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <Loader2 className="h-4 w-4 animate-spin text-slate" />
               ) : (
-                <BookUser className="h-4 w-4 text-primary" />
+                <BookUser className="h-4 w-4 text-forest" />
               )}
             </button>
           )}
@@ -771,17 +764,17 @@ function PickRecipient({
         {hasContactPicker && (
           <button
             onClick={importFromContacts}
-            className="mt-3 w-full flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-left hover:bg-muted/50 transition"
+            className="mt-3 w-full flex items-center gap-2 rounded-2xl border border-ink/10 bg-paper px-4 py-3 text-left hover:bg-ink/5 transition"
           >
             {importing ? (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <Loader2 className="h-4 w-4 animate-spin text-slate" />
             ) : (
-              <BookUser className="h-4 w-4 text-primary" />
+              <BookUser className="h-4 w-4 text-forest" />
             )}
             <span className="text-sm font-semibold">
               Choose from phone contacts
             </span>
-            <ArrowRight className="h-4 w-4 text-muted-foreground ml-auto" />
+            <ArrowRight className="h-4 w-4 text-slate ml-auto" />
           </button>
         )}
 
@@ -790,13 +783,13 @@ function PickRecipient({
             onClick={() => finalizePick(normalized!, normalized!)}
             className={`mt-4 w-full flex items-center gap-3 rounded-2xl border p-4 text-left transition ${
               isRegistered
-                ? "border-success/50 bg-success/5"
-                : "border-dashed border-primary bg-primary-soft/50"
+                ? "border-forest/50 bg-forest/8"
+                : "border-dashed border-ink bg-amber/16"
             }`}
           >
             <div
-              className={`h-10 w-10 rounded-full flex items-center justify-center text-primary-foreground ${
-                isRegistered ? "bg-success" : "bg-primary"
+              className={`h-10 w-10 rounded-full flex items-center justify-center text-paper ${
+                isRegistered ? "bg-forest" : "bg-ink"
               }`}
             >
               {lookupPending ? (
@@ -812,21 +805,21 @@ function PickRecipient({
                 Send to {normalized} {country.flag}
               </p>
               {lookupPending ? (
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11px] text-slate">
                   Checking Autopayke…
                 </p>
               ) : isRegistered ? (
-                <p className="text-[11px] text-success font-medium">
+                <p className="text-[11px] text-forest-light font-medium">
                   On Autopayke · instant settlement
                 </p>
               ) : (
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11px] text-slate">
                   Not on Autopayke yet — we'll text them a claim link
                 </p>
               )}
             </div>
             <ArrowRight
-              className={`h-4 w-4 ${isRegistered ? "text-success" : "text-primary"}`}
+              className={`h-4 w-4 ${isRegistered ? "text-forest-light" : "text-forest"}`}
             />
           </button>
         )}
@@ -834,7 +827,7 @@ function PickRecipient({
 
       <div className="px-5 mt-5 flex-1">
         {filtered.length > 0 && (
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+          <p className="text-[10px] uppercase tracking-wider text-slate mb-2">
             Recent
           </p>
         )}
@@ -848,27 +841,27 @@ function PickRecipient({
             <button
               key={c.id}
               onClick={() => finalizePick(c.name, c.msisdn)}
-              className="w-full flex items-center gap-3 rounded-2xl border border-border bg-card hover:bg-muted/50 p-3.5 text-left transition"
+              className="w-full flex items-center gap-3 rounded-2xl border border-ink/10 bg-paper hover:bg-ink/5 p-3.5 text-left transition"
             >
-              <div className="relative h-11 w-11 rounded-full bg-muted flex items-center justify-center text-xl">
+              <div className="relative h-11 w-11 rounded-full bg-ink/8 flex items-center justify-center text-xl">
                 {c.flag}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold truncate">{c.name}</p>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11px] text-slate">
                   {c.msisdn} · {c.rail}
                 </p>
               </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <ArrowRight className="h-4 w-4 text-slate" />
             </button>
           ))}
           {filtered.length === 0 && !newContact && q && (
-            <p className="py-12 text-center text-sm text-muted-foreground">
+            <p className="py-12 text-center text-sm text-slate">
               No match for "{q}"
             </p>
           )}
           {filtered.length === 0 && !newContact && !q && (
-            <p className="py-12 text-center text-sm text-muted-foreground">
+            <p className="py-12 text-center text-sm text-slate">
               No recent recipients in {country.name} yet — type a phone number
               or import from contacts above.
             </p>
@@ -911,8 +904,8 @@ function VerifyRecipientStep({
   if (isLoading || !data || !data.available) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        <p className="mt-3 text-xs text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin text-slate" />
+        <p className="mt-3 text-xs text-slate">
           Verifying recipient…
         </p>
       </div>
@@ -921,12 +914,12 @@ function VerifyRecipientStep({
 
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
-      <div className="rounded-3xl border border-border bg-card p-5 text-center">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+      <div className="rounded-3xl border border-ink/10 bg-paper p-5 text-center">
+        <p className="text-[10px] uppercase tracking-wider text-slate">
           Sending to
         </p>
         <p className="mt-2 text-2xl font-black">{data.recipientName}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-xs text-slate">
           {recipient.msisdn} {country.flag}
         </p>
         <p className="mt-3 text-sm font-semibold">Is this correct?</p>
@@ -934,14 +927,13 @@ function VerifyRecipientStep({
       <div className="mt-auto pt-6 space-y-2">
         <button
           onClick={onConfirmed}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant)"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover transition"
         >
           <Check className="h-4 w-4" /> Yes, that's them
         </button>
         <button
           onClick={onRejected}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-4 text-sm font-semibold"
+          className="w-full flex items-center justify-center gap-2 rounded-2xl border border-ink/10 bg-paper py-4 text-sm font-semibold"
         >
           <X className="h-4 w-4" /> Not them — go back
         </button>
@@ -1051,8 +1043,8 @@ function AmountStep({
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
       {/* Recipient row */}
-      <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-lg">
+      <div className="flex items-center gap-3 rounded-2xl border border-ink/10 bg-paper p-3">
+        <div className="h-10 w-10 rounded-full bg-ink/8 flex items-center justify-center text-lg">
           {country.flag}
         </div>
         <div className="flex-1 min-w-0">
@@ -1061,29 +1053,26 @@ function AmountStep({
               ? recipient.name
               : recipient.msisdn}
           </p>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-slate">
             {recipient.msisdn}
           </p>
         </div>
       </div>
 
       {/* Amount card with toggle */}
-      <div
-        className="mt-6 rounded-3xl p-5 text-primary-foreground shadow-(--shadow-elegant)"
-        style={{ background: "var(--gradient-portfolio)" }}
-      >
+      <div className="mt-6 rounded-3xl p-5 text-paper bg-ink">
         <div className="flex items-center justify-between mb-1">
           <p className="text-xs opacity-90">You send</p>
-          <div className="flex items-center rounded-full bg-white/20 p-0.5">
+          <div className="flex items-center rounded-full bg-paper/15 p-0.5">
             <button
               onClick={() => switchMode("usdc")}
-              className={`rounded-full px-3 py-1 text-[10px] font-bold transition ${mode === "usdc" ? "bg-white text-foreground shadow" : "text-white/70"}`}
+              className={`rounded-full px-3 py-1 text-[10px] font-bold transition ${mode === "usdc" ? "bg-paper text-ink" : "text-paper/70"}`}
             >
               {token}
             </button>
             <button
               onClick={() => switchMode("local")}
-              className={`rounded-full px-3 py-1 text-[10px] font-bold transition ${mode === "local" ? "bg-white text-foreground shadow" : "text-white/70"}`}
+              className={`rounded-full px-3 py-1 text-[10px] font-bold transition ${mode === "local" ? "bg-paper text-ink" : "text-paper/70"}`}
             >
               {country.currency}
             </button>
@@ -1122,7 +1111,7 @@ function AmountStep({
             <button
               key={v}
               onClick={() => handleQuickAmount(v)}
-              className="flex-1 rounded-full bg-white/15 backdrop-blur py-1.5 text-xs font-semibold"
+              className="flex-1 rounded-full bg-paper/15 backdrop-blur py-1.5 text-xs font-semibold"
             >
               {mode === "local" ? fmtQuick(v) : `${v}`}
             </button>
@@ -1146,8 +1135,7 @@ function AmountStep({
         <button
           disabled={usd <= 0 || insufficientBalance}
           onClick={onNext}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground disabled:opacity-40 shadow-(--shadow-elegant)"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover disabled:opacity-40 transition"
         >
           Review transfer <ArrowRight className="h-4 w-4" />
         </button>
@@ -1187,14 +1175,14 @@ function ReviewStep({
 
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
-      <div className="rounded-3xl border border-border bg-card overflow-hidden">
+      <div className="rounded-3xl border border-ink/10 bg-paper overflow-hidden">
         <FxReviewHero
           usd={usd}
           quote={quote}
           onRefreshQuote={onRefreshQuote}
           icon={SendIcon}
         />
-        <div className="divide-y divide-border text-xs">
+        <div className="divide-y divide-ink/10 text-xs">
           <KV
             k="To"
             v={`${recipient.name !== recipient.msisdn ? recipient.name : recipient.msisdn} ${country.flag}`}
@@ -1218,15 +1206,15 @@ function ReviewStep({
         </div>
       </div>
 
-      <label className="mt-4 block rounded-2xl border border-border bg-card p-3.5">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+      <label className="mt-4 block rounded-2xl border border-ink/10 bg-paper p-3.5">
+        <span className="text-[10px] uppercase tracking-wider text-slate">
           Add a note (optional)
         </span>
         <input
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Rent · groceries · birthday 🎁"
-          className="mt-1 w-full bg-transparent text-sm font-semibold outline-none placeholder:text-muted-foreground/50"
+          className="mt-1 w-full bg-transparent text-sm font-semibold outline-none placeholder:text-slate/50"
         />
       </label>
 
@@ -1234,8 +1222,7 @@ function ReviewStep({
         <button
           onClick={handleSend}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant) disabled:opacity-60"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-ink bg-amber hover:bg-amber-deep disabled:opacity-60 transition"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -1244,7 +1231,7 @@ function ReviewStep({
           )}
           {loading ? "Processing…" : "Confirm & send"}
         </button>
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+        <p className="mt-2 text-center text-[11px] text-slate">
           Signed on-device · Settled on Avalanche
         </p>
       </div>
