@@ -45,20 +45,19 @@ function Claim() {
   if (claimResult) {
     return (
       <PageFrame sidebar={false} maxWidth="narrow">
-        <div className="flex min-h-full flex-col p-6 pb-10">
+        <div className="flex min-h-full flex-col p-6 pb-10 font-manrope">
           <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <div className="h-20 w-20 rounded-full bg-success-soft flex items-center justify-center">
-              <Check className="h-10 w-10 text-success" />
+            <div className="h-20 w-20 rounded-full bg-forest/15 flex items-center justify-center">
+              <Check className="h-10 w-10 text-forest-light" />
             </div>
             <h2 className="mt-6 text-3xl font-black tracking-tight">Claimed!</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-slate">
               {claimResult.localCurrency} {claimResult.amountLocal.toLocaleString("en-US", { maximumFractionDigits: 2 })} is being sent to your wallet via {claimResult.rail}.
             </p>
           </div>
           <div className="space-y-2">
             <button onClick={() => navigate({ to: "/dashboard" })}
-              className="w-full rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant)"
-              style={{ background: "var(--gradient-portfolio)" }}>
+              className="w-full rounded-2xl px-6 py-4 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover transition">
               Go to dashboard
             </button>
           </div>
@@ -71,7 +70,7 @@ function Claim() {
     return (
       <PageFrame sidebar={false} maxWidth="narrow">
         <div className="flex h-full items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="h-6 w-6 animate-spin text-slate" />
         </div>
       </PageFrame>
     );
@@ -82,10 +81,10 @@ function Claim() {
     return (
       <PageFrame sidebar={false} maxWidth="narrow">
         <div className="flex min-h-full flex-col items-center justify-center p-6 text-center">
-          <AlertCircle className="h-12 w-12 text-destructive" />
+          <AlertCircle className="h-12 w-12 text-rust" />
           <h2 className="mt-4 text-xl font-black">Unable to claim</h2>
-          <p className="mt-2 text-sm text-muted-foreground">{msg}</p>
-          <Link to="/" className="mt-6 text-sm text-primary font-semibold">Go home</Link>
+          <p className="mt-2 text-sm text-slate">{msg}</p>
+          <Link to="/" className="mt-6 text-sm text-forest font-semibold">Go home</Link>
         </div>
       </PageFrame>
     );
@@ -97,30 +96,30 @@ function Claim() {
 
   return (
     <PageFrame sidebar={false} maxWidth="narrow">
-      <div className="flex min-h-full flex-col p-6 pb-10">
+      <div className="flex min-h-full flex-col p-6 pb-10 font-manrope">
         <div className="mt-6 flex flex-col items-center text-center">
           <div className="relative h-24 w-24">
-            <div className="absolute inset-0 rounded-full opacity-40 blur-2xl" style={{ background: "var(--gradient-portfolio)" }} />
-            <div className="relative h-full w-full rounded-full flex items-center justify-center text-primary-foreground" style={{ background: "var(--gradient-portfolio)" }}>
+            <div className="absolute inset-0 rounded-full opacity-40 blur-2xl bg-ink" />
+            <div className="relative h-full w-full rounded-full flex items-center justify-center text-paper bg-ink">
               <Gift className="h-10 w-10" />
             </div>
           </div>
-          <p className="mt-6 text-xs uppercase tracking-[0.3em] text-muted-foreground">You've got money waiting</p>
+          <p className="mt-6 text-xs uppercase tracking-[0.3em] text-slate">You've got money waiting</p>
           <h1 className="mt-2 text-4xl font-black tracking-tight">
             {senderPhone.length > 5 ? `…${senderPhone.slice(-4)}` : senderPhone} sent you<br />${amountUsdc.toFixed(2)} USDC
           </h1>
-          <p className="mt-3 text-sm text-muted-foreground max-w-xs">
+          <p className="mt-3 text-sm text-slate max-w-xs">
             Held in escrow on Avalanche · ref <span className="font-mono">{ref}</span>
             {expiresAt && <> · expires {expiresAt}</>}
           </p>
         </div>
 
-        <div className="mt-8 rounded-3xl border border-border bg-card p-5">
+        <div className="mt-8 rounded-3xl border border-ink/10 bg-paper p-5">
           <div className="flex items-start gap-3">
-            <ShieldCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+            <ShieldCheck className="h-5 w-5 text-forest shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-bold">Claim in 60 seconds</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-slate mt-1">
                 {isLoggedIn()
                   ? "You're signed in. Tap below to claim your funds."
                   : "Verify your phone number → we deposit straight to your mobile money. No app required, no fees."}
@@ -130,19 +129,18 @@ function Claim() {
         </div>
 
         {error && (
-          <div className="mt-4 flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
+          <div className="mt-4 flex items-center gap-2 rounded-2xl border border-rust/30 bg-rust/10 px-4 py-3 text-xs text-rust">
             <AlertCircle className="h-4 w-4 shrink-0" />{error}
           </div>
         )}
 
         <div className="mt-auto pt-8 space-y-2">
           <button onClick={handleClaim} disabled={claiming}
-            className="w-full flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant) disabled:opacity-60"
-            style={{ background: "var(--gradient-portfolio)" }}>
+            className="w-full flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover disabled:opacity-60 transition">
             {claiming ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
             {claiming ? "Claiming…" : isLoggedIn() ? `Claim $${amountUsdc.toFixed(2)}` : "Sign in to claim"}
           </button>
-          <p className="text-center text-[11px] text-muted-foreground">Powered by AutoPayKe · Settled on Avalanche</p>
+          <p className="text-center text-[11px] text-slate">Powered by AutoPayKe · Settled on Avalanche</p>
         </div>
       </div>
     </PageFrame>
