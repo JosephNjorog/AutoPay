@@ -110,64 +110,64 @@ function Scan() {
 
   return (
     <PageFrame sidebar maxWidth="narrow">
-      <div className="relative flex min-h-full flex-col bg-foreground text-background">
+      <div className="relative flex min-h-full flex-col bg-ink text-paper font-manrope">
         <header className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-5">
-          <Link to="/dashboard" className="h-9 w-9 rounded-full bg-background/15 backdrop-blur flex items-center justify-center text-background">
+          <Link to="/dashboard" className="h-9 w-9 rounded-full bg-paper/15 backdrop-blur flex items-center justify-center text-paper">
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <h1 className="text-sm font-bold">Scan Autopayke QR</h1>
-          <Link to="/receive" className="h-9 w-9 rounded-full bg-background/15 backdrop-blur flex items-center justify-center text-background">
+          <Link to="/receive" className="h-9 w-9 rounded-full bg-paper/15 backdrop-blur flex items-center justify-center text-paper">
             <QrCode className="h-4 w-4" />
           </Link>
         </header>
 
-        <div className="relative flex-1 flex items-center justify-center px-8 overflow-hidden" style={{ background: "radial-gradient(at center, oklch(0.25 0.03 50) 0%, oklch(0.12 0.02 50) 100%)" }}>
+        <div className="relative flex-1 flex items-center justify-center px-8 overflow-hidden" style={{ background: "radial-gradient(at center, var(--color-ink-hover) 0%, var(--color-ink) 100%)" }}>
           {!error && (
             <video ref={videoRef} muted playsInline className="absolute inset-0 h-full w-full object-cover opacity-80" />
           )}
           <canvas ref={canvasRef} className="hidden" />
 
           <div className="relative aspect-square w-full max-w-70">
-            <div className="absolute inset-0 rounded-3xl border-2 border-background/20" />
+            <div className="absolute inset-0 rounded-3xl border-2 border-paper/20" />
             {[
               "top-0 left-0 border-t-4 border-l-4 rounded-tl-3xl",
               "top-0 right-0 border-t-4 border-r-4 rounded-tr-3xl",
               "bottom-0 left-0 border-b-4 border-l-4 rounded-bl-3xl",
               "bottom-0 right-0 border-b-4 border-r-4 rounded-br-3xl",
             ].map((c, i) => (
-              <div key={i} className={`absolute h-12 w-12 border-primary ${c}`} />
+              <div key={i} className={`absolute h-12 w-12 border-amber ${c}`} />
             ))}
             {!error && (
-              <div className="absolute inset-x-4 h-0.5 animate-[scan_2.5s_ease-in-out_infinite]" style={{ background: "linear-gradient(90deg, transparent, oklch(0.68 0.19 28), transparent)" }} />
+              <div className="absolute inset-x-4 h-0.5 animate-[scan_2.5s_ease-in-out_infinite]" style={{ background: "linear-gradient(90deg, transparent, var(--color-amber), transparent)" }} />
             )}
           </div>
 
           {scanError && (
-            <div className="absolute top-6 left-5 right-5 flex items-center gap-2 rounded-2xl bg-destructive/90 px-4 py-2.5 text-xs text-white">
+            <div className="absolute top-6 left-5 right-5 flex items-center gap-2 rounded-2xl bg-rust/90 px-4 py-2.5 text-xs text-paper">
               <AlertCircle className="h-4 w-4 shrink-0" />{scanError}
             </div>
           )}
 
           {error ? (
             <div className="absolute bottom-8 left-5 right-5 text-center">
-              <p className="text-xs text-background/70">{error}</p>
+              <p className="text-xs text-paper/70">{error}</p>
             </div>
           ) : (
-            <p className="absolute bottom-8 left-0 right-0 text-center text-xs text-background/60">Point at an Autopayke QR</p>
+            <p className="absolute bottom-8 left-0 right-0 text-center text-xs text-paper/60">Point at an Autopayke QR</p>
           )}
         </div>
 
-        <div className="bg-background text-foreground rounded-t-3xl p-5 pb-8 space-y-3">
+        <div className="bg-linen text-charcoal rounded-t-3xl p-5 pb-8 space-y-3">
           <div className="flex items-center gap-2">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex-1 flex items-center justify-center gap-2 rounded-2xl border border-border bg-card p-3.5 text-sm font-semibold hover:bg-muted/50 transition"
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl border border-ink/10 bg-paper p-3.5 text-sm font-semibold hover:bg-ink/5 transition"
             >
               <ImageIcon className="h-4 w-4" /> From gallery
             </button>
             <Link
               to="/send"
-              className="flex-1 flex items-center justify-center gap-2 rounded-2xl border border-border bg-card p-3.5 text-sm font-semibold hover:bg-muted/50 transition"
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl border border-ink/10 bg-paper p-3.5 text-sm font-semibold hover:bg-ink/5 transition"
             >
               <Keyboard className="h-4 w-4" /> Enter number
             </Link>
