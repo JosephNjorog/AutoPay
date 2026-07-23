@@ -30,6 +30,7 @@ export const RAIL_LABELS: Record<string, string> = {
   crypto: "Crypto deposit",
   mpesa_b2b_till: "M-Pesa Till (Sandbox)",
   mpesa_b2b_paybill: "M-Pesa PayBill (Sandbox)",
+  minisend: "Mobile money withdraw",
 };
 
 export function getRailLabel(rail: string): string {
