@@ -47,7 +47,7 @@ export const CountdownTimer = forwardRef<CountdownTimerRef, CountdownTimerProps>
     const secs = String(seconds % 60).padStart(2, "0");
 
     return (
-      <span className={cn("text-[13px] text-black/40", className)}>
+      <span className={cn("text-[13px] text-slate", className)}>
         Resend code in {mins}:{secs}
       </span>
     );
