@@ -71,23 +71,23 @@ function SettingsPin() {
   };
 
   return (
-    <div className="min-h-screen bg-auth-gradient relative">
-      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-white/30" />
+    <div className="min-h-screen bg-linen relative font-manrope">
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-paper/40" />
 
       <div className="relative z-10 px-5 pt-6 pb-8 max-w-97.5 mx-auto min-h-screen flex flex-col">
         <button
           type="button"
           onClick={handleBack}
-          className="w-9 h-9 rounded-xl bg-white/50 border border-white/60 flex items-center justify-center cursor-pointer mb-6 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+          className="w-9 h-9 rounded-xl bg-paper/70 border border-paper flex items-center justify-center cursor-pointer mb-6 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber"
           aria-label="Go back"
         >
           <ChevronLeft size={16} strokeWidth={2} />
         </button>
 
-        <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-navy mb-2">
+        <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-ink mb-2">
           {stage === "create" ? `Create a ${PIN_LENGTH}-digit PIN` : "Confirm your PIN"}
         </h1>
-        <p className="text-[13px] text-black/50 leading-relaxed mb-4">
+        <p className="text-[13px] text-slate leading-relaxed mb-4">
           {stage === "create"
             ? "This PIN locks the app when you step away. It never leaves your device."
             : "Enter the same PIN again to confirm."}
@@ -97,7 +97,7 @@ function SettingsPin() {
           <TrustBadge
             title="Stored only on your device"
             body="Your PIN is hashed locally. It never leaves your phone in plain text."
-            icon={<ShieldCheck size={18} strokeWidth={2.5} className="text-success" />}
+            icon={<ShieldCheck size={18} strokeWidth={2.5} className="text-forest-light" />}
             className="mb-2"
           />
         )}
@@ -119,8 +119,8 @@ function SettingsPin() {
             type="button"
             onClick={handleBack}
             className={cn(
-              "w-full py-3.5 rounded-2xl border border-black/10 text-black/50 text-[13px] font-medium mt-3",
-              "bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-1"
+              "w-full py-3.5 rounded-2xl border border-ink/10 text-slate text-[13px] font-medium mt-3",
+              "bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-1"
             )}
           >
             Start over
