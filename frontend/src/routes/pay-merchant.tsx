@@ -167,9 +167,9 @@ function PayMerchantPage() {
 
   return (
     <PageFrame sidebar maxWidth="narrow">
-      <div className="flex min-h-full flex-col">
-        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-5 py-4 flex items-center justify-between">
-          <button onClick={handleBack} className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
+      <div className="flex min-h-full flex-col font-manrope">
+        <header className="sticky top-0 z-10 bg-linen/95 backdrop-blur border-b border-ink/10 px-5 py-4 flex items-center justify-between">
+          <button onClick={handleBack} className="h-9 w-9 rounded-full border border-ink/10 bg-paper flex items-center justify-center">
             <ArrowLeft className="h-4 w-4" />
           </button>
           <h1 className="text-sm font-bold">
@@ -184,7 +184,7 @@ function PayMerchantPage() {
         </header>
 
         {error && (
-          <div className="mx-5 mt-3 flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
+          <div className="mx-5 mt-3 flex items-center gap-2 rounded-2xl border border-rust/30 bg-rust/10 px-4 py-3 text-xs text-rust">
             <AlertCircle className="h-4 w-4 shrink-0" />{error}
           </div>
         )}
@@ -244,8 +244,8 @@ function PayMerchantPage() {
         {step === "sending" && (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
             <div className="relative h-24 w-24">
-              <div className="absolute inset-0 rounded-full opacity-40 blur-2xl" style={{ background: "var(--gradient-portfolio)" }} />
-              <div className="relative h-full w-full rounded-full flex items-center justify-center text-primary-foreground" style={{ background: "var(--gradient-portfolio)" }}>
+              <div className="absolute inset-0 rounded-full opacity-40 blur-2xl bg-ink" />
+              <div className="relative h-full w-full rounded-full flex items-center justify-center text-paper bg-ink">
                 <Loader2 className="h-8 w-8 animate-spin" />
               </div>
             </div>
@@ -253,7 +253,7 @@ function PayMerchantPage() {
               {sendingPhase === "confirm" ? PAY_SENDING_COPY.initiated : "Getting quote…"}
             </h2>
             {sendingPhase === "confirm" && (
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-slate">
                 Debiting your balance → sandbox Daraja B2B call
               </p>
             )}
@@ -279,7 +279,7 @@ function MethodStep({ config, isLoading, hasError, onRetry, onPick }: {
     return (
       <div className="flex-1 flex flex-col px-5 pt-5 pb-6 gap-3">
         {[0, 1].map((i) => (
-          <div key={i} className="h-20 rounded-2xl border border-border bg-card animate-pulse" />
+          <div key={i} className="h-20 rounded-2xl border border-ink/10 bg-paper animate-pulse" />
         ))}
       </div>
     );
@@ -288,9 +288,9 @@ function MethodStep({ config, isLoading, hasError, onRetry, onPick }: {
   if (hasError) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-        <AlertCircle className="h-6 w-6 text-destructive" />
-        <p className="mt-3 text-sm text-muted-foreground">Couldn't load Pay options.</p>
-        <button onClick={onRetry} className="mt-4 rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold">
+        <AlertCircle className="h-6 w-6 text-rust" />
+        <p className="mt-3 text-sm text-slate">Couldn't load Pay options.</p>
+        <button onClick={onRetry} className="mt-4 rounded-xl border border-ink/10 bg-paper px-4 py-2 text-xs font-semibold">
           Try again
         </button>
       </div>
@@ -300,11 +300,11 @@ function MethodStep({ config, isLoading, hasError, onRetry, onPick }: {
   if (!config || config.status !== "available" || config.methods.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-        <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-          <Clock className="h-7 w-7 text-muted-foreground" />
+        <div className="h-16 w-16 rounded-full bg-ink/8 flex items-center justify-center">
+          <Clock className="h-7 w-7 text-slate" />
         </div>
         <h2 className="mt-5 text-lg font-black">Coming soon in {config?.countryName ?? "your country"}</h2>
-        <p className="mt-2 text-sm text-muted-foreground max-w-xs">
+        <p className="mt-2 text-sm text-slate max-w-xs">
           Merchant Pay is live in Kenya today. We're rolling out to more countries next.
         </p>
       </div>
@@ -319,18 +319,18 @@ function MethodStep({ config, isLoading, hasError, onRetry, onPick }: {
           <button
             key={m.kind}
             onClick={() => onPick(m.kind)}
-            className="w-full flex items-center gap-3 rounded-2xl border border-border bg-card hover:bg-muted/50 p-4 text-left transition"
+            className="w-full flex items-center gap-3 rounded-2xl border border-ink/10 bg-paper hover:bg-ink/5 p-4 text-left transition"
           >
-            <div className="h-11 w-11 rounded-full bg-primary-soft flex items-center justify-center shrink-0">
-              <Icon className="h-5 w-5 text-primary" />
+            <div className="h-11 w-11 rounded-full bg-amber/16 flex items-center justify-center shrink-0">
+              <Icon className="h-5 w-5 text-forest" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold">{m.label}</p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-slate">
                 {m.requiresAccountNumber ? `${m.numberLabel} + account number` : m.numberLabel}
               </p>
             </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            <ArrowRight className="h-4 w-4 text-slate" />
           </button>
         );
       })}
@@ -352,8 +352,8 @@ function MerchantStep({ methodConfig, merchantNumber, setMerchantNumber, account
 
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
-      <label className="block rounded-2xl border border-border bg-card p-4">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{methodConfig.numberLabel}</span>
+      <label className="block rounded-2xl border border-ink/10 bg-paper p-4">
+        <span className="text-[10px] uppercase tracking-wider text-slate">{methodConfig.numberLabel}</span>
         <input
           value={merchantNumber}
           onChange={(e) => setMerchantNumber(e.target.value.replace(/[^0-9]/g, "").slice(0, 7))}
@@ -361,28 +361,28 @@ function MerchantStep({ methodConfig, merchantNumber, setMerchantNumber, account
           type="text"
           inputMode="numeric"
           autoFocus
-          className="mt-1 w-full bg-transparent text-2xl font-black outline-none placeholder:text-muted-foreground/40"
+          className="mt-1 w-full bg-transparent text-2xl font-black outline-none placeholder:text-slate/40"
         />
         {merchantNumber.length > 0 && !numberValid && (
-          <p className="mt-1 text-[11px] text-destructive">Enter a 5–7 digit number</p>
+          <p className="mt-1 text-[11px] text-rust">Enter a 5–7 digit number</p>
         )}
       </label>
 
       {methodConfig.requiresAccountNumber && (
-        <label className="mt-3 block rounded-2xl border border-border bg-card p-4">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Account number</span>
+        <label className="mt-3 block rounded-2xl border border-ink/10 bg-paper p-4">
+          <span className="text-[10px] uppercase tracking-wider text-slate">Account number</span>
           <input
             value={accountNumber}
             onChange={(e) => setAccountNumber(e.target.value.slice(0, 20))}
             placeholder="e.g. account or invoice number"
-            className="mt-1 w-full bg-transparent text-lg font-bold outline-none placeholder:text-muted-foreground/40"
+            className="mt-1 w-full bg-transparent text-lg font-bold outline-none placeholder:text-slate/40"
           />
         </label>
       )}
 
-      <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-primary/30 bg-primary-soft/30 px-4 py-3">
-        <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-        <p className="text-[11px] text-muted-foreground">
+      <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-amber/50 bg-amber/16 px-4 py-3">
+        <Info className="h-4 w-4 text-forest shrink-0 mt-0.5" />
+        <p className="text-[11px] text-slate">
           Double-check this number before continuing — Autopayke can't verify the merchant's name,
           so payments to a wrong till or paybill can't be reversed.
         </p>
@@ -392,8 +392,7 @@ function MerchantStep({ methodConfig, merchantNumber, setMerchantNumber, account
         <button
           disabled={!canContinue}
           onClick={onNext}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground disabled:opacity-40 shadow-(--shadow-elegant)"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover disabled:opacity-40 transition"
         >
           Continue <ArrowRight className="h-4 w-4" />
         </button>
@@ -417,7 +416,7 @@ function AmountStep({ amount, setAmount, kes, usdApprox, kesRate, token, maxBala
 
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
-      <div className="rounded-3xl p-5 text-primary-foreground shadow-(--shadow-elegant)" style={{ background: "var(--gradient-portfolio)" }}>
+      <div className="rounded-3xl p-5 text-paper bg-ink">
         <p className="text-xs opacity-90 mb-1">You're paying</p>
         <div className="flex items-baseline gap-2">
           <span className="text-xl font-black opacity-80">KES</span>
@@ -431,7 +430,7 @@ function AmountStep({ amount, setAmount, kes, usdApprox, kesRate, token, maxBala
         {kesRate > 0 && (
           <p className="mt-1 text-[11px] opacity-80">≈ {usdApprox.toFixed(2)} {token}</p>
         )}
-        <p className={`mt-2 text-[11px] ${overBalance ? "text-destructive-foreground font-semibold" : "opacity-80"}`}>
+        <p className={`mt-2 text-[11px] ${overBalance ? "text-rust font-semibold" : "opacity-80"}`}>
           Available: {maxBalance.toFixed(2)} {token}
         </p>
 
@@ -440,7 +439,7 @@ function AmountStep({ amount, setAmount, kes, usdApprox, kesRate, token, maxBala
             <button
               key={v}
               onClick={() => setAmount(String(v))}
-              className="flex-1 rounded-full bg-white/15 backdrop-blur py-1.5 text-xs font-semibold"
+              className="flex-1 rounded-full bg-paper/15 backdrop-blur py-1.5 text-xs font-semibold"
             >
               {fmtQuick(v)}
             </button>
@@ -456,13 +455,12 @@ function AmountStep({ amount, setAmount, kes, usdApprox, kesRate, token, maxBala
         <button
           disabled={kes <= 0 || overBalance}
           onClick={onNext}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground disabled:opacity-40 shadow-(--shadow-elegant)"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover disabled:opacity-40 transition"
         >
           Review payment <ArrowRight className="h-4 w-4" />
         </button>
         {overBalance && (
-          <p className="mt-2 text-center text-[11px] text-destructive">Not enough {token} for this amount</p>
+          <p className="mt-2 text-center text-[11px] text-rust">Not enough {token} for this amount</p>
         )}
       </div>
     </div>
@@ -491,7 +489,7 @@ function ReviewStep({ methodConfig, merchantNumber, accountNumber, quote, onConf
 
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
-      <div className="rounded-3xl border border-border bg-card overflow-hidden">
+      <div className="rounded-3xl border border-ink/10 bg-paper overflow-hidden">
         <FxReviewHero
           usd={quote.fromAmountUsd}
           quote={quote}
@@ -499,7 +497,7 @@ function ReviewStep({ methodConfig, merchantNumber, accountNumber, quote, onConf
           icon={Icon}
           toLabel="Merchant receives"
         />
-        <div className="divide-y divide-border text-xs">
+        <div className="divide-y divide-ink/10 text-xs">
           <KV k="To" v={toLine} mono />
           <KV k="Method" v={methodConfig.label} />
           <KV k="Paying with" v={quote.tokenAmount !== undefined ? `${quote.tokenAmount.toFixed(4)} ${quote.fromToken}` : quote.fromToken} />
@@ -510,9 +508,9 @@ function ReviewStep({ methodConfig, merchantNumber, accountNumber, quote, onConf
         </div>
       </div>
 
-      <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-primary/30 bg-primary-soft/30 px-4 py-3">
-        <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-        <p className="text-[11px] text-muted-foreground">
+      <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-amber/50 bg-amber/16 px-4 py-3">
+        <Info className="h-4 w-4 text-forest shrink-0 mt-0.5" />
+        <p className="text-[11px] text-slate">
           Sandbox demo — this pays a real Safaricom sandbox till, not a live merchant.
         </p>
       </div>
@@ -521,13 +519,12 @@ function ReviewStep({ methodConfig, merchantNumber, accountNumber, quote, onConf
         <button
           onClick={handleConfirm}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant) disabled:opacity-60"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-ink bg-amber hover:bg-amber-deep disabled:opacity-60 transition"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
           {loading ? "Processing…" : "Confirm & pay"}
         </button>
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">Signed on-device · Settled on Avalanche</p>
+        <p className="mt-2 text-center text-[11px] text-slate">Signed on-device · Settled on Avalanche</p>
       </div>
     </div>
   );
