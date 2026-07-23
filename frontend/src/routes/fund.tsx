@@ -122,7 +122,7 @@ function Fund() {
 
   return (
     <PageFrame sidebar maxWidth="narrow">
-      <div className="flex min-h-full flex-col p-5 pb-10">
+      <div className="flex min-h-full flex-col p-5 pb-10 font-manrope">
         <header className="flex items-center justify-between">
           <button
             onClick={() =>
@@ -130,7 +130,7 @@ function Fund() {
                 ? navigate({ to: "/dashboard" })
                 : setStage("pick")
             }
-            className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center"
+            className="h-9 w-9 rounded-full border border-ink/10 bg-paper flex items-center justify-center"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -141,13 +141,10 @@ function Fund() {
         {stage === "pick" && (
           <>
             <div className="mt-6">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+              <p className="text-xs uppercase tracking-[0.3em] text-slate">
                 You're funding
               </p>
-              <div
-                className="mt-3 rounded-3xl p-5 text-primary-foreground shadow-(--shadow-elegant)"
-                style={{ background: "var(--gradient-portfolio)" }}
-              >
+<div className="mt-3 rounded-3xl p-5 text-paper bg-ink">
                 <p className="text-xs opacity-90">
                   Amount in {pickAmountLabel}
                 </p>
@@ -169,7 +166,7 @@ function Fund() {
                     <button
                       key={v}
                       onClick={() => setAmount(String(v))}
-                      className={`flex-1 rounded-full py-1.5 text-xs font-semibold backdrop-blur ${amount === String(v) ? "bg-white text-foreground" : "bg-white/15"}`}
+                      className={`flex-1 rounded-full py-1.5 text-xs font-semibold backdrop-blur ${amount === String(v) ? "bg-paper text-ink" : "bg-paper/15"}`}
                     >
                       {fmtQuick(v)}
                     </button>
@@ -178,7 +175,7 @@ function Fund() {
               </div>
             </div>
 
-            <p className="mt-6 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <p className="mt-6 text-[10px] uppercase tracking-wider text-slate">
               Choose method
             </p>
             <div className="mt-2 space-y-2">
@@ -220,13 +217,13 @@ function Fund() {
               />
             </div>
 
-            <div className="mt-5 rounded-2xl border border-border bg-card p-4 text-xs space-y-2">
+            <div className="mt-5 rounded-2xl border border-ink/10 bg-paper p-4 text-xs space-y-2">
               <Row
                 k="You pay"
                 v={`${amt.toFixed(method === "mobile" ? 0 : 2)} ${pickAmountLabel}`}
               />
               <Row k="Fee" v={fee ? `${fee.toFixed(2)} USDC` : "Free"} />
-              <div className="h-px bg-border my-1" />
+              <div className="h-px bg-ink/10 my-1" />
               <Row k="Credited to wallet" v={`${creditedUsdc} USDC`} bold />
             </div>
 
@@ -234,8 +231,7 @@ function Fund() {
               <button
                 disabled={amt <= 0}
                 onClick={() => setStage("pay")}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground disabled:opacity-40 shadow-(--shadow-elegant)"
-                style={{ background: "var(--gradient-portfolio)" }}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover disabled:opacity-40 transition"
               >
                 Continue <ArrowRight className="h-4 w-4" />
               </button>
@@ -268,25 +264,24 @@ function Fund() {
         {stage === "done" && (
           <div className="flex-1 flex flex-col">
             <div className="mt-12 flex flex-col items-center text-center">
-              <div className="h-20 w-20 rounded-full bg-success-soft flex items-center justify-center">
-                <Check className="h-10 w-10 text-success" />
+              <div className="h-20 w-20 rounded-full bg-forest/15 flex items-center justify-center">
+                <Check className="h-10 w-10 text-forest-light" />
               </div>
               <h2 className="mt-6 text-3xl font-black">Wallet funded</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-2 text-sm text-slate">
                 Your USDC balance will update once the payment settles.
               </p>
             </div>
             <div className="mt-auto pt-6 space-y-2">
               <button
                 onClick={() => navigate({ to: "/send" })}
-                className="w-full rounded-2xl px-6 py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant)"
-                style={{ background: "var(--gradient-portfolio)" }}
+                className="w-full rounded-2xl px-6 py-4 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover transition"
               >
                 Send money now
               </button>
               <button
                 onClick={() => navigate({ to: "/dashboard" })}
-                className="w-full rounded-2xl border border-border bg-card py-4 text-sm font-semibold"
+                className="w-full rounded-2xl border border-ink/10 bg-paper py-4 text-sm font-semibold"
               >
                 Back to home
               </button>
@@ -318,11 +313,10 @@ function MethodCard({
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 rounded-2xl border p-4 text-left transition ${active ? "border-primary bg-primary-soft" : "border-border bg-card hover:bg-muted/50"}`}
+      className={`w-full flex items-center gap-3 rounded-2xl border p-4 text-left transition ${active ? "border-ink bg-amber/16" : "border-ink/10 bg-paper hover:bg-ink/5"}`}
     >
       <div
-        className={`h-11 w-11 rounded-xl flex items-center justify-center ${active ? "text-primary-foreground" : "bg-muted text-foreground"}`}
-        style={active ? { background: "var(--gradient-portfolio)" } : undefined}
+        className={`h-11 w-11 rounded-xl flex items-center justify-center ${active ? "text-paper bg-ink" : "bg-ink/8 text-ink"}`}
       >
         <Icon className="h-5 w-5" />
       </div>
@@ -330,17 +324,17 @@ function MethodCard({
         <div className="flex items-center gap-2">
           <p className="text-sm font-bold">{title}</p>
           {badge && (
-            <span className="text-[9px] uppercase tracking-wider bg-foreground text-background rounded-full px-1.5 py-0.5">
+            <span className="text-[9px] uppercase tracking-wider bg-ink text-paper rounded-full px-1.5 py-0.5">
               {badge}
             </span>
           )}
         </div>
-        <p className="text-[11px] text-muted-foreground">{sub}</p>
+        <p className="text-[11px] text-slate">{sub}</p>
       </div>
       <div
-        className={`h-5 w-5 rounded-full border-2 ${active ? "border-primary bg-primary" : "border-border"}`}
+        className={`h-5 w-5 rounded-full border-2 ${active ? "border-ink bg-ink" : "border-ink/10"}`}
       >
-        {active && <Check className="h-3 w-3 text-primary-foreground m-0.5" />}
+        {active && <Check className="h-3 w-3 text-paper m-0.5" />}
       </div>
     </button>
   );
@@ -437,7 +431,7 @@ function MockCard({
     borderRadius: "1rem",
     backfaceVisibility: "hidden",
     overflow: "hidden",
-    background: "var(--gradient-portfolio)",
+    background: "var(--color-ink)",
   };
   const backStyle: React.CSSProperties = {
     ...faceStyle,
@@ -573,8 +567,8 @@ function PayCard({
 
       {/* Form */}
       <div className="mt-5 space-y-3">
-        <div className="rounded-2xl border border-border bg-card p-3.5">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        <div className="rounded-2xl border border-ink/10 bg-paper p-3.5">
+          <p className="text-[10px] uppercase tracking-wider text-slate">
             Card number
           </p>
           <input
@@ -583,12 +577,12 @@ function PayCard({
             placeholder="1234 5678 9012 3456"
             inputMode="numeric"
             maxLength={19}
-            className="mt-1 w-full bg-transparent text-sm font-mono font-semibold outline-none placeholder:text-muted-foreground/40"
+            className="mt-1 w-full bg-transparent text-sm font-mono font-semibold outline-none placeholder:text-slate/40"
           />
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-3.5">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        <div className="rounded-2xl border border-ink/10 bg-paper p-3.5">
+          <p className="text-[10px] uppercase tracking-wider text-slate">
             Cardholder name
           </p>
           <input
@@ -596,13 +590,13 @@ function PayCard({
             onChange={(e) => setCardName(e.target.value.toUpperCase())}
             placeholder="JOHN DOE"
             autoCapitalize="characters"
-            className="mt-1 w-full bg-transparent text-sm font-semibold outline-none placeholder:text-muted-foreground/40"
+            className="mt-1 w-full bg-transparent text-sm font-semibold outline-none placeholder:text-slate/40"
           />
         </div>
 
         <div className="flex gap-3">
-          <div className="flex-1 rounded-2xl border border-border bg-card p-3.5">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <div className="flex-1 rounded-2xl border border-ink/10 bg-paper p-3.5">
+            <p className="text-[10px] uppercase tracking-wider text-slate">
               Expiry
             </p>
             <input
@@ -611,11 +605,11 @@ function PayCard({
               placeholder="MM/YY"
               inputMode="numeric"
               maxLength={5}
-              className="mt-1 w-full bg-transparent text-sm font-mono font-semibold outline-none placeholder:text-muted-foreground/40"
+              className="mt-1 w-full bg-transparent text-sm font-mono font-semibold outline-none placeholder:text-slate/40"
             />
           </div>
-          <div className="flex-1 rounded-2xl border border-border bg-card p-3.5">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <div className="flex-1 rounded-2xl border border-ink/10 bg-paper p-3.5">
+            <p className="text-[10px] uppercase tracking-wider text-slate">
               CVV
             </p>
             <input
@@ -629,14 +623,14 @@ function PayCard({
               inputMode="numeric"
               maxLength={4}
               type="password"
-              className="mt-1 w-full bg-transparent text-sm font-mono font-semibold outline-none placeholder:text-muted-foreground/40"
+              className="mt-1 w-full bg-transparent text-sm font-mono font-semibold outline-none placeholder:text-slate/40"
             />
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
+        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-rust/30 bg-rust/10 px-4 py-3 text-xs text-rust">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
@@ -646,8 +640,7 @@ function PayCard({
         <button
           onClick={handlePay}
           disabled={loading || !allFilled}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant) disabled:opacity-40"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-ink bg-amber hover:bg-amber-deep disabled:opacity-40 transition"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -656,7 +649,7 @@ function PayCard({
           )}
           {loading ? "Processing…" : `Pay ${amount.toFixed(2)} USDC`}
         </button>
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+        <p className="mt-2 text-center text-[11px] text-slate">
           Secured by Paystack · PCI DSS compliant
         </p>
       </div>
@@ -702,29 +695,29 @@ function PayMobile({
     return (
       <div className="flex-1 flex flex-col mt-6">
         <div className="flex flex-col items-center text-center">
-          <div className="h-20 w-20 rounded-full bg-warning-soft flex items-center justify-center">
-            <Smartphone className="h-10 w-10 text-warning" />
+          <div className="h-20 w-20 rounded-full bg-amber/16 flex items-center justify-center">
+            <Smartphone className="h-10 w-10 text-amber-deep" />
           </div>
           <h2 className="mt-5 text-2xl font-black">Check your phone</h2>
-          <p className="mt-2 text-sm text-muted-foreground max-w-xs">
+          <p className="mt-2 text-sm text-slate max-w-xs">
             {displayText}
           </p>
         </div>
-        <div className="mt-6 rounded-2xl border border-border bg-card p-4">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        <div className="mt-6 rounded-2xl border border-ink/10 bg-paper p-4">
+          <p className="text-[10px] uppercase tracking-wider text-slate">
             What happens next
           </p>
-          <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+          <ul className="mt-2 space-y-1.5 text-xs text-slate">
             <li className="flex items-start gap-2">
-              <span className="text-primary font-bold mt-0.5">1.</span> Approve
+              <span className="text-forest font-bold mt-0.5">1.</span> Approve
               the {currency} {amount.toLocaleString()} payment prompt
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-primary font-bold mt-0.5">2.</span> We
+              <span className="text-forest font-bold mt-0.5">2.</span> We
               receive confirmation from Paystack
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-primary font-bold mt-0.5">3.</span> USDC is
+              <span className="text-forest font-bold mt-0.5">3.</span> USDC is
               credited to your Autopayke wallet
             </li>
           </ul>
@@ -732,8 +725,7 @@ function PayMobile({
         <div className="mt-auto pt-6">
           <button
             onClick={onDone}
-            className="w-full rounded-2xl py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant)"
-            style={{ background: "var(--gradient-portfolio)" }}
+            className="w-full rounded-2xl py-4 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover transition"
           >
             I've approved the prompt
           </button>
@@ -744,24 +736,24 @@ function PayMobile({
 
   return (
     <div className="flex-1 flex flex-col mt-6">
-      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+      <p className="text-xs uppercase tracking-[0.3em] text-slate">
         Mobile money
       </p>
       <h2 className="mt-2 text-2xl font-black">
         {currency} {amount.toLocaleString()} via M-Pesa / MoMo
       </h2>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <p className="mt-2 text-sm text-slate">
         A payment prompt will be sent to your registered mobile money number.
       </p>
-      <div className="mt-4 rounded-2xl border border-border bg-card p-4 flex items-start gap-2">
-        <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-        <p className="text-[11px] text-muted-foreground">
+      <div className="mt-4 rounded-2xl border border-ink/10 bg-paper p-4 flex items-start gap-2">
+        <Info className="h-4 w-4 text-slate shrink-0 mt-0.5" />
+        <p className="text-[11px] text-slate">
           Powered by Paystack. The STK push goes to your registered phone number
           on file.
         </p>
       </div>
       {error && (
-        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
+        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-rust/30 bg-rust/10 px-4 py-3 text-xs text-rust">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
@@ -770,8 +762,7 @@ function PayMobile({
         <button
           onClick={handlePay}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant) disabled:opacity-60"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-ink bg-amber hover:bg-amber-deep disabled:opacity-60 transition"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -805,18 +796,18 @@ function PayBank({ token, onDone }: { token: string; onDone: () => void }) {
 
   return (
     <div className="flex-1 flex flex-col mt-6">
-      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+      <p className="text-xs uppercase tracking-[0.3em] text-slate">
         Bank transfer
       </p>
       <h2 className="mt-2 text-2xl font-black">Send to virtual account</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <p className="mt-2 text-sm text-slate">
         We auto-detect your payment and credit your wallet.
       </p>
       {isLoading && (
-        <div className="mt-5 h-40 rounded-3xl bg-card border border-border animate-pulse" />
+        <div className="mt-5 h-40 rounded-3xl bg-paper border border-ink/10 animate-pulse" />
       )}
       {error && (
-        <p className="mt-4 text-xs text-destructive">
+        <p className="mt-4 text-xs text-rust">
           Couldn't load bank details.
         </p>
       )}
@@ -824,14 +815,14 @@ function PayBank({ token, onDone }: { token: string; onDone: () => void }) {
         <>
           {/* Reference shown prominently at the top with a copy control —
               this is what users need most and shouldn't have to hunt for. */}
-          <div className="mt-5 rounded-3xl border border-primary/30 bg-primary-soft/30 p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <div className="mt-5 rounded-3xl border border-amber/50 bg-amber/16 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-slate">
               Your reference
             </p>
             <p className="mt-1 text-2xl font-black font-mono break-all">{data.routingReference}</p>
             <button
               onClick={() => copy(data.routingReference)}
-              className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-xs font-semibold text-primary-foreground"
+              className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-ink py-2.5 text-xs font-semibold text-paper"
             >
               {copied ? (
                 <Check className="h-3.5 w-3.5" />
@@ -842,7 +833,7 @@ function PayBank({ token, onDone }: { token: string; onDone: () => void }) {
             </button>
           </div>
 
-          <div className="mt-4 rounded-3xl border border-border bg-card divide-y divide-border">
+          <div className="mt-4 rounded-3xl border border-ink/10 bg-paper divide-y divide-ink/10">
             <Row k="Bank" v={data.bankName} />
             <Row k="Account name" v={data.accountName} />
             <Row k="Account number" v={data.accountNumber} mono />
@@ -850,14 +841,13 @@ function PayBank({ token, onDone }: { token: string; onDone: () => void }) {
           </div>
         </>
       )}
-      <p className="mt-3 text-[11px] text-muted-foreground text-center">
+      <p className="mt-3 text-[11px] text-slate text-center">
         Reference is auto-detected for instant credit.
       </p>
       <div className="mt-auto pt-6">
         <button
           onClick={onDone}
-          className="w-full rounded-2xl py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant)"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="w-full rounded-2xl py-4 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover transition"
         >
           I've sent the transfer
         </button>
@@ -962,23 +952,23 @@ function PayCrypto({ token, onDone }: { token: string; onDone: () => void }) {
 
   return (
     <div className="flex-1 flex flex-col mt-6">
-      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+      <p className="text-xs uppercase tracking-[0.3em] text-slate">
         Crypto deposit
       </p>
       <h2 className="mt-2 text-2xl font-black">Send to your smart wallet</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <p className="mt-2 text-sm text-slate">
         USDC, USDT, or AVAX on Avalanche C-Chain.
       </p>
       {isLoading && (
-        <div className="mt-5 h-24 rounded-3xl bg-card border border-border animate-pulse" />
+        <div className="mt-5 h-24 rounded-3xl bg-paper border border-ink/10 animate-pulse" />
       )}
 
       {address && (
         <>
           {/* Active flow — connect wallet and approve an exact amount */}
-          <div className="mt-5 rounded-3xl border border-primary/30 bg-primary-soft/40 p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Zap className="h-3 w-3 text-primary" /> Pay with a connected
+          <div className="mt-5 rounded-3xl border border-amber/50 bg-amber/16 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-slate flex items-center gap-1.5">
+              <Zap className="h-3 w-3 text-forest" /> Pay with a connected
               wallet
             </p>
             <div className="mt-2 flex items-center gap-2">
@@ -992,12 +982,12 @@ function PayCrypto({ token, onDone }: { token: string; onDone: () => void }) {
                 disabled={paying}
                 className="flex-1 bg-transparent text-2xl font-black outline-none disabled:opacity-50"
               />
-              <span className="text-xs font-semibold text-muted-foreground">
+              <span className="text-xs font-semibold text-slate">
                 USDC
               </span>
             </div>
             {isConnected && connectedBalanceUsd !== null && (
-              <p className="mt-1 text-[11px] text-muted-foreground">
+              <p className="mt-1 text-[11px] text-slate">
                 Connected wallet balance: {connectedBalanceUsd.toFixed(2)} USDC
               </p>
             )}
@@ -1006,46 +996,45 @@ function PayCrypto({ token, onDone }: { token: string; onDone: () => void }) {
               disabled={
                 paying || !amount || amountUsd <= 0 || insufficientBalance
               }
-              className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50 shadow-(--shadow-elegant)"
-              style={{ background: "var(--gradient-portfolio)" }}
+              className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-ink bg-amber hover:bg-amber-deep disabled:opacity-50 transition"
             >
               {paying && <Loader2 className="h-4 w-4 animate-spin" />}
               {payLabel[payStep]}
             </button>
             {insufficientBalance && !payError && (
-              <p className="mt-2 text-[11px] text-destructive text-center">
+              <p className="mt-2 text-[11px] text-rust text-center">
                 Connected wallet only has {connectedBalanceUsd?.toFixed(2)} USDC
                 — reduce the amount or fund that wallet first.
               </p>
             )}
             {payError && (
-              <p className="mt-2 text-[11px] text-destructive text-center">
+              <p className="mt-2 text-[11px] text-rust text-center">
                 {payError}
               </p>
             )}
-            <p className="mt-2 text-[10px] text-muted-foreground text-center">
+            <p className="mt-2 text-[10px] text-slate text-center">
               Opens MetaMask, Core, or scan with any WalletConnect-compatible
               wallet.
             </p>
           </div>
 
-          <div className="my-4 flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-            <div className="h-px flex-1 bg-border" /> or send manually{" "}
-            <div className="h-px flex-1 bg-border" />
+          <div className="my-4 flex items-center gap-2 text-[10px] uppercase tracking-wider text-slate">
+            <div className="h-px flex-1 bg-ink/10" /> or send manually{" "}
+            <div className="h-px flex-1 bg-ink/10" />
           </div>
 
           {/* Manual flow — paste the address into any wallet */}
-          <div className="rounded-3xl border border-border bg-card p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <div className="rounded-3xl border border-ink/10 bg-paper p-4">
+            <p className="text-[10px] uppercase tracking-wider text-slate">
               Avalanche C-Chain address
             </p>
             <p className="mt-1 text-sm font-mono break-all">{address}</p>
             <button
               onClick={() => copy(address)}
-              className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-muted py-2.5 text-xs font-semibold"
+              className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-ink/8 py-2.5 text-xs font-semibold"
             >
               {copied ? (
-                <Check className="h-3.5 w-3.5 text-success" />
+                <Check className="h-3.5 w-3.5 text-forest-light" />
               ) : (
                 <Copy className="h-3.5 w-3.5" />
               )}
@@ -1055,14 +1044,13 @@ function PayCrypto({ token, onDone }: { token: string; onDone: () => void }) {
         </>
       )}
 
-      <p className="mt-3 text-[11px] text-warning text-center font-semibold">
+      <p className="mt-3 text-[11px] text-amber-deep text-center font-semibold">
         Only send on Avalanche C-Chain. Other networks = lost funds.
       </p>
       <div className="mt-auto pt-6">
         <button
           onClick={onDone}
-          className="w-full rounded-2xl py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant)"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="w-full rounded-2xl py-4 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover transition"
         >
           I've sent the deposit
         </button>
@@ -1084,7 +1072,7 @@ function Row({
 }) {
   return (
     <div className="flex items-center justify-between p-3.5">
-      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+      <span className="text-[11px] uppercase tracking-wider text-slate">
         {k}
       </span>
       <span
