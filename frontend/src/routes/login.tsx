@@ -172,15 +172,15 @@ function LoginPage() {
   // Render nothing while redirect check fires
   if (!isAuthenticated || is_unlocked) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-auth-gradient">
+      <div className="min-h-screen flex items-center justify-center bg-linen">
         <LoadingSpinner size={24} color="orange" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-auth-gradient relative">
-      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-white/30" />
+    <div className="min-h-screen bg-linen relative font-manrope">
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-paper/40" />
 
       <div className="relative z-10 px-5 pt-12 pb-8 max-w-97.5 mx-auto min-h-screen flex flex-col">
         {view === "biometric" ? (
@@ -254,15 +254,15 @@ function BiometricView({
 }: BiometricViewProps) {
   return (
     <div className="flex flex-col items-center flex-1">
-      <p className="text-[11px] text-black/40 font-medium text-center mb-1">{greeting}</p>
-      <p className="font-display font-extrabold text-[26px] text-navy text-center mb-1">
+      <p className="text-[11px] text-slate font-medium text-center mb-1">{greeting}</p>
+      <p className="font-display font-extrabold text-[26px] text-ink text-center mb-1">
         {nameDisplay}
       </p>
       {phone && nameDisplay !== phone && (
-        <p className="text-[13px] text-black/40 text-center mb-6">{phone}</p>
+        <p className="text-[13px] text-slate text-center mb-6">{phone}</p>
       )}
 
-      <div className="mb-8 mt-3 shadow-[0_8px_24px_rgba(249,115,22,0.25)]">
+      <div className="mb-8 mt-3 shadow-[0_8px_24px_rgba(232,163,61,0.25)]">
         <Avatar avatarKey={avatarKey} avatarDataUrl={avatarDataUrl} fallbackLetter={avatarFallback} size="lg" />
       </div>
 
@@ -277,9 +277,9 @@ function BiometricView({
         {isLoading ? (
           <LoadingSpinner size={16} color="orange" label="Authenticating…" />
         ) : bioError ? (
-          <p className="text-[13px] text-danger/80 text-center">{bioError}</p>
+          <p className="text-[13px] text-rust/80 text-center">{bioError}</p>
         ) : (
-          <p className="text-[13px] text-black/40 text-center">Tap to unlock with Face ID</p>
+          <p className="text-[13px] text-slate text-center">Tap to unlock with Face ID</p>
         )}
       </div>
 
@@ -287,7 +287,7 @@ function BiometricView({
         <button
           type="button"
           onClick={onUsePin}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/70 rounded-full border border-white/90 text-[12px] font-semibold text-navy cursor-pointer active:bg-white/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-1"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-paper/70 rounded-full border border-paper text-[12px] font-semibold text-ink cursor-pointer active:bg-paper transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-1"
         >
           <Key size={14} strokeWidth={1.5} />
           Use PIN
@@ -295,7 +295,7 @@ function BiometricView({
         <button
           type="button"
           onClick={onUsePhone}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/70 rounded-full border border-white/90 text-[12px] font-semibold text-navy cursor-pointer active:bg-white/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-1"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-paper/70 rounded-full border border-paper text-[12px] font-semibold text-ink cursor-pointer active:bg-paper transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-1"
         >
           <Phone size={14} strokeWidth={1.5} />
           Use phone number
@@ -304,12 +304,12 @@ function BiometricView({
 
       <div className="flex-1" />
 
-      <p className="text-center text-[12px] text-black/30">
+      <p className="text-center text-[12px] text-ink/30">
         Not you?{" "}
         <button
           type="button"
           onClick={onSwitchAccount}
-          className="text-orange font-semibold focus-visible:outline-none"
+          className="text-amber-deep font-semibold focus-visible:outline-none"
         >
           Switch account
         </button>
@@ -356,17 +356,17 @@ function PinView({
   return (
     <div className="flex flex-col flex-1">
       <div className="flex flex-col items-center mb-4">
-        <div className="mb-3 shadow-[0_8px_24px_rgba(249,115,22,0.25)]">
+        <div className="mb-3 shadow-[0_8px_24px_rgba(232,163,61,0.25)]">
           <Avatar avatarKey={avatarKey} avatarDataUrl={avatarDataUrl} fallbackLetter={avatarFallback} size="lg" />
         </div>
         {phone && (
-          <p className="text-[13px] text-black/40 text-center mb-1">{phone}</p>
+          <p className="text-[13px] text-slate text-center mb-1">{phone}</p>
         )}
-        <h1 className="font-display font-bold text-[22px] text-navy text-center">
+        <h1 className="font-display font-bold text-[22px] text-ink text-center">
           {hasPinHash ? "Enter your PIN" : "Unlock your account"}
         </h1>
         {!hasPinHash && (
-          <p className="text-[13px] text-black/40 text-center mt-1 max-w-60 leading-relaxed">
+          <p className="text-[13px] text-slate text-center mt-1 max-w-60 leading-relaxed">
             No PIN found. Verify with your phone number to re-access your account.
           </p>
         )}
@@ -387,9 +387,9 @@ function PinView({
             type="button"
             onClick={onForgotPin}
             className={cn(
-              "px-6 py-3.5 rounded-2xl bg-orange-gradient text-white font-display font-bold text-[15px]",
-              "shadow-[0_6px_20px_rgba(249,115,22,0.35)] flex items-center justify-center gap-2",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2"
+              "px-6 py-3.5 rounded-2xl bg-amber text-ink font-display font-bold text-[15px]",
+              "shadow-[0_6px_20px_rgba(232,163,61,0.35)] flex items-center justify-center gap-2",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2"
             )}
           >
             <Phone size={16} strokeWidth={2} />
@@ -399,7 +399,7 @@ function PinView({
       )}
 
       {hasPinHash && pinAttempts > 0 && !accountLocked && (
-        <p className="text-center text-[12px] text-danger mt-1">
+        <p className="text-center text-[12px] text-rust mt-1">
           {remaining} attempt{remaining === 1 ? "" : "s"} remaining before account lock
         </p>
       )}
@@ -407,12 +407,12 @@ function PinView({
       <div className="flex-1" />
 
       {hasPinHash && (
-        <p className={cn("text-center text-[12px] text-black/35 mt-4")}>
+        <p className={cn("text-center text-[12px] text-slate mt-4")}>
           Forgot PIN?{" "}
           <button
             type="button"
             onClick={onForgotPin}
-            className="text-orange font-semibold focus-visible:outline-none"
+            className="text-amber-deep font-semibold focus-visible:outline-none"
           >
             Verify with phone number
           </button>
@@ -420,7 +420,7 @@ function PinView({
       )}
 
       {credentialId && !accountLocked && hasPinHash && (
-        <p className="text-center text-[12px] text-orange font-semibold mt-3 cursor-pointer">
+        <p className="text-center text-[12px] text-amber-deep font-semibold mt-3 cursor-pointer">
           <button
             type="button"
             onClick={onUseBiometric}
