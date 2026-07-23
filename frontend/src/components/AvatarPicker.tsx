@@ -51,18 +51,18 @@ export function AvatarPicker({
       />
 
       {/* Sheet */}
-      <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl shadow-[0_-8px_40px_rgba(0,0,0,0.15)] max-h-[75vh] overflow-y-auto">
+      <div className="fixed inset-x-0 bottom-0 z-50 bg-paper rounded-t-3xl shadow-[0_-8px_40px_rgba(27,42,74,0.15)] max-h-[75vh] overflow-y-auto font-manrope">
         <div className="px-5 pt-4 pb-8">
           {/* Handle + header */}
           <div className="flex items-center justify-between mb-5">
-            <div className="w-8 h-1 rounded-full bg-black/10 absolute left-1/2 -translate-x-1/2 top-3" />
-            <h2 className="font-display font-bold text-[17px] text-navy mt-2">Choose avatar</h2>
+            <div className="w-8 h-1 rounded-full bg-ink/10 absolute left-1/2 -translate-x-1/2 top-3" />
+            <h2 className="font-display font-bold text-[17px] text-ink mt-2">Choose avatar</h2>
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center mt-2 focus-visible:outline-none"
+              className="w-8 h-8 rounded-full bg-ink/5 flex items-center justify-center mt-2 focus-visible:outline-none"
             >
-              <X size={16} strokeWidth={2} className="text-black/50" />
+              <X size={16} strokeWidth={2} className="text-slate" />
             </button>
           </div>
 
@@ -78,8 +78,8 @@ export function AvatarPicker({
                   className={cn(
                     "flex flex-col items-center gap-1.5 p-2 rounded-2xl transition-all focus-visible:outline-none",
                     selected
-                      ? "ring-2 ring-orange ring-offset-1 bg-orange/5"
-                      : "bg-black/3 active:bg-black/8"
+                      ? "ring-2 ring-amber ring-offset-1 bg-amber/8"
+                      : "bg-ink/3 active:bg-ink/8"
                   )}
                 >
                   <div
@@ -88,7 +88,7 @@ export function AvatarPicker({
                   >
                     {animal.emoji}
                   </div>
-                  <span className="text-[10px] font-medium text-black/40 capitalize">{animal.key}</span>
+                  <span className="text-[10px] font-medium text-slate capitalize">{animal.key}</span>
                 </button>
               );
             })}
@@ -105,7 +105,7 @@ export function AvatarPicker({
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-dashed border-black/15 text-[14px] font-semibold text-black/40 active:bg-black/3 focus-visible:outline-none transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-dashed border-ink/15 text-[14px] font-semibold text-slate active:bg-ink/3 focus-visible:outline-none transition-colors"
           >
             <Camera size={18} strokeWidth={1.5} />
             Upload your own photo
