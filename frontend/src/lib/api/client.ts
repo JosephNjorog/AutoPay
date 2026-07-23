@@ -90,6 +90,23 @@ export type FxQuote = {
   tokenAmount?: number;
 };
 
+// ── Withdraw (Minisend off-ramp) ────────────────────────────────────────────────
+
+export type PayoutQuote = {
+  quoteId: string;
+  fromAmountUsd: number;
+  toAmount: number;
+  toCurrency: string;
+  tumaRate: number;
+  midRate: number;
+  savingsVsBank: number;
+  lockedUntil: string;
+  networkFeeUsd: number;
+  feeLocal: number;
+  recipientName: string | null;
+  provider: string;
+};
+
 // ── Transactions ──────────────────────────────────────────────────────────────
 
 export type TxStatus =
@@ -458,6 +475,38 @@ export const api = {
         localCurrency: string;
         rail: string;
       }>("/api/claim", { method: "POST", body: JSON.stringify({ ref }), token }),
+  },
+
+  withdraw: {
+    payoutQuote: (
+      body: {
+        amountUsd?: number;
+        recipient:
+          | { method: "mobile"; phone: string; mobileNetwork: string }
+          | { method: "bank"; accountNumber: string; institution: string };
+      },
+      token: string
+    ) =>
+      request<PayoutQuote>("/api/withdraw/payout/quote", {
+        method: "POST",
+        body: JSON.stringify(body),
+        token,
+      }),
+
+    payoutConfirm: (quoteId: string, token: string) =>
+      request<{
+        transactionId: string;
+        reference: string;
+        orderId: string;
+        txHash: string;
+        amountLocal?: number;
+        localCurrency?: string;
+        status: "routed" | "requires_review";
+      }>("/api/withdraw/payout/confirm", {
+        method: "POST",
+        body: JSON.stringify({ quoteId }),
+        token,
+      }),
   },
 
   notifications: {
