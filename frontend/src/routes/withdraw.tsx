@@ -190,11 +190,11 @@ function WithdrawPage() {
 
   return (
     <PageFrame sidebar maxWidth="narrow">
-      <div className="flex min-h-full flex-col">
-        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-5 py-4 flex items-center justify-between">
+      <div className="flex min-h-full flex-col font-manrope">
+        <header className="sticky top-0 z-10 bg-linen/95 backdrop-blur border-b border-ink/10 px-5 py-4 flex items-center justify-between">
           <button
             onClick={handleBack}
-            className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center"
+            className="h-9 w-9 rounded-full border border-ink/10 bg-paper flex items-center justify-center"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -208,7 +208,7 @@ function WithdrawPage() {
         </header>
 
         {error && (
-          <div className="mx-5 mt-3 flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
+          <div className="mx-5 mt-3 flex items-center gap-2 rounded-2xl border border-rust/30 bg-rust/10 px-4 py-3 text-xs text-rust">
             <AlertCircle className="h-4 w-4 shrink-0" />
             {error}
           </div>
@@ -271,11 +271,11 @@ function UnavailableState({
 }) {
   return (
     <PageFrame sidebar maxWidth="narrow">
-      <div className="flex min-h-full flex-col">
-        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-5 py-4 flex items-center justify-between">
+      <div className="flex min-h-full flex-col font-manrope">
+        <header className="sticky top-0 z-10 bg-linen/95 backdrop-blur border-b border-ink/10 px-5 py-4 flex items-center justify-between">
           <button
             onClick={onBack}
-            className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center"
+            className="h-9 w-9 rounded-full border border-ink/10 bg-paper flex items-center justify-center"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -283,11 +283,11 @@ function UnavailableState({
           <div className="w-9" />
         </header>
         <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
-          <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-            <ArrowDownToLine className="h-7 w-7 text-muted-foreground" />
+          <div className="h-16 w-16 rounded-full bg-ink/8 flex items-center justify-center">
+            <ArrowDownToLine className="h-7 w-7 text-slate" />
           </div>
           <p className="mt-4 text-sm font-semibold">Not available yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">{reason}</p>
+          <p className="mt-1 text-xs text-slate">{reason}</p>
         </div>
       </div>
     </PageFrame>
@@ -338,14 +338,14 @@ function RecipientStep({
 
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+      <p className="text-[10px] uppercase tracking-wider text-slate">
         Withdraw to
       </p>
 
       {isBankCountry ? (
         <>
-          <label className="mt-2 block rounded-2xl border border-border bg-card p-4">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <label className="mt-2 block rounded-2xl border border-ink/10 bg-paper p-4">
+            <span className="text-[11px] uppercase tracking-wider text-slate">
               {country.flag} Account number
             </span>
             <input
@@ -356,11 +356,11 @@ function RecipientStep({
               type="text"
               inputMode="numeric"
               placeholder="0123456789"
-              className="mt-1 w-full bg-transparent text-lg font-bold outline-none placeholder:text-muted-foreground/40"
+              className="mt-1 w-full bg-transparent text-lg font-bold outline-none placeholder:text-slate/40"
             />
           </label>
 
-          <p className="mt-5 text-[10px] uppercase tracking-wider text-muted-foreground">
+          <p className="mt-5 text-[10px] uppercase tracking-wider text-slate">
             Bank
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -373,8 +373,8 @@ function RecipientStep({
                 }}
                 className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
                   !customBank && bankInstitution === b.code
-                    ? "border-primary bg-primary-soft text-primary"
-                    : "border-border bg-card text-foreground hover:bg-muted/50"
+                    ? "border-amber bg-amber/16 text-amber-deep"
+                    : "border-ink/10 bg-paper text-ink hover:bg-ink/5"
                 }`}
               >
                 {b.name}
@@ -387,8 +387,8 @@ function RecipientStep({
               }}
               className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
                 customBank
-                  ? "border-primary bg-primary-soft text-primary"
-                  : "border-border bg-card text-foreground hover:bg-muted/50"
+                  ? "border-amber bg-amber/16 text-amber-deep"
+                  : "border-ink/10 bg-paper text-ink hover:bg-ink/5"
               }`}
             >
               Other bank
@@ -396,8 +396,8 @@ function RecipientStep({
           </div>
 
           {customBank && (
-            <label className="mt-3 block rounded-2xl border border-border bg-card p-4">
-              <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            <label className="mt-3 block rounded-2xl border border-ink/10 bg-paper p-4">
+              <span className="text-[11px] uppercase tracking-wider text-slate">
                 Bank institution code (SWIFT/BIC)
               </span>
               <input
@@ -407,9 +407,9 @@ function RecipientStep({
                 }
                 type="text"
                 placeholder="e.g. GTBINGLA"
-                className="mt-1 w-full bg-transparent text-lg font-bold outline-none placeholder:text-muted-foreground/40"
+                className="mt-1 w-full bg-transparent text-lg font-bold outline-none placeholder:text-slate/40"
               />
-              <span className="mt-1 block text-[11px] text-muted-foreground">
+              <span className="mt-1 block text-[11px] text-slate">
                 We'll verify this against your bank before showing a quote.
               </span>
             </label>
@@ -417,15 +417,15 @@ function RecipientStep({
         </>
       ) : (
         <>
-          <div className="mt-2 rounded-2xl border border-border bg-card p-4">
+          <div className="mt-2 rounded-2xl border border-ink/10 bg-paper p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              <span className="text-[11px] uppercase tracking-wider text-slate">
                 {country.flag} Mobile number
               </span>
               {!editingPhone && (
                 <button
                   onClick={() => setEditingPhone(true)}
-                  className="text-[11px] font-semibold text-primary"
+                  className="text-[11px] font-semibold text-forest"
                 >
                   Edit
                 </button>
@@ -446,7 +446,7 @@ function RecipientStep({
             )}
           </div>
 
-          <p className="mt-5 text-[10px] uppercase tracking-wider text-muted-foreground">
+          <p className="mt-5 text-[10px] uppercase tracking-wider text-slate">
             Mobile network
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -456,8 +456,8 @@ function RecipientStep({
                 onClick={() => setMobileNetwork(n)}
                 className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
                   mobileNetwork === n
-                    ? "border-primary bg-primary-soft text-primary"
-                    : "border-border bg-card text-foreground hover:bg-muted/50"
+                    ? "border-amber bg-amber/16 text-amber-deep"
+                    : "border-ink/10 bg-paper text-ink hover:bg-ink/5"
                 }`}
               >
                 {n}
@@ -471,8 +471,7 @@ function RecipientStep({
         <button
           disabled={!canContinue}
           onClick={onNext}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground disabled:opacity-40 shadow-(--shadow-elegant)"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover disabled:opacity-40 transition"
         >
           Continue <ArrowRight className="h-4 w-4" />
         </button>
@@ -505,10 +504,7 @@ function AmountStep({
 
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
-      <div
-        className="rounded-3xl p-5 text-primary-foreground shadow-(--shadow-elegant)"
-        style={{ background: "var(--gradient-portfolio)" }}
-      >
+      <div className="rounded-3xl p-5 text-paper bg-ink">
         <p className="text-xs opacity-90">You withdraw</p>
         <div className="flex items-baseline gap-2">
           <span className="text-xl font-black opacity-80">USDC</span>
@@ -527,7 +523,7 @@ function AmountStep({
           </p>
           <button
             onClick={() => setAmount(balanceUsd.toFixed(2))}
-            className="rounded-full bg-white/15 backdrop-blur px-3 py-1 text-[10px] font-semibold"
+            className="rounded-full bg-paper/15 backdrop-blur px-3 py-1 text-[10px] font-semibold"
           >
             Max
           </button>
@@ -535,7 +531,7 @@ function AmountStep({
       </div>
 
       {insufficientBalance && (
-        <p className="mt-3 text-xs text-destructive">
+        <p className="mt-3 text-xs text-rust">
           That's more than your available balance.
         </p>
       )}
@@ -544,8 +540,7 @@ function AmountStep({
         <button
           disabled={usd <= 0 || insufficientBalance || loading}
           onClick={onNext}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground disabled:opacity-40 shadow-(--shadow-elegant)"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover disabled:opacity-40 transition"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -555,7 +550,7 @@ function AmountStep({
             </>
           )}
         </button>
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+        <p className="mt-2 text-center text-[11px] text-slate">
           Cashing out to {country.name} · {country.currency}
         </p>
       </div>
@@ -582,7 +577,7 @@ function ReviewStep({
 }) {
   return (
     <div className="flex-1 flex flex-col px-5 pt-5 pb-6">
-      <div className="rounded-3xl border border-border bg-card overflow-hidden">
+      <div className="rounded-3xl border border-ink/10 bg-paper overflow-hidden">
         <FxReviewHero
           usd={usd}
           quote={quote}
@@ -591,7 +586,7 @@ function ReviewStep({
           fromLabel="You withdraw"
           toLabel="You receive"
         />
-        <div className="divide-y divide-border text-xs">
+        <div className="divide-y divide-ink/10 text-xs">
           {quote.recipientName && (
             <KV k="Account name" v={quote.recipientName} />
           )}
@@ -619,8 +614,7 @@ function ReviewStep({
         <button
           onClick={onConfirm}
           disabled={confirming}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant) disabled:opacity-60"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-ink bg-amber hover:bg-amber-deep disabled:opacity-60 transition"
         >
           {confirming ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -629,7 +623,7 @@ function ReviewStep({
           )}
           {confirming ? "Sending…" : "Confirm withdrawal"}
         </button>
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+        <p className="mt-2 text-center text-[11px] text-slate">
           Sent directly from your wallet · No treasury involved
         </p>
       </div>
