@@ -79,6 +79,7 @@ export const keys = {
   otp: (phone: string) => `otp:${phone}`,
   otpAttempts: (phone: string) => `otp_attempts:${phone}`,
   fxQuote: (quoteId: string) => `fx_quote:${quoteId}`,
+  withdrawPayoutQuote: (quoteId: string) => `withdraw_payout_quote:${quoteId}`,
   fxRate: (currency: string) => `fx_rate:${currency}`,
   session: (tokenHash: string) => `session:${tokenHash}`,
   rateLimit: (ip: string, route: string) => `rl:${route}:${ip}`,
