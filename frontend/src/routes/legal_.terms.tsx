@@ -14,20 +14,20 @@ const APP_URL = "https://www.autopayke.com";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-8">
-      <h2 className="text-[16px] font-bold text-navy mb-3">{title}</h2>
-      <div className="space-y-3 text-[13px] text-gray-600 leading-relaxed">{children}</div>
+      <h2 className="text-[16px] font-bold text-ink mb-3">{title}</h2>
+      <div className="space-y-3 text-[13px] text-charcoal leading-relaxed">{children}</div>
     </section>
   );
 }
 
 function TermsOfService() {
   return (
-    <div className="min-h-screen bg-[#FDF8F2]">
+    <div className="min-h-screen bg-linen font-manrope">
       <div className="max-w-[680px] mx-auto px-5 pt-6 pb-16">
         {/* Back */}
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 text-[13px] text-gray-500 mb-6 hover:text-navy transition-colors"
+          className="inline-flex items-center gap-1.5 text-[13px] text-slate mb-6 hover:text-ink transition-colors"
         >
           <ArrowLeft size={14} strokeWidth={2} />
           Back
@@ -36,11 +36,11 @@ function TermsOfService() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-orange-gradient flex items-center justify-center text-white font-bold text-sm font-display">A</div>
-            <span className="font-display font-extrabold text-[16px] text-navy">AutoPayKe</span>
+            <div className="w-8 h-8 rounded-lg bg-amber flex items-center justify-center text-ink font-bold text-sm font-display">A</div>
+            <span className="font-display font-extrabold text-[16px] text-ink">AutoPayKe</span>
           </div>
-          <h1 className="font-display font-black text-[28px] text-navy mb-2">Terms of Service</h1>
-          <p className="text-[13px] text-gray-400">Effective date: {EFFECTIVE_DATE}</p>
+          <h1 className="font-display font-black text-[28px] text-ink mb-2">Terms of Service</h1>
+          <p className="text-[13px] text-slate">Effective date: {EFFECTIVE_DATE}</p>
         </div>
 
         <div className="prose prose-sm max-w-none">
@@ -55,7 +55,7 @@ function TermsOfService() {
             <p>
               <strong>By creating an account, verifying your phone number, or using any part of the Service, you
               acknowledge that you have read, understood, and agree to be bound by these Terms and our{" "}
-              <Link to="/legal/privacy" className="text-orange underline">Privacy Policy</Link>.</strong>
+              <Link to="/legal/privacy" className="text-amber-deep underline">Privacy Policy</Link>.</strong>
             </p>
             <p>
               If you do not agree to these Terms, you must not access or use the Service. We reserve the right
@@ -242,7 +242,7 @@ function TermsOfService() {
 
           <Section title="14. Entire Agreement">
             <p>
-              These Terms, together with the <Link to="/legal/privacy" className="text-orange underline">Privacy Policy</Link>,
+              These Terms, together with the <Link to="/legal/privacy" className="text-amber-deep underline">Privacy Policy</Link>,
               constitute the entire agreement between you and {COMPANY} with respect to the Service and supersede
               all prior or contemporaneous agreements.
             </p>
@@ -251,17 +251,17 @@ function TermsOfService() {
           <Section title="15. Contact Us">
             <p>If you have any questions about these Terms, please contact us:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Email: <a href={`mailto:${EMAIL}`} className="text-orange underline">{EMAIL}</a></li>
-              <li>Website: <a href={APP_URL} className="text-orange underline">{APP_URL}</a></li>
+              <li>Email: <a href={`mailto:${EMAIL}`} className="text-amber-deep underline">{EMAIL}</a></li>
+              <li>Website: <a href={APP_URL} className="text-amber-deep underline">{APP_URL}</a></li>
             </ul>
           </Section>
 
         </div>
 
         {/* Footer links */}
-        <div className="mt-8 pt-6 border-t border-black/10 flex flex-wrap gap-4 text-[12px] text-gray-400">
-          <Link to="/legal/privacy" className="hover:text-orange transition-colors">Privacy Policy</Link>
-          <Link to="/" className="hover:text-orange transition-colors">Back to AutoPayKe</Link>
+        <div className="mt-8 pt-6 border-t border-ink/10 flex flex-wrap gap-4 text-[12px] text-slate">
+          <Link to="/legal/privacy" className="hover:text-amber-deep transition-colors">Privacy Policy</Link>
+          <Link to="/" className="hover:text-amber-deep transition-colors">Back to AutoPayKe</Link>
         </div>
       </div>
     </div>
