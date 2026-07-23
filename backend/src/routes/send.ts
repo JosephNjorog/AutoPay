@@ -104,21 +104,30 @@ sendRouter.get("/lookup", async (c) => {
 // GET /api/send/corridors
 // Backend-driven list of supported destination countries, so adding a new
 // corridor is a config change, not a client release.
+// Senegal (Wave) and Côte d'Ivoire (Orange Money) are in COUNTRY_CONFIG but
+// not yet payable: Wave has no credentials configured and Orange Money isn't
+// implemented (see services/rails/index.ts's disburseToRail) — sending to an
+// unregistered recipient there would fail at disbursement. Hidden here until
+// either rail is actually wired.
+const CORRIDOR_COUNTRY_CODES_NOT_READY = new Set(["SN", "CI"]);
+
 sendRouter.get("/corridors", async (c) => {
   const cacheKey = "corridors:all";
   const cached = await getJson<unknown>(cacheKey);
   if (cached !== null) return c.json({ ok: true, data: cached });
 
-  const corridors = Object.values(COUNTRY_CONFIG).map((country) => ({
-    code: country.code,
-    name: country.name,
-    dial: country.dialCode,
-    currency: country.currency,
-    currencySymbol: country.currencySymbol,
-    flag: country.flag,
-    phoneLength: country.phoneLength,
-    rail: country.primaryRail,
-  }));
+  const corridors = Object.values(COUNTRY_CONFIG)
+    .filter((country) => !CORRIDOR_COUNTRY_CODES_NOT_READY.has(country.code))
+    .map((country) => ({
+      code: country.code,
+      name: country.name,
+      dial: country.dialCode,
+      currency: country.currency,
+      currencySymbol: country.currencySymbol,
+      flag: country.flag,
+      phoneLength: country.phoneLength,
+      rail: country.primaryRail,
+    }));
 
   await setex(cacheKey, 3600, corridors);
   return c.json({ ok: true, data: corridors });
