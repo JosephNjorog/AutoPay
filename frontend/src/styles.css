@@ -2,7 +2,7 @@
 @source "../src";
 @import "tw-animate-css";
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
 
 @custom-variant dark (&:is(.dark *));
 
@@ -25,6 +25,7 @@
   --font-display: "Space Grotesk", sans-serif;
   --font-body: "Inter", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
+  --font-manrope: "Manrope", sans-serif;
 
   /* AutoPayKe brand colors */
   --color-orange: #F97316;
@@ -39,6 +40,23 @@
   --color-success: #22C55E;
   --color-danger: #EF4444;
   --color-warning: #F59E0B;
+
+  /* New Autopayke.dc.html design direction (linen/paper/ink palette) —
+     being rolled out screen by screen, see docs/adr or the design-reskin
+     plan. Deliberately named apart from the brand colors above (which the
+     not-yet-converted screens still render with) rather than reusing
+     "navy"/"orange"/"gold" for a visually unrelated palette. */
+  --color-linen: #DEDBD1;
+  --color-paper: #F7F5F0;
+  --color-ink: #1B2A4A;
+  --color-ink-hover: #233A63;
+  --color-charcoal: #1A1A1A;
+  --color-slate: #666666;
+  --color-amber: #E8A33D;
+  --color-amber-deep: #D9922C;
+  --color-forest: #2E6F5E;
+  --color-forest-light: #3B8F73;
+  --color-rust: #B33A3A;
 
   /* AutoPayKe background gradients */
   --background-image-orange-gradient: linear-gradient(135deg, #FB923C 0%, #F97316 50%, #EA580C 100%);
