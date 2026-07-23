@@ -17,12 +17,12 @@ export function PageFrame({ children, sidebar, maxWidth = "narrow", className = 
   return (
     <div className="min-h-screen w-full">
       {/* Desktop */}
-      <div className={cn("hidden md:block min-h-screen bg-auth-gradient", sidebar && "md:pl-60")}>
-        {sidebar && <DesktopSidebar variant="neutral" />}
+      <div className={cn("hidden md:block min-h-screen bg-linen", sidebar && "md:pl-60")}>
+        {sidebar && <DesktopSidebar />}
         <div className="flex min-h-screen items-center justify-center p-10">
           <div
             className={cn(
-              "w-full bg-card border border-border rounded-3xl shadow-sm overflow-hidden",
+              "w-full bg-paper border border-ink/10 rounded-3xl shadow-sm overflow-hidden",
               maxWidth === "wide" ? "max-w-4xl" : "max-w-md"
             )}
           >
@@ -32,7 +32,7 @@ export function PageFrame({ children, sidebar, maxWidth = "narrow", className = 
       </div>
 
       {/* Mobile native */}
-      <div className={cn("md:hidden min-h-screen", className)}>{children}</div>
+      <div className={cn("md:hidden min-h-screen bg-linen", className)}>{children}</div>
     </div>
   );
 }
