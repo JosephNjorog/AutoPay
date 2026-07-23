@@ -87,30 +87,30 @@ function LoginPhone() {
   };
 
   return (
-    <div className="min-h-screen bg-auth-gradient relative">
-      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-white/30" />
+    <div className="min-h-screen bg-linen relative font-manrope">
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-paper/40" />
 
       <div className="relative z-10 px-5 pt-6 pb-8 max-w-97.5 mx-auto min-h-screen flex flex-col">
         <button
           type="button"
           onClick={() => navigate({ to: "/login" })}
-          className="w-9 h-9 rounded-xl bg-white/50 border border-white/60 flex items-center justify-center cursor-pointer mb-8 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+          className="w-9 h-9 rounded-xl bg-paper/70 border border-paper flex items-center justify-center cursor-pointer mb-8 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber"
           aria-label="Go back"
         >
           <ChevronLeft size={16} strokeWidth={2} />
         </button>
 
-        <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-navy mb-2">
+        <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-ink mb-2">
           Log in with your number
         </h1>
-        <p className="text-[13px] text-black/50 leading-relaxed mb-7">
+        <p className="text-[13px] text-slate leading-relaxed mb-7">
           Enter your registered phone number. We will send you a verification code.
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col flex-1">
           {/* Country */}
-          <div className="bg-white/85 backdrop-blur-sm border border-white/90 rounded-2xl px-4 py-3.5 mb-2.5">
-            <span className="text-[10px] font-semibold tracking-widest text-black/40 uppercase block mb-1">
+          <div className="bg-paper/85 backdrop-blur-sm border border-paper rounded-2xl px-4 py-3.5 mb-2.5">
+            <span className="text-[10px] font-semibold tracking-widest text-slate uppercase block mb-1">
               COUNTRY
             </span>
             <Controller
@@ -118,14 +118,14 @@ function LoginPhone() {
               control={control}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="bg-transparent border-none shadow-none p-0 h-auto focus:ring-0 focus:ring-offset-0 text-[15px] font-semibold text-navy">
+                  <SelectTrigger className="bg-transparent border-none shadow-none p-0 h-auto focus:ring-0 focus:ring-offset-0 text-[15px] font-semibold text-ink">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {SUPPORTED_COUNTRIES.map((c) => (
                       <SelectItem key={c.code} value={c.code}>
                         <span className="flex items-center gap-2">
-                          <span className="inline-flex items-center justify-center w-6 h-4 rounded-sm bg-navy/10 text-[9px] font-bold text-navy/60 tracking-wider">
+                          <span className="inline-flex items-center justify-center w-6 h-4 rounded-sm bg-ink/10 text-[9px] font-bold text-ink/60 tracking-wider">
                             {c.code}
                           </span>
                           {c.name} ({c.dial})
@@ -141,11 +141,11 @@ function LoginPhone() {
           {/* Phone */}
           <div
             className={cn(
-              "bg-white/85 backdrop-blur-sm border rounded-2xl px-4 py-3.5 mb-2 flex items-center gap-2",
-              errors.phone ? "border-danger" : "border-white/90"
+              "bg-paper/85 backdrop-blur-sm border rounded-2xl px-4 py-3.5 mb-2 flex items-center gap-2",
+              errors.phone ? "border-rust" : "border-paper"
             )}
           >
-            <span className="text-[16px] font-bold text-navy shrink-0 select-none">
+            <span className="text-[16px] font-bold text-ink shrink-0 select-none">
               {selectedCountry?.dial ?? "+254"}
             </span>
             <input
@@ -156,11 +156,11 @@ function LoginPhone() {
               placeholder="706848263"
               autoComplete="tel-national"
               autoFocus
-              className="bg-transparent border-none outline-none text-[16px] font-semibold text-navy placeholder-black/30 flex-1 w-full"
+              className="bg-transparent border-none outline-none text-[16px] font-semibold text-ink placeholder-ink/30 flex-1 w-full"
             />
           </div>
           {errors.phone && (
-            <p className="text-[12px] text-danger mb-2 px-1">
+            <p className="text-[12px] text-rust mb-2 px-1">
               {errors.phone.message}
               {errors.phone.message?.includes("No account found") && (
                 <>
@@ -179,15 +179,15 @@ function LoginPhone() {
             type="submit"
             disabled={isSubmitting}
             className={cn(
-              "w-full py-4 mt-4 rounded-2xl bg-orange-gradient text-white font-display font-bold text-[15px]",
-              "shadow-[0_6px_20px_rgba(249,115,22,0.35)] flex items-center justify-center gap-2",
+              "w-full py-4 mt-4 rounded-2xl bg-amber text-ink font-display font-bold text-[15px]",
+              "shadow-[0_6px_20px_rgba(232,163,61,0.35)] flex items-center justify-center gap-2",
               "disabled:opacity-60 disabled:cursor-not-allowed",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2"
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2"
             )}
           >
             {isSubmitting ? (
               <>
-                <LoadingSpinner size={16} color="white" />
+                <LoadingSpinner size={16} color="orange" />
                 Sending code
               </>
             ) : (
