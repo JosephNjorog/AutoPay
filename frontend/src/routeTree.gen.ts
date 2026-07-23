@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WithdrawRouteImport } from './routes/withdraw'
 import { Route as WalletRouteImport } from './routes/wallet'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SendRouteImport } from './routes/send'
@@ -36,6 +37,11 @@ import { Route as LegalTermsRouteImport } from './routes/legal_.terms'
 import { Route as LegalPrivacyRouteImport } from './routes/legal_.privacy'
 import { Route as ClaimRefRouteImport } from './routes/claim.$ref'
 
+const WithdrawRoute = WithdrawRouteImport.update({
+  id: '/withdraw',
+  path: '/withdraw',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WalletRoute = WalletRouteImport.update({
   id: '/wallet',
   path: '/wallet',
@@ -181,6 +187,7 @@ export interface FileRoutesByFullPath {
   '/send': typeof SendRoute
   '/signup': typeof SignupRoute
   '/wallet': typeof WalletRoute
+  '/withdraw': typeof WithdrawRoute
   '/claim/$ref': typeof ClaimRefRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
@@ -209,6 +216,7 @@ export interface FileRoutesByTo {
   '/send': typeof SendRoute
   '/signup': typeof SignupRoute
   '/wallet': typeof WalletRoute
+  '/withdraw': typeof WithdrawRoute
   '/claim/$ref': typeof ClaimRefRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
@@ -238,6 +246,7 @@ export interface FileRoutesById {
   '/send': typeof SendRoute
   '/signup': typeof SignupRoute
   '/wallet': typeof WalletRoute
+  '/withdraw': typeof WithdrawRoute
   '/claim/$ref': typeof ClaimRefRoute
   '/legal_/privacy': typeof LegalPrivacyRoute
   '/legal_/terms': typeof LegalTermsRoute
@@ -268,6 +277,7 @@ export interface FileRouteTypes {
     | '/send'
     | '/signup'
     | '/wallet'
+    | '/withdraw'
     | '/claim/$ref'
     | '/legal/privacy'
     | '/legal/terms'
@@ -296,6 +306,7 @@ export interface FileRouteTypes {
     | '/send'
     | '/signup'
     | '/wallet'
+    | '/withdraw'
     | '/claim/$ref'
     | '/legal/privacy'
     | '/legal/terms'
@@ -324,6 +335,7 @@ export interface FileRouteTypes {
     | '/send'
     | '/signup'
     | '/wallet'
+    | '/withdraw'
     | '/claim/$ref'
     | '/legal_/privacy'
     | '/legal_/terms'
@@ -353,6 +365,7 @@ export interface RootRouteChildren {
   SendRoute: typeof SendRoute
   SignupRoute: typeof SignupRoute
   WalletRoute: typeof WalletRoute
+  WithdrawRoute: typeof WithdrawRoute
   ClaimRefRoute: typeof ClaimRefRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
   LegalTermsRoute: typeof LegalTermsRoute
@@ -370,6 +383,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/withdraw': {
+      id: '/withdraw'
+      path: '/withdraw'
+      fullPath: '/withdraw'
+      preLoaderRoute: typeof WithdrawRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/wallet': {
       id: '/wallet'
       path: '/wallet'
@@ -569,6 +589,7 @@ const rootRouteChildren: RootRouteChildren = {
   SendRoute: SendRoute,
   SignupRoute: SignupRoute,
   WalletRoute: WalletRoute,
+  WithdrawRoute: WithdrawRoute,
   ClaimRefRoute: ClaimRefRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
   LegalTermsRoute: LegalTermsRoute,
