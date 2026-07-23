@@ -81,14 +81,14 @@ function SignupKyc() {
   };
 
   return (
-    <div className="min-h-screen bg-auth-gradient relative">
-      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-white/30" />
+    <div className="min-h-screen bg-linen relative font-manrope">
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-paper/40" />
 
       <div className="relative z-10 px-5 pt-6 pb-8 max-w-97.5 mx-auto min-h-screen flex flex-col">
         <button
           type="button"
           onClick={() => navigate({ to: "/signup/verify" })}
-          className="w-9 h-9 rounded-xl bg-white/50 border border-white/60 flex items-center justify-center cursor-pointer mb-6 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+          className="w-9 h-9 rounded-xl bg-paper/70 border border-paper flex items-center justify-center cursor-pointer mb-6 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber"
           aria-label="Go back"
         >
           <ChevronLeft size={16} strokeWidth={2} />
@@ -96,24 +96,24 @@ function SignupKyc() {
 
         <ProgressBar totalSteps={5} currentStep={3} className="mb-7" />
 
-        <p className="text-[11px] font-semibold tracking-widest text-black/40 uppercase mb-1.5">
+        <p className="text-[11px] font-semibold tracking-widest text-slate uppercase mb-1.5">
           STEP 3 OF 5
         </p>
-        <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-navy mb-2">
+        <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-ink mb-2">
           Verify your identity
         </h1>
-        <p className="text-[13px] text-black/50 leading-relaxed mb-6">
+        <p className="text-[13px] text-slate leading-relaxed mb-6">
           Required to send and receive money. We use these details to confirm who you are.
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col flex-1">
           <div
             className={cn(
-              "bg-white/85 backdrop-blur-sm border rounded-2xl px-4 py-3.5 mb-2.5",
-              errors.fullName ? "border-danger" : "border-white/90"
+              "bg-paper/85 backdrop-blur-sm border rounded-2xl px-4 py-3.5 mb-2.5",
+              errors.fullName ? "border-rust" : "border-paper"
             )}
           >
-            <span className="text-[10px] font-semibold tracking-widest text-black/40 uppercase block mb-1">
+            <span className="text-[10px] font-semibold tracking-widest text-slate uppercase block mb-1">
               FULL LEGAL NAME
             </span>
             <input
@@ -121,35 +121,35 @@ function SignupKyc() {
               type="text"
               placeholder="Jane Wanjiru Njoroge"
               autoComplete="name"
-              className="bg-transparent border-none outline-none text-[15px] font-semibold text-navy placeholder-black/30 w-full"
+              className="bg-transparent border-none outline-none text-[15px] font-semibold text-ink placeholder-ink/30 w-full"
             />
           </div>
           {errors.fullName && (
-            <p className="text-[12px] text-danger mb-2 px-1">{errors.fullName.message}</p>
+            <p className="text-[12px] text-rust mb-2 px-1">{errors.fullName.message}</p>
           )}
 
           <div
             className={cn(
-              "bg-white/85 backdrop-blur-sm border rounded-2xl px-4 py-3.5 mb-2.5",
-              errors.dateOfBirth ? "border-danger" : "border-white/90"
+              "bg-paper/85 backdrop-blur-sm border rounded-2xl px-4 py-3.5 mb-2.5",
+              errors.dateOfBirth ? "border-rust" : "border-paper"
             )}
           >
-            <span className="text-[10px] font-semibold tracking-widest text-black/40 uppercase block mb-1">
+            <span className="text-[10px] font-semibold tracking-widest text-slate uppercase block mb-1">
               DATE OF BIRTH
             </span>
             <input
               {...register("dateOfBirth")}
               type="date"
               max={new Date().toISOString().slice(0, 10)}
-              className="bg-transparent border-none outline-none text-[15px] font-semibold text-navy w-full"
+              className="bg-transparent border-none outline-none text-[15px] font-semibold text-ink w-full"
             />
           </div>
           {errors.dateOfBirth && (
-            <p className="text-[12px] text-danger mb-2 px-1">{errors.dateOfBirth.message}</p>
+            <p className="text-[12px] text-rust mb-2 px-1">{errors.dateOfBirth.message}</p>
           )}
 
-          <div className="bg-white/85 backdrop-blur-sm border border-white/90 rounded-2xl px-4 py-3.5 mb-2.5">
-            <span className="text-[10px] font-semibold tracking-widest text-black/40 uppercase block mb-1">
+          <div className="bg-paper/85 backdrop-blur-sm border border-paper rounded-2xl px-4 py-3.5 mb-2.5">
+            <span className="text-[10px] font-semibold tracking-widest text-slate uppercase block mb-1">
               ID TYPE
             </span>
             <Controller
@@ -157,7 +157,7 @@ function SignupKyc() {
               control={control}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="bg-transparent border-none shadow-none p-0 h-auto focus:ring-0 focus:ring-offset-0 text-[15px] font-semibold text-navy">
+                  <SelectTrigger className="bg-transparent border-none shadow-none p-0 h-auto focus:ring-0 focus:ring-offset-0 text-[15px] font-semibold text-ink">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -174,11 +174,11 @@ function SignupKyc() {
 
           <div
             className={cn(
-              "bg-white/85 backdrop-blur-sm border rounded-2xl px-4 py-3.5 mb-3",
-              errors.idNumber ? "border-danger" : "border-white/90"
+              "bg-paper/85 backdrop-blur-sm border rounded-2xl px-4 py-3.5 mb-3",
+              errors.idNumber ? "border-rust" : "border-paper"
             )}
           >
-            <span className="text-[10px] font-semibold tracking-widest text-black/40 uppercase block mb-1">
+            <span className="text-[10px] font-semibold tracking-widest text-slate uppercase block mb-1">
               ID NUMBER
             </span>
             <input
@@ -186,24 +186,24 @@ function SignupKyc() {
               type="text"
               placeholder="12345678"
               autoComplete="off"
-              className="bg-transparent border-none outline-none text-[15px] font-semibold text-navy placeholder-black/30 w-full"
+              className="bg-transparent border-none outline-none text-[15px] font-semibold text-ink placeholder-ink/30 w-full"
             />
           </div>
           {errors.idNumber && (
-            <p className="text-[12px] text-danger mb-2 px-1">{errors.idNumber.message}</p>
+            <p className="text-[12px] text-rust mb-2 px-1">{errors.idNumber.message}</p>
           )}
 
           {serverError && (
-            <div className="flex items-start gap-2 bg-danger/10 border border-danger/20 rounded-2xl px-4 py-3 mb-3">
-              <AlertCircle size={16} strokeWidth={2} className="text-danger shrink-0 mt-0.5" />
-              <p className="text-[12px] text-danger leading-relaxed">{serverError}</p>
+            <div className="flex items-start gap-2 bg-rust/10 border border-rust/20 rounded-2xl px-4 py-3 mb-3">
+              <AlertCircle size={16} strokeWidth={2} className="text-rust shrink-0 mt-0.5" />
+              <p className="text-[12px] text-rust leading-relaxed">{serverError}</p>
             </div>
           )}
 
           <TrustBadge
             title="Your details stay private"
             body="Used only to confirm your identity for compliance. Never shared or sold."
-            icon={<IdCard size={18} strokeWidth={2.5} className="text-success" />}
+            icon={<IdCard size={18} strokeWidth={2.5} className="text-forest-light" />}
           />
 
           <div className="flex-1" />
@@ -212,15 +212,15 @@ function SignupKyc() {
             type="submit"
             disabled={isSubmitting}
             className={cn(
-              "w-full py-4 rounded-2xl bg-orange-gradient text-white font-display font-bold text-[15px]",
-              "shadow-[0_6px_20px_rgba(249,115,22,0.35)] flex items-center justify-center gap-2",
+              "w-full py-4 rounded-2xl bg-amber text-ink font-display font-bold text-[15px]",
+              "shadow-[0_6px_20px_rgba(232,163,61,0.35)] flex items-center justify-center gap-2",
               "disabled:opacity-60 disabled:cursor-not-allowed",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2"
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2"
             )}
           >
             {isSubmitting ? (
               <>
-                <LoadingSpinner size={16} color="white" />
+                <LoadingSpinner size={16} color="orange" />
                 Verifying
               </>
             ) : (
