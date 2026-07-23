@@ -128,35 +128,35 @@ function LoginVerify() {
   };
 
   return (
-    <div className="min-h-screen bg-auth-gradient relative">
-      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-white/30" />
+    <div className="min-h-screen bg-linen relative font-manrope">
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-paper/40" />
 
       <div className="relative z-10 px-5 pt-6 pb-8 max-w-97.5 mx-auto min-h-screen flex flex-col">
         <button
           type="button"
           onClick={() => navigate({ to: "/login/phone" })}
-          className="w-9 h-9 rounded-xl bg-white/50 border border-white/60 flex items-center justify-center cursor-pointer mb-8 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+          className="w-9 h-9 rounded-xl bg-paper/70 border border-paper flex items-center justify-center cursor-pointer mb-8 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber"
           aria-label="Go back"
         >
           <ChevronLeft size={16} strokeWidth={2} />
         </button>
 
-        <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-navy mb-2">
+        <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-ink mb-2">
           Verify your number
         </h1>
-        <p className="text-[13px] text-black/50 leading-relaxed mb-6">
+        <p className="text-[13px] text-slate leading-relaxed mb-6">
           Enter the {OTP_LENGTH}-digit code we sent to your email on file.
           {phone && (
             <>
               {" "}Number:{" "}
-              <span className="font-semibold text-navy">{phone}</span>
+              <span className="font-semibold text-ink">{phone}</span>
             </>
           )}
         </p>
 
         <div className="flex justify-center mb-7">
-          <div className="w-16 h-16 rounded-2xl bg-orange/10 border border-orange/20 flex items-center justify-center">
-            <Mail size={28} strokeWidth={1.5} className="text-orange" />
+          <div className="w-16 h-16 rounded-2xl bg-amber/12 border border-amber/20 flex items-center justify-center">
+            <Mail size={28} strokeWidth={1.5} className="text-amber-deep" />
           </div>
         </div>
 
@@ -173,7 +173,7 @@ function LoginVerify() {
         </div>
 
         {error && (
-          <p className="text-center text-[12px] text-danger mb-3">{error}</p>
+          <p className="text-center text-[12px] text-rust mb-3">{error}</p>
         )}
 
         {verifying && (
@@ -193,8 +193,8 @@ function LoginVerify() {
                 disabled={resending}
                 onClick={handleResend}
                 className={cn(
-                  "text-[13px] font-semibold text-orange underline-offset-2 hover:underline",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-1 rounded",
+                  "text-[13px] font-semibold text-amber-deep underline-offset-2 hover:underline",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-1 rounded",
                   "disabled:opacity-50 disabled:cursor-not-allowed"
                 )}
               >
@@ -208,18 +208,18 @@ function LoginVerify() {
                 )}
               </button>
             }
-            className="text-[13px] text-black/40"
+            className="text-[13px] text-slate"
           />
         </div>
 
         <div className="flex-1" />
 
-        <p className="text-[11px] text-black/40 text-center mt-4 leading-relaxed">
+        <p className="text-[11px] text-slate text-center mt-4 leading-relaxed">
           Wrong number?{" "}
           <button
             type="button"
             onClick={() => navigate({ to: "/login/phone" })}
-            className="underline text-orange font-semibold focus-visible:outline-none"
+            className="underline text-amber-deep font-semibold focus-visible:outline-none"
           >
             Go back and change it.
           </button>
