@@ -19,9 +19,9 @@ export function ProgressBar({ totalSteps = 4, currentStep, className }: Progress
             key={i}
             className={cn(
               "h-1 rounded-full flex-1 transition-all duration-300",
-              isDone && "bg-success",
-              isActive && "bg-orange",
-              !isDone && !isActive && "bg-black/10"
+              isDone && "bg-forest",
+              isActive && "bg-amber",
+              !isDone && !isActive && "bg-ink/10"
             )}
           />
         );
