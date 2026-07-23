@@ -56,7 +56,7 @@ function Track() {
     return (
       <PageFrame sidebar={false} maxWidth="narrow">
         <div className="flex h-full items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="h-6 w-6 animate-spin text-slate" />
         </div>
       </PageFrame>
     );
@@ -66,8 +66,8 @@ function Track() {
     return (
       <PageFrame sidebar={false} maxWidth="narrow">
         <div className="p-10 text-center">
-          <p className="text-sm font-bold text-destructive">Couldn't load transaction</p>
-          <Link to="/history" className="mt-4 inline-block text-sm text-primary font-semibold">Back to history</Link>
+          <p className="text-sm font-bold text-rust">Couldn't load transaction</p>
+          <Link to="/history" className="mt-4 inline-block text-sm text-forest font-semibold">Back to history</Link>
         </div>
       </PageFrame>
     );
@@ -132,20 +132,20 @@ function Track() {
 
   return (
     <PageFrame sidebar={false} maxWidth="narrow">
-      <div className="flex min-h-full flex-col">
+      <div className="flex min-h-full flex-col font-manrope">
         <header className="flex items-center justify-between px-5 pt-6 pb-2">
-          <Link to="/history" className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
+          <Link to="/history" className="h-9 w-9 rounded-full border border-ink/10 bg-paper flex items-center justify-center">
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <h1 className="text-sm font-bold">Transfer tracker</h1>
           <button onClick={shareReceipt} disabled={isSharing}
-            className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center disabled:opacity-60">
+            className="h-9 w-9 rounded-full border border-ink/10 bg-paper flex items-center justify-center disabled:opacity-60">
             {isSharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
           </button>
         </header>
 
         <div className="px-5 mt-3">
-          <div className="rounded-3xl p-5 text-primary-foreground shadow-(--shadow-elegant)" style={{ background: "var(--gradient-portfolio)" }}>
+          <div className="rounded-3xl p-5 text-paper bg-ink">
             <p className="text-xs opacity-80 uppercase tracking-wider">{tx.direction === "out" ? "Sent to" : "Received from"}</p>
             <p className="mt-1 text-2xl font-black">{tx.counterparty}</p>
             <div className="mt-4 flex items-end justify-between">
@@ -164,7 +164,7 @@ function Track() {
         <div className="px-5 mt-6">
           <h2 className="text-sm font-bold mb-3">Settlement timeline</h2>
           <div className="relative pl-9">
-            <div className="absolute left-3.75 top-2 bottom-2 w-px bg-border" />
+            <div className="absolute left-3.75 top-2 bottom-2 w-px bg-ink/10" />
             {steps.map((s, i) => {
               const done = i < currentStep || (i === currentStep && !isPending);
               const active = i === currentStep && isPending;
@@ -172,16 +172,16 @@ function Track() {
               return (
                 <div key={i} className="relative pb-5 last:pb-0">
                   <div className={`absolute -left-9 top-0 h-7 w-7 rounded-full flex items-center justify-center ${
-                    failed ? "bg-destructive text-destructive-foreground" :
-                    done ? "bg-success text-success-foreground" :
-                    active ? "bg-primary text-primary-foreground" :
-                    "bg-muted text-muted-foreground"
+                    failed ? "bg-rust text-paper" :
+                    done ? "bg-forest text-paper" :
+                    active ? "bg-ink text-paper" :
+                    "bg-ink/8 text-slate"
                   }`}>
                     {done ? <Check className="h-3.5 w-3.5" /> : active ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
                   </div>
                   <p className="text-sm font-semibold">{s.title}</p>
-                  <p className="text-[11px] text-muted-foreground">{s.desc}</p>
-                  {events[i] && <p className="text-[10px] text-muted-foreground/60 mt-0.5">{new Date(events[i].createdAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</p>}
+                  <p className="text-[11px] text-slate">{s.desc}</p>
+                  {events[i] && <p className="text-[10px] text-slate/60 mt-0.5">{new Date(events[i].createdAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</p>}
                 </div>
               );
             })}
@@ -189,7 +189,7 @@ function Track() {
         </div>
 
         <div className="px-5 mt-6">
-          <div className="rounded-2xl border border-border bg-card divide-y divide-border">
+          <div className="rounded-2xl border border-ink/10 bg-paper divide-y divide-ink/10">
             <Row k="Status" v={getStatusLabel(tx.status)} />
             <Row k="Asset" v="USDC" />
             <Row k="Rail" v={getRailLabel(tx.rail)} />
@@ -208,12 +208,11 @@ function Track() {
 
         <div className="px-5 mt-5 pb-8">
           <button onClick={shareReceipt} disabled={isSharing}
-            className="w-full rounded-2xl py-3.5 text-sm font-semibold text-primary-foreground shadow-(--shadow-elegant) disabled:opacity-70 flex items-center justify-center gap-2"
-            style={{ background: "var(--gradient-portfolio)" }}>
+            className="w-full rounded-2xl py-3.5 text-sm font-semibold text-paper bg-ink hover:bg-ink-hover disabled:opacity-70 flex items-center justify-center gap-2 transition">
             {isSharing && <Loader2 className="h-4 w-4 animate-spin" />}
             {isSharing ? "Preparing receipt…" : "Share receipt"}
           </button>
-          <Link to="/dashboard" className="mt-2 block text-center text-xs text-muted-foreground py-2">Back to home</Link>
+          <Link to="/dashboard" className="mt-2 block text-center text-xs text-slate py-2">Back to home</Link>
         </div>
       </div>
     </PageFrame>
@@ -223,7 +222,7 @@ function Track() {
 function Row({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
   return (
     <div className="flex items-center justify-between p-3.5">
-      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{k}</span>
+      <span className="text-[11px] uppercase tracking-wider text-slate">{k}</span>
       <span className={`text-xs font-semibold ${mono ? "font-mono" : ""}`}>{v}</span>
     </div>
   );
