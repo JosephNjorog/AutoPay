@@ -5,12 +5,18 @@ import {
   Bell,
   Plus,
   ArrowUpRight,
+  ArrowDownToLine,
   Store,
   QrCode,
   Activity,
   AlertCircle,
   ShieldAlert,
 } from "lucide-react";
+import { dialCodeToCountry } from "@tuma/shared";
+
+// Countries Minisend has confirmed coverage for — keep in sync with the
+// backend's getProviderForCountry() gate in services/settlement-providers.
+const WITHDRAW_COUNTRIES = ["KE", "NG", "GH", "UG"];
 import { BalanceCard } from "@/components/BalanceCard";
 import { TransactionRow } from "@/components/TransactionRow";
 import { BottomNav } from "@/components/BottomNav";
@@ -245,6 +251,12 @@ function Dashboard() {
             onSend={() => navigate({ to: "/send" })}
             onPay={() => navigate({ to: "/pay-merchant" })}
             onReceive={() => navigate({ to: "/receive" })}
+            onWithdraw={() => navigate({ to: "/withdraw" })}
+            showWithdraw={
+              (walletQuery.data?.assets.find((a) => a.symbol === "USDC")?.balanceUsd ?? 0) > 0 &&
+              !!sessionStore.phone &&
+              WITHDRAW_COUNTRIES.includes(dialCodeToCountry(sessionStore.phone)?.code ?? "")
+            }
           />
 
           {/* Recent Activity */}
@@ -352,36 +364,48 @@ const AssetsSection = memo(function AssetsSection({
 // ── Quick Actions ─────────────────────────────────────────────────────────────
 
 const QUICK_ACTIONS = [
-  { label: "Add money", icon: Plus,         isOrange: true,  key: "add"     },
-  { label: "Send",      icon: ArrowUpRight, isOrange: false, key: "send"    },
-  { label: "Pay",       icon: Store,        isOrange: false, key: "pay"     },
-  { label: "Receive",   icon: QrCode,       isOrange: false, key: "receive" },
+  { label: "Add money", icon: Plus,           isOrange: true,  key: "add"      },
+  { label: "Send",      icon: ArrowUpRight,   isOrange: false, key: "send"     },
+  { label: "Pay",       icon: Store,          isOrange: false, key: "pay"      },
+  { label: "Receive",   icon: QrCode,         isOrange: false, key: "receive"  },
 ] as const;
+
+const WITHDRAW_ACTION = { label: "Withdraw", icon: ArrowDownToLine, isOrange: false, key: "withdraw" } as const;
 
 function QuickActions({
   onAddMoney,
   onSend,
   onPay,
   onReceive,
+  onWithdraw,
+  showWithdraw,
 }: {
   onAddMoney: () => void;
   onSend: () => void;
   onPay: () => void;
   onReceive: () => void;
+  onWithdraw: () => void;
+  showWithdraw: boolean;
 }) {
   const handlers: Record<string, () => void> = {
     add: onAddMoney,
     send: onSend,
     pay: onPay,
     receive: onReceive,
+    withdraw: onWithdraw,
   };
+
+  // Withdraw only shows once there's a USDC balance in a Minisend-covered
+  // country — kept hidden rather than shown-disabled for everyone else, so
+  // it never promises a feature that doesn't work there yet.
+  const actions = showWithdraw ? [...QUICK_ACTIONS, WITHDRAW_ACTION] : QUICK_ACTIONS;
 
   return (
     <div className="px-4 mb-5 md:col-span-3 md:order-4 md:px-0 md:mb-0">
-      <div className="grid grid-cols-4 gap-2 md:max-w-lg">
+      <div className={cn("grid gap-2 md:max-w-lg", showWithdraw ? "grid-cols-5" : "grid-cols-4")}>
         {/* 4-up layout: touch targets keep their 44px min-height, just with
             tighter horizontal gutters than the previous 3-up grid. */}
-        {QUICK_ACTIONS.map(({ label, icon: Icon, isOrange, key }) => (
+        {actions.map(({ label, icon: Icon, isOrange, key }) => (
           <button
             key={key}
             type="button"
