@@ -39,6 +39,10 @@ export const railEnum = pgEnum("rail", [
   // from the Paystack-backed payout corridors above, see services/pay.ts.
   "mpesa_b2b_till",
   "mpesa_b2b_paybill",
+  // Contributor self-withdraw off-ramp — sends directly from the user's own
+  // wallet to a Minisend-supplied deposit address, no treasury involved. See
+  // services/settlement-providers/.
+  "minisend",
 ]);
 
 export const tokenEnum = pgEnum("token", ["USDC", "USDT", "AVAX"]);
