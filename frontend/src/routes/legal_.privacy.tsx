@@ -14,20 +14,20 @@ const APP_URL = "https://www.autopayke.com";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-8">
-      <h2 className="text-[16px] font-bold text-navy mb-3">{title}</h2>
-      <div className="space-y-3 text-[13px] text-gray-600 leading-relaxed">{children}</div>
+      <h2 className="text-[16px] font-bold text-ink mb-3">{title}</h2>
+      <div className="space-y-3 text-[13px] text-charcoal leading-relaxed">{children}</div>
     </section>
   );
 }
 
 function PrivacyPolicy() {
   return (
-    <div className="min-h-screen bg-[#FDF8F2]">
+    <div className="min-h-screen bg-linen font-manrope">
       <div className="max-w-[680px] mx-auto px-5 pt-6 pb-16">
         {/* Back */}
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 text-[13px] text-gray-500 mb-6 hover:text-navy transition-colors"
+          className="inline-flex items-center gap-1.5 text-[13px] text-slate mb-6 hover:text-ink transition-colors"
         >
           <ArrowLeft size={14} strokeWidth={2} />
           Back
@@ -36,11 +36,11 @@ function PrivacyPolicy() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-orange-gradient flex items-center justify-center text-white font-bold text-sm font-display">A</div>
-            <span className="font-display font-extrabold text-[16px] text-navy">AutoPayKe</span>
+            <div className="w-8 h-8 rounded-lg bg-amber flex items-center justify-center text-ink font-bold text-sm font-display">A</div>
+            <span className="font-display font-extrabold text-[16px] text-ink">AutoPayKe</span>
           </div>
-          <h1 className="font-display font-black text-[28px] text-navy mb-2">Privacy Policy</h1>
-          <p className="text-[13px] text-gray-400">Effective date: {EFFECTIVE_DATE}</p>
+          <h1 className="font-display font-black text-[28px] text-ink mb-2">Privacy Policy</h1>
+          <p className="text-[13px] text-slate">Effective date: {EFFECTIVE_DATE}</p>
         </div>
 
         <div className="prose prose-sm max-w-none">
@@ -174,7 +174,7 @@ function PrivacyPolicy() {
             </ul>
             <p>
               To exercise any of these rights, contact our Data Protection Officer at{" "}
-              <a href={`mailto:${EMAIL}`} className="text-orange underline">{EMAIL}</a>. We will respond within
+              <a href={`mailto:${EMAIL}`} className="text-amber-deep underline">{EMAIL}</a>. We will respond within
               30 days. We may need to verify your identity before fulfilling the request.
             </p>
           </Section>
@@ -219,21 +219,21 @@ function PrivacyPolicy() {
           <Section title="13. Contact Our Data Protection Officer">
             <p>If you have any questions, concerns, or complaints about this Privacy Policy or our data practices:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Email: <a href={`mailto:${EMAIL}`} className="text-orange underline">{EMAIL}</a></li>
-              <li>Website: <a href={APP_URL} className="text-orange underline">{APP_URL}</a></li>
+              <li>Email: <a href={`mailto:${EMAIL}`} className="text-amber-deep underline">{EMAIL}</a></li>
+              <li>Website: <a href={APP_URL} className="text-amber-deep underline">{APP_URL}</a></li>
             </ul>
             <p>
               You also have the right to lodge a complaint with the Office of the Data Protection Commissioner
-              of Kenya (ODPC) at <a href="https://www.odpc.go.ke" className="text-orange underline" target="_blank" rel="noreferrer">odpc.go.ke</a>.
+              of Kenya (ODPC) at <a href="https://www.odpc.go.ke" className="text-amber-deep underline" target="_blank" rel="noreferrer">odpc.go.ke</a>.
             </p>
           </Section>
 
         </div>
 
         {/* Footer links */}
-        <div className="mt-8 pt-6 border-t border-black/10 flex flex-wrap gap-4 text-[12px] text-gray-400">
-          <Link to="/legal/terms" className="hover:text-orange transition-colors">Terms of Service</Link>
-          <Link to="/" className="hover:text-orange transition-colors">Back to AutoPayKe</Link>
+        <div className="mt-8 pt-6 border-t border-ink/10 flex flex-wrap gap-4 text-[12px] text-slate">
+          <Link to="/legal/terms" className="hover:text-amber-deep transition-colors">Terms of Service</Link>
+          <Link to="/" className="hover:text-amber-deep transition-colors">Back to AutoPayKe</Link>
         </div>
       </div>
     </div>
