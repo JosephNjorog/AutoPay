@@ -98,42 +98,40 @@ export function TopUpFromWallet({ token, tokenShortfall }: { token: PayableAsset
   }
 
   return (
-    <div className="mt-3 rounded-2xl border border-primary/30 bg-primary-soft/40 p-3.5">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-        <Zap className="h-3 w-3 text-primary" /> Insufficient AutoPayKe balance
+    <div className="mt-3 rounded-2xl border border-amber/50 bg-amber/14 p-3.5 font-manrope">
+      <p className="text-[10px] uppercase tracking-wider text-charcoal flex items-center gap-1.5">
+        <Zap className="h-3 w-3 text-ink" /> Insufficient AutoPayKe balance
       </p>
 
       {!isConnected ? (
         <button
           onClick={() => open()}
-          className="mt-2.5 w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold text-primary-foreground shadow-(--shadow-elegant)"
-          style={{ background: "var(--gradient-portfolio)" }}
+          className="mt-2.5 w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold text-paper bg-ink"
         >
           Connect wallet to cover the difference
         </button>
       ) : (
         <>
           {connectedBalanceAmount !== null && (
-            <p className="mt-1 text-[11px] text-muted-foreground">
+            <p className="mt-1 text-[11px] text-slate">
               Connected wallet balance: {connectedBalanceAmount.toFixed(token === "AVAX" ? 4 : 2)} {token}
             </p>
           )}
           <button
             onClick={handleTopUp}
             disabled={paying || insufficientConnectedBalance}
-            className="mt-2.5 w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold text-primary-foreground disabled:opacity-50 shadow-(--shadow-elegant)"
-            style={{ background: "var(--gradient-portfolio)" }}
+            className="mt-2.5 w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold text-paper bg-ink disabled:opacity-50"
           >
             {paying && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             {payLabel[step]}
           </button>
           {insufficientConnectedBalance && !error && (
-            <p className="mt-2 text-[11px] text-destructive text-center">
+            <p className="mt-2 text-[11px] text-rust text-center">
               Connected wallet only has {connectedBalanceAmount?.toFixed(token === "AVAX" ? 4 : 2)} {token} —
               not enough to cover the difference.
             </p>
           )}
-          {error && <p className="mt-2 text-[11px] text-destructive text-center">{error}</p>}
+          {error && <p className="mt-2 text-[11px] text-rust text-center">{error}</p>}
         </>
       )}
     </div>
