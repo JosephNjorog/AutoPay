@@ -9,9 +9,9 @@ export interface LoadingSpinnerProps {
 }
 
 const COLOR_CLASSES: Record<NonNullable<LoadingSpinnerProps["color"]>, string> = {
-  orange: "text-orange",
-  white: "text-white",
-  muted: "text-white/30",
+  orange: "text-amber-deep",
+  white: "text-paper",
+  muted: "text-slate",
 };
 
 export function LoadingSpinner({ size = 20, color = "orange", fullScreen = false, label }: LoadingSpinnerProps) {
@@ -26,7 +26,7 @@ export function LoadingSpinner({ size = 20, color = "orange", fullScreen = false
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-navy/80 z-50">
+      <div className="fixed inset-0 flex items-center justify-center bg-ink/80 z-50">
         {spinner}
       </div>
     );
