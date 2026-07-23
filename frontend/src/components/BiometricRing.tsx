@@ -34,14 +34,14 @@ export function BiometricRing({ type, size = "md", onPress, animating = true, cl
       onKeyDown={onPress ? (e) => { if (e.key === "Enter" || e.key === " ") onPress(); } : undefined}
       className={cn(
         SIZE_CLASSES[size],
-        "rounded-full bg-orange/10 border-2 border-orange/25 flex items-center justify-center mx-auto",
+        "rounded-full bg-amber/12 border-2 border-amber/40 flex items-center justify-center mx-auto",
         animating && !reducedMotion && "animate-bio-pulse",
         onPress && "cursor-pointer active:scale-95 transition-transform duration-150",
-        onPress && "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2",
+        onPress && "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2",
         className
       )}
     >
-      <Icon size={ICON_SIZES[size]} strokeWidth={1.5} className="text-orange" />
+      <Icon size={ICON_SIZES[size]} strokeWidth={1.5} className="text-amber-deep" />
     </div>
   );
 }
