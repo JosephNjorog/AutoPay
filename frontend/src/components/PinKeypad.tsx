@@ -73,9 +73,9 @@ export function PinKeypad({
   };
 
   const dotColor = () => {
-    if (status === "error") return theme === "light" ? "bg-danger border-danger" : "bg-danger border-danger";
-    if (status === "success") return theme === "light" ? "bg-success border-success" : "bg-success border-success";
-    return "bg-orange border-orange";
+    if (status === "error") return "bg-rust border-rust";
+    if (status === "success") return "bg-forest border-forest";
+    return "bg-amber border-amber";
   };
 
   const isLight = theme === "light";
@@ -99,8 +99,8 @@ export function PinKeypad({
                 filled
                   ? cn("scale-110", dotColor())
                   : isLight
-                  ? "border-black/20 bg-transparent"
-                  : "border-white/20 bg-transparent"
+                  ? "border-ink/20 bg-transparent"
+                  : "border-paper/20 bg-transparent"
               )}
             />
           );
@@ -109,7 +109,7 @@ export function PinKeypad({
 
       {/* Status message */}
       {statusMessage && status === "error" && (
-        <p className="text-center text-[12px] text-danger mb-2">{statusMessage}</p>
+        <p className="text-center text-[12px] text-rust mb-2">{statusMessage}</p>
       )}
 
       {/* Keypad */}
@@ -133,16 +133,16 @@ export function PinKeypad({
                   className={cn(
                     "h-14 rounded-2xl flex items-center justify-center cursor-pointer transition-all duration-150",
                     "active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-1",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-1",
                     isLight
-                      ? "bg-white/70 backdrop-blur-sm border border-white/90 shadow-sm active:bg-orange/15 active:border-orange"
-                      : "bg-navy-surface border border-navy-border active:bg-orange/15 active:border-orange"
+                      ? "bg-paper/70 backdrop-blur-sm border border-paper shadow-sm active:bg-amber/15 active:border-amber"
+                      : "bg-ink border border-paper/15 active:bg-amber/15 active:border-amber"
                   )}
                 >
                   <Delete
                     size={18}
                     strokeWidth={1.5}
-                    className={isLight ? "text-navy" : "text-white"}
+                    className={isLight ? "text-ink" : "text-paper"}
                   />
                 </button>
               );
@@ -158,10 +158,10 @@ export function PinKeypad({
                 className={cn(
                   "h-14 rounded-2xl flex flex-col items-center justify-center font-display text-xl font-bold cursor-pointer",
                   "transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-1",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-1",
                   isLight
-                    ? "bg-white/70 backdrop-blur-sm border border-white/90 text-navy shadow-sm active:bg-orange/15 active:border-orange"
-                    : "bg-navy-surface border border-navy-border text-white active:bg-orange/15 active:border-orange"
+                    ? "bg-paper/70 backdrop-blur-sm border border-paper text-ink shadow-sm active:bg-amber/15 active:border-amber"
+                    : "bg-ink border border-paper/15 text-paper active:bg-amber/15 active:border-amber"
                 )}
               >
                 <span>{key}</span>
