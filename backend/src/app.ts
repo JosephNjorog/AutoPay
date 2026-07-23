@@ -19,7 +19,7 @@ import { notificationsRouter } from "./routes/notifications";
 import { opsRouter } from "./routes/ops";
 import { kycRouter } from "./routes/kyc";
 import { agentRouter } from "./routes/agent";
-import { mpesaWebhookRouter, momoWebhookRouter } from "./routes/webhooks";
+import { mpesaWebhookRouter, momoWebhookRouter, minisendWebhookRouter } from "./routes/webhooks";
 import { isKnownError } from "./lib/errors";
 import { requestIdMiddleware } from "./middleware/request-id";
 
@@ -62,6 +62,7 @@ app.route("/api/agent", agentRouter);
 app.route("/webhooks/paystack", paystackWebhookRouter);
 app.route("/webhooks/mpesa", mpesaWebhookRouter);
 app.route("/webhooks/momo", momoWebhookRouter);
+app.route("/webhooks/minisend", minisendWebhookRouter);
 
 app.onError((err, c) => {
   if (isKnownError(err)) {
