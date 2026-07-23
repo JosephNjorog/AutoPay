@@ -10,6 +10,7 @@
  *   /webhooks/mpesa/b2b/result   ← Merchant Pay (Daraja B2B) result
  *   /webhooks/mpesa/b2b/timeout  ← Merchant Pay (Daraja B2B) queue timeout
  *   /webhooks/momo               ← MTN MoMo disbursement callback
+ *   /webhooks/minisend            ← Minisend off-ramp payout callback
  */
 
 import { Hono } from "hono";
@@ -18,6 +19,7 @@ import { transactions, users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { recordSettlementStep } from "../services/settlement";
 import { creditPayFromFloat } from "../services/avalanche-pay";
+import { minisendProvider } from "../services/settlement-providers/minisend";
 import type { Address } from "viem";
 
 // ── M-Pesa ────────────────────────────────────────────────────────────────────
@@ -202,6 +204,57 @@ momoWebhookRouter.post("/", async (c) => {
     console.error(`[Webhook:MoMo] ✗ Failed TX=${tx.id} status=${status}`);
   }
   // PENDING: no action, let the settlement poller handle it
+
+  return c.json({ received: true });
+});
+
+// ── Minisend (contributor withdraw off-ramp) ────────────────────────────────
+
+export const minisendWebhookRouter = new Hono();
+
+// POST /webhooks/minisend — offramp.completed / offramp.failed / offramp.expired
+minisendWebhookRouter.post("/", async (c) => {
+  const rawBody = await c.req.text();
+  const signature = c.req.header("x-minisend-signature") ?? "";
+
+  if (!minisendProvider.verifyWebhookSignature(rawBody, signature)) {
+    console.error("[Webhook:Minisend] Invalid signature — rejecting");
+    return c.json({ error: "Invalid signature" }, 401);
+  }
+
+  const event = minisendProvider.parseWebhookEvent(rawBody);
+
+  const tx = await db.query.transactions.findFirst({
+    where: eq(transactions.railReference, event.orderId),
+  });
+
+  if (!tx) {
+    console.warn(`[Webhook:Minisend] No TX found for order_id=${event.orderId}`);
+    return c.json({ received: true });
+  }
+
+  if (tx.status === "settled" || tx.status === "failed") {
+    return c.json({ received: true });
+  }
+
+  if (event.status === "completed") {
+    await recordSettlementStep(tx.id, "settled", {
+      orderId: event.orderId,
+      settlementReceipt: event.settlementReceipt,
+    });
+    console.log(`[Webhook:Minisend] ✓ Payout settled TX=${tx.id} order=${event.orderId}`);
+  } else {
+    // Minisend auto-refunds the USDC to the contributor's own wallet on
+    // failure/expiry (refund_address set at order creation) — nothing
+    // on-chain to do here. Marked failed (not requires_review) since the
+    // funds aren't at risk; failureReason/failedAt already surface it for
+    // manual review in history/ops.
+    await recordSettlementStep(tx.id, "failed", {
+      orderId: event.orderId,
+      reason: event.reason ?? `Minisend reported "${event.status}"`,
+    });
+    console.error(`[Webhook:Minisend] ✗ Payout ${event.status} TX=${tx.id} order=${event.orderId}`);
+  }
 
   return c.json({ received: true });
 });
