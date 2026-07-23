@@ -15,7 +15,7 @@ export type Rail = (typeof SUPPORTED_RAILS)[number];
 // specifically "where a country's payout goes." Crypto deposits aren't tied
 // to a country/payout rail at all, and the Daraja B2B merchant-pay rails are
 // a separate dispatch path from Rail's Paystack-backed payout corridors.
-export type TransactionRail = Rail | "crypto" | "mpesa_b2b_till" | "mpesa_b2b_paybill";
+export type TransactionRail = Rail | "crypto" | "mpesa_b2b_till" | "mpesa_b2b_paybill" | "minisend";
 
 export const SUPPORTED_TOKENS = ["USDC", "USDT"] as const;
 export type Token = (typeof SUPPORTED_TOKENS)[number];
