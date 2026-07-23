@@ -31,7 +31,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (!isAuthenticated || !is_unlocked || checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-navy">
+      <div className="min-h-screen flex items-center justify-center bg-linen">
         <LoadingSpinner size={28} color="orange" />
       </div>
     );
