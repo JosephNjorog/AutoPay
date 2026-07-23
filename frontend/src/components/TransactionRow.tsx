@@ -25,7 +25,7 @@ export const TransactionRow = memo(function TransactionRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 py-3 border-b border-white/5 last:border-0 motion-safe:animate-fade-slide-up",
+        "flex items-center gap-3 py-3 border-b border-ink/6 last:border-0 font-manrope motion-safe:animate-fade-slide-up",
         className
       )}
     >
@@ -33,33 +33,31 @@ export const TransactionRow = memo(function TransactionRow({
       <div
         className={cn(
           "w-9.5 h-9.5 rounded-xl shrink-0 flex items-center justify-center",
-          isReceived
-            ? "bg-success/12 border border-success/20"
-            : "bg-danger/12 border border-danger/20"
+          isReceived ? "bg-forest/12" : "bg-ink/10"
         )}
       >
         {isReceived ? (
-          <ArrowDownLeft size={16} strokeWidth={1.5} className="text-success" />
+          <ArrowDownLeft size={16} strokeWidth={1.5} className="text-forest" />
         ) : (
-          <ArrowUpRight size={16} strokeWidth={1.5} className="text-danger" />
+          <ArrowUpRight size={16} strokeWidth={1.5} className="text-ink" />
         )}
       </div>
 
       {/* Label + meta */}
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-bold text-white truncate">{label}</p>
+        <p className="text-[13px] font-bold text-charcoal truncate">{label}</p>
         <div className="flex items-center gap-1.5 mt-0.5">
           <StatusPill status={transaction.status} />
-          <span className="text-[11px] text-white/30">{relativeDate}</span>
+          <span className="text-[11px] text-slate">{relativeDate}</span>
         </div>
       </div>
 
       {/* Amounts — KES primary, USD secondary */}
       <div className="text-right ml-auto shrink-0">
-        <p className={cn("text-[14px] font-extrabold", isReceived ? "text-success" : "text-danger")}>
+        <p className={cn("text-[14px] font-extrabold", isReceived ? "text-forest" : "text-charcoal")}>
           {isReceived ? "+" : "-"}{formatKES(transaction.amountLocal)}
         </p>
-        <p className="text-[11px] text-white/30 mt-0.5">{formatUSD(transaction.amountUsd)}</p>
+        <p className="text-[11px] text-slate mt-0.5">{formatUSD(transaction.amountUsd)}</p>
       </div>
     </div>
   );
