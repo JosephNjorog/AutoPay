@@ -71,14 +71,14 @@ function SignupBiometrics() {
   const isDone = stage === "done";
 
   return (
-    <div className="min-h-screen bg-auth-gradient relative">
-      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-white/30" />
+    <div className="min-h-screen bg-linen relative font-manrope">
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-paper/40" />
 
       <div className="relative z-10 px-5 pt-6 pb-8 max-w-97.5 mx-auto min-h-screen flex flex-col">
         <button
           type="button"
           onClick={() => navigate({ to: "/signup/pin" })}
-          className="w-9 h-9 rounded-xl bg-white/50 border border-white/60 flex items-center justify-center cursor-pointer mb-6 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+          className="w-9 h-9 rounded-xl bg-paper/70 border border-paper flex items-center justify-center cursor-pointer mb-6 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber"
           aria-label="Go back"
         >
           <ChevronLeft size={16} strokeWidth={2} />
@@ -86,13 +86,13 @@ function SignupBiometrics() {
 
         <ProgressBar totalSteps={5} currentStep={5} className="mb-7" />
 
-        <p className="text-[11px] font-semibold tracking-widest text-black/40 uppercase mb-1.5">
+        <p className="text-[11px] font-semibold tracking-widest text-slate uppercase mb-1.5">
           STEP 5 OF 5
         </p>
-        <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-navy mb-2">
+        <h1 className="font-display font-extrabold text-[28px] leading-[1.15] text-ink mb-2">
           Unlock with your face or finger
         </h1>
-        <p className="text-[13px] text-black/50 leading-relaxed mb-8">
+        <p className="text-[13px] text-slate leading-relaxed mb-8">
           Faster than a PIN. Your biometric data never leaves this device — we only store a cryptographic key.
         </p>
 
@@ -110,18 +110,18 @@ function SignupBiometrics() {
         {isLoading && (
           <div className="flex flex-col items-center gap-2 mb-6">
             <LoadingSpinner size={18} color="orange" />
-            <p className="text-[13px] text-black/50">Waiting for biometric prompt…</p>
+            <p className="text-[13px] text-slate">Waiting for biometric prompt…</p>
           </div>
         )}
 
         {isDone && (
-          <p className="text-center text-[13px] font-semibold text-success mb-6">
+          <p className="text-center text-[13px] font-semibold text-forest-light mb-6">
             Biometrics registered successfully!
           </p>
         )}
 
         {stage === "error" && errorMsg && (
-          <p className="text-center text-[12px] text-danger mb-6">{errorMsg}</p>
+          <p className="text-center text-[12px] text-rust mb-6">{errorMsg}</p>
         )}
 
         <div className="flex flex-col gap-3 mt-auto">
@@ -130,15 +130,15 @@ function SignupBiometrics() {
             disabled={isLoading || isDone}
             onClick={handleRegister}
             className={cn(
-              "w-full py-4 rounded-2xl bg-orange-gradient text-white font-display font-bold text-[15px]",
-              "shadow-[0_6px_20px_rgba(249,115,22,0.35)] flex items-center justify-center gap-2",
+              "w-full py-4 rounded-2xl bg-amber text-ink font-display font-bold text-[15px]",
+              "shadow-[0_6px_20px_rgba(232,163,61,0.35)] flex items-center justify-center gap-2",
               "disabled:opacity-60 disabled:cursor-not-allowed",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2"
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2"
             )}
           >
             {isLoading ? (
               <>
-                <LoadingSpinner size={16} color="white" />
+                <LoadingSpinner size={16} color="orange" />
                 Registering…
               </>
             ) : isDone ? (
@@ -155,8 +155,8 @@ function SignupBiometrics() {
             disabled={isLoading || isDone}
             onClick={handleSkip}
             className={cn(
-              "w-full py-3.5 rounded-2xl border border-black/10 text-black/50 text-[13px] font-medium",
-              "bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-1",
+              "w-full py-3.5 rounded-2xl border border-ink/10 text-slate text-[13px] font-medium",
+              "bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-1",
               "disabled:opacity-40 disabled:cursor-not-allowed"
             )}
           >
