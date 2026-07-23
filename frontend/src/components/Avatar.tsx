@@ -49,16 +49,16 @@ export const Avatar = memo(function Avatar({
     );
   }
 
-  // Fallback: orange gradient with initials
+  // Fallback: ink navy with initials
   return (
     <div
       className={cn(
         s.outer,
-        "flex items-center justify-center shrink-0 bg-orange-gradient",
+        "flex items-center justify-center shrink-0 bg-ink",
         className
       )}
     >
-      <span className={cn(s.text, "font-display font-extrabold text-white")}>
+      <span className={cn(s.text, "font-display font-extrabold text-paper")}>
         {fallbackLetter.toUpperCase()}
       </span>
     </div>
