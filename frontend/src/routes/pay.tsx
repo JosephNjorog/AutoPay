@@ -38,7 +38,7 @@ function Pay() {
 
   return (
     <PageFrame sidebar={false} maxWidth="narrow">
-      <div className="flex min-h-full flex-col items-center justify-center gap-3 text-muted-foreground">
+      <div className="flex min-h-full flex-col items-center justify-center gap-3 text-slate">
         <Loader2 className="h-6 w-6 animate-spin" />
         <p className="text-sm">Opening AutoPayKe…</p>
       </div>
