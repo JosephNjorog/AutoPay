@@ -145,17 +145,17 @@ function Wallet() {
 
   return (
     <PageFrame sidebar maxWidth="wide">
-      <div className="flex min-h-full flex-col">
+      <div className="flex min-h-full flex-col font-manrope">
         <header className="flex items-center justify-between px-5 pt-6 pb-2">
-          <Link to="/dashboard" className="h-9 w-9 rounded-full border border-border bg-card flex items-center justify-center">
+          <Link to="/dashboard" className="h-9 w-9 rounded-full border border-ink/10 bg-paper flex items-center justify-center">
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <h1 className="text-sm font-bold">Smart wallet</h1>
-          <span className="text-[10px] font-bold text-success bg-success-soft px-2 py-1 rounded-full">Avalanche</span>
+          <span className="text-[10px] font-bold text-forest-light bg-forest/15 px-2 py-1 rounded-full">Avalanche</span>
         </header>
 
         {isDeploying && (
-          <div className="mx-5 mt-3 flex items-center gap-2 rounded-2xl bg-warning-soft px-4 py-2.5 text-xs text-warning-foreground">
+          <div className="mx-5 mt-3 flex items-center gap-2 rounded-2xl bg-amber/16 px-4 py-2.5 text-xs text-ink">
             <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
             Smart wallet is deploying on Avalanche…
           </div>
@@ -163,35 +163,35 @@ function Wallet() {
 
         {/* Autopayke smart wallet */}
         <div className="px-5 mt-3">
-          <div className="rounded-3xl border border-border bg-card p-5">
+          <div className="rounded-3xl border border-ink/10 bg-paper p-5">
             <div className="flex items-center gap-2">
               <img src="/autopay_iconlogo.svg" alt="Autopayke" className="h-9 w-9 rounded-xl" />
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Autopayke smart wallet</p>
+                <p className="text-[10px] uppercase tracking-wider text-slate">Autopayke smart wallet</p>
                 <p className="text-sm font-bold">{user?.phone ?? "—"}</p>
               </div>
             </div>
             {isLoading ? (
-              <div className="mt-3 h-8 w-48 rounded-xl bg-muted animate-pulse" />
+              <div className="mt-3 h-8 w-48 rounded-xl bg-ink/8 animate-pulse" />
             ) : (
               <>
-                <p className="mt-4 text-[10px] uppercase tracking-wider text-muted-foreground">Address</p>
+                <p className="mt-4 text-[10px] uppercase tracking-wider text-slate">Address</p>
                 <p className="font-mono text-xs break-all mt-1">{tumaAddress ?? (isDeploying ? "Deploying…" : "—")}</p>
               </>
             )}
             {tumaAddress && (
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <button onClick={() => copy(tumaAddress)}
-                  className="rounded-xl border border-border bg-background py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5">
+                  className="rounded-xl border border-ink/10 bg-linen py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5">
                   {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied ? "Copied" : "Copy"}
                 </button>
                 {explorerUrl ? (
                   <a href={explorerUrl} target="_blank" rel="noreferrer"
-                    className="rounded-xl border border-border bg-background py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5">
+                    className="rounded-xl border border-ink/10 bg-linen py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5">
                     <ExternalLink className="h-3.5 w-3.5" /> Snowtrace
                   </a>
                 ) : (
-                  <span className="rounded-xl border border-border bg-background py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5 opacity-40">
+                  <span className="rounded-xl border border-ink/10 bg-linen py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5 opacity-40">
                     <ExternalLink className="h-3.5 w-3.5" /> Snowtrace
                   </span>
                 )}
@@ -203,19 +203,19 @@ function Wallet() {
         {/* On-chain balance */}
         <div className="px-5 mt-4">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">On-chain total</p>
+            <p className="text-[10px] uppercase tracking-wider text-slate">On-chain total</p>
             <CurrencyToggle />
           </div>
           <p className="mt-1 text-2xl font-black text-right">{formatMoney(totalUsd, displayCurrency, kesRate)}</p>
         </div>
 
         <div className="px-5 mt-3 space-y-2">
-          {isLoading && [0,1].map((i) => <div key={i} className="h-16 rounded-2xl bg-card border border-border animate-pulse" />)}
+          {isLoading && [0,1].map((i) => <div key={i} className="h-16 rounded-2xl bg-paper border border-ink/10 animate-pulse" />)}
           {!isLoading && assets.length === 0 && !isDeploying && (
-            <p className="text-xs text-muted-foreground py-2">No assets yet. Fund your wallet to get started.</p>
+            <p className="text-xs text-slate py-2">No assets yet. Fund your wallet to get started.</p>
           )}
           {assets.map((a) => (
-            <div key={a.symbol} className="rounded-2xl border border-border bg-card p-4 flex items-center gap-3">
+            <div key={a.symbol} className="rounded-2xl border border-ink/10 bg-paper p-4 flex items-center gap-3">
               <div
                 className="h-11 w-11 rounded-full flex items-center justify-center text-sm font-bold text-white"
                 style={{ backgroundColor: getAssetMeta(a.symbol).color }}
@@ -224,11 +224,11 @@ function Wallet() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-bold">{a.symbol}</p>
-                <p className="text-[11px] text-muted-foreground">Avalanche C-Chain</p>
+                <p className="text-[11px] text-slate">Avalanche C-Chain</p>
               </div>
               <div className="text-right">
                 <p className="text-sm font-bold">{parseFloat(a.balance).toFixed(4)}</p>
-                <p className="text-[11px] text-muted-foreground">{formatMoney(a.balanceUsd, displayCurrency, kesRate)}</p>
+                <p className="text-[11px] text-slate">{formatMoney(a.balanceUsd, displayCurrency, kesRate)}</p>
               </div>
             </div>
           ))}
@@ -240,14 +240,14 @@ function Wallet() {
         {(testnetAssetsLoading || discoveredAssets.length > 0) && (
           <div className="px-5 mt-5">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <p className="text-[10px] uppercase tracking-wider text-slate">
                 Other testnet balances (auto-detected)
               </p>
-              {testnetAssetsLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+              {testnetAssetsLoading && <Loader2 className="h-3 w-3 animate-spin text-slate" />}
             </div>
             <div className="space-y-2">
               {discoveredAssets.map((a) => (
-                <div key={a.address} className="rounded-2xl border border-dashed border-border bg-card p-4 flex items-center gap-3">
+                <div key={a.address} className="rounded-2xl border border-dashed border-ink/10 bg-paper p-4 flex items-center gap-3">
                   <div
                     className="h-11 w-11 rounded-full flex items-center justify-center text-sm font-bold text-white"
                     style={{ backgroundColor: getAssetMeta(a.symbol).color }}
@@ -256,7 +256,7 @@ function Wallet() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate">{a.symbol}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{a.address}</p>
+                    <p className="text-[11px] text-slate truncate">{a.address}</p>
                   </div>
                   <p className="text-sm font-bold">{parseFloat(a.balance).toFixed(4)}</p>
                 </div>
@@ -268,10 +268,10 @@ function Wallet() {
         {/* External wallet connect */}
         <div className="px-5 mt-5">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">External wallet</p>
+            <p className="text-[10px] uppercase tracking-wider text-slate">External wallet</p>
             {extAddress && (
               <button onClick={() => disconnectMutation.mutate()}
-                className="text-[10px] text-destructive font-semibold flex items-center gap-1">
+                className="text-[10px] text-rust font-semibold flex items-center gap-1">
                 <Unlink className="h-3 w-3" /> Disconnect
               </button>
             )}
@@ -279,56 +279,56 @@ function Wallet() {
 
           {!extAddress ? (
             <button onClick={() => open()} disabled={connectMutation.isPending}
-              className="w-full flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3.5 text-sm font-semibold hover:bg-muted/50 transition disabled:opacity-60">
-              {connectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Wallet2 className="h-4 w-4 text-primary" />}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl border border-ink/10 bg-paper py-3.5 text-sm font-semibold hover:bg-ink/5 transition disabled:opacity-60">
+              {connectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin text-forest" /> : <Wallet2 className="h-4 w-4 text-forest" />}
               {connectMutation.isPending ? "Linking wallet…" : "Connect MetaMask / Core / WalletConnect"}
             </button>
           ) : (
-            <div className="rounded-3xl border border-border bg-card p-4">
+            <div className="rounded-3xl border border-ink/10 bg-paper p-4">
               <div className="flex items-center gap-2">
-                <Wallet2 className="h-5 w-5 text-primary shrink-0" />
+                <Wallet2 className="h-5 w-5 text-forest shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Connected</p>
+                  <p className="text-[10px] uppercase tracking-wider text-slate">Connected</p>
                   <p className="font-mono text-xs truncate">{extAddress}</p>
                 </div>
                 <button onClick={() => copy(extAddress, true)}
-                  className="h-7 w-7 rounded-xl border border-border bg-background flex items-center justify-center">
-                  {extCopied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+                  className="h-7 w-7 rounded-xl border border-ink/10 bg-linen flex items-center justify-center">
+                  {extCopied ? <Check className="h-3 w-3 text-forest-light" /> : <Copy className="h-3 w-3" />}
                 </button>
               </div>
 
               {wrongChain && (
-                <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl border border-warning/30 bg-warning-soft px-3 py-2 text-xs text-warning-foreground">
+                <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl border border-amber/30 bg-amber/16 px-3 py-2 text-xs text-ink">
                   <span>Wrong network — switch to Avalanche to see your balance.</span>
                   <button
                     onClick={() => switchChain({ chainId: avalanche.id })}
                     disabled={isSwitchingChain}
-                    className="shrink-0 rounded-full bg-warning-foreground/10 px-2.5 py-1 font-semibold disabled:opacity-50"
+                    className="shrink-0 rounded-full bg-ink/10 px-2.5 py-1 font-semibold disabled:opacity-50"
                   >
                     {isSwitchingChain ? "Switching…" : "Switch"}
                   </button>
                 </div>
               )}
 
-              {extLoading && <div className="mt-3 h-16 rounded-2xl bg-muted animate-pulse" />}
+              {extLoading && <div className="mt-3 h-16 rounded-2xl bg-ink/8 animate-pulse" />}
 
               {extBalances && (
-                <div className="mt-3 pt-3 border-t border-border">
+                <div className="mt-3 pt-3 border-t border-ink/10">
                   <div className="flex items-baseline justify-between mb-2">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">On-chain balance</p>
+                    <p className="text-[10px] uppercase tracking-wider text-slate">On-chain balance</p>
                     <p className="text-sm font-black">{formatMoney(extBalances.totalUsd, displayCurrency, kesRate)}</p>
                   </div>
                   <div className="space-y-1.5">
                     {extBalances.assets.map((a) => (
                       <div key={a.symbol} className="flex items-center justify-between text-xs">
                         <span className="font-semibold">{a.symbol}</span>
-                        <span className="text-muted-foreground">{parseFloat(a.balance).toFixed(4)} · {formatMoney(a.balanceUsd, displayCurrency, kesRate)}</span>
+                        <span className="text-slate">{parseFloat(a.balance).toFixed(4)} · {formatMoney(a.balanceUsd, displayCurrency, kesRate)}</span>
                       </div>
                     ))}
                   </div>
                   {extBalances.explorerUrl && (
                     <a href={extBalances.explorerUrl} target="_blank" rel="noreferrer"
-                      className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary font-semibold">
+                      className="mt-2 inline-flex items-center gap-1 text-[11px] text-forest font-semibold">
                       <ExternalLink className="h-3 w-3" /> View on Snowtrace
                     </a>
                   )}
@@ -338,7 +338,7 @@ function Wallet() {
           )}
 
           {connectError && (
-            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-rust/30 bg-rust/10 px-3 py-2 text-xs text-rust">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />{connectError}
             </div>
           )}
@@ -346,11 +346,11 @@ function Wallet() {
 
         {/* Security note */}
         <div className="px-5 mt-4">
-          <div className="rounded-2xl bg-primary-soft p-4 flex gap-3">
-            <ShieldCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+          <div className="rounded-2xl bg-amber/16 p-4 flex gap-3">
+            <ShieldCheck className="h-5 w-5 text-forest shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold">Self-custodial. No seed phrase.</p>
-              <p className="text-[11px] text-muted-foreground mt-1">Your Autopayke wallet is derived on-device from your phone number. We can't see your keys or move your funds.</p>
+              <p className="text-[11px] text-slate mt-1">Your Autopayke wallet is derived on-device from your phone number. We can't see your keys or move your funds.</p>
             </div>
           </div>
         </div>
