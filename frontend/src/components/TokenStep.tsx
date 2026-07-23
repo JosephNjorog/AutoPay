@@ -18,7 +18,7 @@ export function TokenStep({
   onPick: (symbol: PayableAsset) => void;
 }) {
   return (
-    <div className="flex-1 flex flex-col px-5 pt-5 pb-6 gap-3">
+    <div className="flex-1 flex flex-col px-5 pt-5 pb-6 gap-3 font-manrope">
       {assets.map((asset) => {
         const meta = getAssetMeta(asset.symbol);
         const decimals = asset.symbol === "AVAX" ? 4 : 2;
@@ -26,7 +26,7 @@ export function TokenStep({
           <button
             key={asset.symbol}
             onClick={() => onPick(asset.symbol as PayableAsset)}
-            className="w-full flex items-center gap-3 rounded-2xl border border-border bg-card hover:bg-muted/50 p-4 text-left transition"
+            className="w-full flex items-center gap-3 rounded-2xl border border-ink/10 bg-paper hover:border-forest p-4 text-left transition"
           >
             <div
               className="h-11 w-11 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
@@ -35,17 +35,17 @@ export function TokenStep({
               {meta.letter}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">{asset.symbol}</p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-sm font-semibold text-charcoal">{asset.symbol}</p>
+              <p className="text-[11px] text-slate">
                 {parseFloat(asset.balance).toFixed(decimals)} available
               </p>
             </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            <ArrowRight className="h-4 w-4 text-slate" />
           </button>
         );
       })}
       {assets.length === 0 && (
-        <p className="py-12 text-center text-sm text-muted-foreground">
+        <p className="py-12 text-center text-sm text-slate">
           No balance available — add money to your wallet first.
         </p>
       )}
