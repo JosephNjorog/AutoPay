@@ -1,1 +1,1 @@
-ALTER TYPE "public"."rail" ADD VALUE 'minisend';
+ALTER TYPE "public"."rail" ADD VALUE IF NOT EXISTS 'minisend';
