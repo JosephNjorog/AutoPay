@@ -1231,7 +1231,14 @@ function ReviewStep({
             k="Rate"
             v={`1 USD = ${quote.tumaRate.toFixed(2)} ${quote.toCurrency}`}
           />
-          <KV k="Network fee" v="Free" />
+          <KV
+            k="Network fee"
+            v={
+              quote.networkFeeUsd > 0
+                ? `$${quote.networkFeeUsd.toFixed(2)}`
+                : "Free"
+            }
+          />
           <KV k="Arrival" v="≈ 12 seconds" />
         </div>
       </div>
