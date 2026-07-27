@@ -184,3 +184,19 @@ export async function getLatestRates(): Promise<
       return { currency: c, mid, tuma, savings: `${savings}%` };
     });
 }
+
+// ── Token prices ──────────────────────────────────────────────────────────────
+// Live USD price per unit for the assets Autopayke actually treats as
+// spendable/sendable (see PAYABLE_ASSETS) — separate from getLatestRates()
+// above, which is "USD per local currency unit", not "USD per token".
+
+export async function getTokenPricesUsd(): Promise<
+  { symbol: PayableAsset; priceUsd: number }[]
+> {
+  const avaxPriceUsd = await getAvaxPriceUsd();
+  return [
+    { symbol: "USDC", priceUsd: 1 },
+    { symbol: "USDT", priceUsd: 1 },
+    { symbol: "AVAX", priceUsd: avaxPriceUsd },
+  ];
+}
