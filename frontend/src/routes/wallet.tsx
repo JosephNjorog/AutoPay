@@ -34,6 +34,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { useCurrencyStore } from "@/lib/currency-store";
 import { useLocalRate } from "@/hooks/use-local-rate";
 import { formatMoney } from "@/lib/tuma-data";
+import { formatUSD } from "@/lib/utils";
 import { dialCodeToCountry } from "@tuma/shared";
 import { getAssetMeta } from "@/lib/asset-meta";
 
@@ -70,6 +71,7 @@ function Wallet() {
   const [copied, setCopied] = useState(false);
   const [extCopied, setExtCopied] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [assetTab, setAssetTab] = useState<"balances" | "rates">("balances");
 
   const { open } = useAppKit();
   const { address: wagmiAddress, isConnected, chainId } = useAccount();
@@ -109,6 +111,16 @@ function Wallet() {
     },
   );
   const discoveredAssets = testnetAssetsData?.assets ?? [];
+
+  // Live USD price per unit for whichever of the supported assets the user
+  // actually holds — the Rates tab below. Only USDC/USDT/AVAX get real
+  // pricing today (see services/fx.ts's getTokenPricesUsd).
+  const { data: tokenPrices, isLoading: tokenPricesLoading } = useQuery({
+    queryKey: ["token-prices"],
+    queryFn: () => api.fx.tokenPrices(accessToken!),
+    enabled: !!accessToken && assetTab === "rates",
+    staleTime: 60_000,
+  });
 
   // Both mutations update the linked/unlinked wallet address optimistically
   // — this is account metadata, not a financial transaction, so it's safe
@@ -189,6 +201,7 @@ function Wallet() {
 
   const tumaAddress = wallet?.walletAddress;
   const assets: WalletAsset[] = wallet?.assets ?? [];
+  const heldAssets = assets.filter((a) => parseFloat(a.balance) > 0);
   const totalUsd = wallet?.totalUsd ?? 0;
   const isDeploying = wallet?.status === "deploying";
   const explorerUrl = wallet?.explorerUrl;
@@ -303,50 +316,124 @@ function Wallet() {
           </p>
         </div>
 
-        <div className="px-5 mt-3 space-y-2">
-          {isLoading &&
-            [0, 1].map((i) => (
-              <div
-                key={i}
-                className="h-16 rounded-2xl bg-paper border border-ink/10 animate-pulse"
-              />
-            ))}
-          {!isLoading && assets.length === 0 && !isDeploying && (
-            <p className="text-xs text-slate py-2">
-              No assets yet. Fund your wallet to get started.
-            </p>
-          )}
-          {assets.map((a) => (
-            <div
-              key={a.symbol}
-              className="rounded-2xl border border-ink/10 bg-paper p-4 flex items-center gap-3"
-            >
-              <div
-                className="h-11 w-11 rounded-full flex items-center justify-center text-sm font-bold text-white"
-                style={{ backgroundColor: getAssetMeta(a.symbol).color }}
+        {/* Balances / Rates tab switcher */}
+        <div className="px-5 mt-4">
+          <div className="inline-flex rounded-full border border-ink/10 bg-paper p-0.5 text-[11px] font-bold">
+            {(["balances", "rates"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setAssetTab(t)}
+                className={`px-3 py-1.5 rounded-full capitalize transition ${
+                  assetTab === t ? "bg-ink text-paper" : "text-slate"
+                }`}
               >
-                {getAssetMeta(a.symbol).letter}
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold">{a.symbol}</p>
-                <p className="text-[11px] text-slate">Avalanche C-Chain</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-bold">
-                  {parseFloat(a.balance).toFixed(4)}
-                </p>
-                <p className="text-[11px] text-slate">
-                  {formatMoney(
-                    a.balanceUsd,
-                    displayCurrency,
-                    localRate,
-                    localCurrency,
-                  )}
-                </p>
-              </div>
-            </div>
-          ))}
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {assetTab === "balances" ? (
+          <div className="px-5 mt-3 space-y-2">
+            {isLoading &&
+              [0, 1].map((i) => (
+                <div
+                  key={i}
+                  className="h-16 rounded-2xl bg-paper border border-ink/10 animate-pulse"
+                />
+              ))}
+            {!isLoading && assets.length === 0 && !isDeploying && (
+              <p className="text-xs text-slate py-2">
+                No assets yet. Fund your wallet to get started.
+              </p>
+            )}
+            {assets.map((a) => (
+              <div
+                key={a.symbol}
+                className="rounded-2xl border border-ink/10 bg-paper p-4 flex items-center gap-3"
+              >
+                <div
+                  className="h-11 w-11 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                  style={{ backgroundColor: getAssetMeta(a.symbol).color }}
+                >
+                  {getAssetMeta(a.symbol).letter}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold">{a.symbol}</p>
+                  <p className="text-[11px] text-slate">Avalanche C-Chain</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold">
+                    {parseFloat(a.balance).toFixed(4)}
+                  </p>
+                  <p className="text-[11px] text-slate">
+                    {formatMoney(
+                      a.balanceUsd,
+                      displayCurrency,
+                      localRate,
+                      localCurrency,
+                    )}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="px-5 mt-3 space-y-2">
+            {tokenPricesLoading &&
+              [0, 1].map((i) => (
+                <div
+                  key={i}
+                  className="h-16 rounded-2xl bg-paper border border-ink/10 animate-pulse"
+                />
+              ))}
+            {!tokenPricesLoading && heldAssets.length === 0 && (
+              <p className="text-xs text-slate py-2">
+                Fund your wallet to see live rates for the tokens you hold.
+              </p>
+            )}
+            {heldAssets.map((a) => {
+              const priceUsd = tokenPrices?.find(
+                (p) => p.symbol === a.symbol,
+              )?.priceUsd;
+              return (
+                <div
+                  key={a.symbol}
+                  className="rounded-2xl border border-ink/10 bg-paper p-4 flex items-center gap-3"
+                >
+                  <div
+                    className="h-11 w-11 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                    style={{ backgroundColor: getAssetMeta(a.symbol).color }}
+                  >
+                    {getAssetMeta(a.symbol).letter}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold">1 {a.symbol}</p>
+                    <p className="text-[11px] text-slate">
+                      Live rate · you hold {parseFloat(a.balance).toFixed(4)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold">
+                      {priceUsd != null ? formatUSD(priceUsd) : "—"}
+                    </p>
+                    <p className="text-[11px] text-slate">
+                      {priceUsd != null
+                        ? formatMoney(
+                            priceUsd,
+                            "LOCAL",
+                            localRate,
+                            localCurrency,
+                          )
+                        : ""}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Auto-detected testnet balances — anything held beyond USDC/USDT/
             AVAX, found by scanning recent on-chain transfers. Read-only:
