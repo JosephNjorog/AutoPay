@@ -1,7 +1,22 @@
-import { createFileRoute, Link, useNavigate, redirect } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  useNavigate,
+  redirect,
+} from "@tanstack/react-router";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Copy, Check, ExternalLink, ShieldCheck, Wallet2, Unlink, Loader2, AlertCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  Copy,
+  Check,
+  ExternalLink,
+  ShieldCheck,
+  Wallet2,
+  Unlink,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAccount, useDisconnect, useSwitchChain } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
@@ -9,11 +24,17 @@ import { avalanche } from "@reown/appkit/networks";
 import { PageFrame } from "@/components/PageFrame";
 import { BottomNav } from "@/components/BottomNav";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
-import { api, type WalletAsset, type WalletData, ApiError } from "@/lib/api/client";
+import {
+  api,
+  type WalletAsset,
+  type WalletData,
+  ApiError,
+} from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useCurrencyStore } from "@/lib/currency-store";
-import { useKesRate } from "@/hooks/use-kes-rate";
+import { useLocalRate } from "@/hooks/use-local-rate";
 import { formatMoney } from "@/lib/tuma-data";
+import { dialCodeToCountry } from "@tuma/shared";
 import { getAssetMeta } from "@/lib/asset-meta";
 
 export const Route = createFileRoute("/wallet")({
@@ -24,7 +45,15 @@ export const Route = createFileRoute("/wallet")({
       throw redirect({ to: "/login", replace: true });
     }
   },
-  head: () => ({ meta: [{ title: "Wallet · Autopayke" }, { name: "description", content: "Your non-custodial smart wallet on Avalanche." }] }),
+  head: () => ({
+    meta: [
+      { title: "Wallet · Autopayke" },
+      {
+        name: "description",
+        content: "Your non-custodial smart wallet on Avalanche.",
+      },
+    ],
+  }),
   component: Wallet,
 });
 
@@ -32,7 +61,11 @@ function Wallet() {
   const navigate = useNavigate();
   const { accessToken, user, isLoggedIn } = useAuthStore();
   const { displayCurrency } = useCurrencyStore();
-  const kesRate = useKesRate();
+  // The logged-in user's own country/currency — not hardcoded to Kenya,
+  // since Autopayke operates in several countries.
+  const localCurrency =
+    (user?.phone ? dialCodeToCountry(user.phone) : null)?.currency ?? "KES";
+  const localRate = useLocalRate(localCurrency);
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [extCopied, setExtCopied] = useState(false);
@@ -42,7 +75,8 @@ function Wallet() {
   const { address: wagmiAddress, isConnected, chainId } = useAccount();
   const { disconnect } = useDisconnect();
   const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
-  const wrongChain = isConnected && chainId !== undefined && chainId !== avalanche.id;
+  const wrongChain =
+    isConnected && chainId !== undefined && chainId !== avalanche.id;
 
   useEffect(() => {
     if (!isLoggedIn()) navigate({ to: "/signup" });
@@ -52,7 +86,8 @@ function Wallet() {
     queryKey: ["wallet"],
     queryFn: () => api.wallet.get(accessToken!),
     enabled: !!accessToken,
-    refetchInterval: (q) => q.state.data?.status === "deploying" ? 4_000 : false,
+    refetchInterval: (q) =>
+      q.state.data?.status === "deploying" ? 4_000 : false,
   });
 
   const extAddress = wagmiAddress ?? wallet?.externalWalletAddress ?? null;
@@ -65,32 +100,48 @@ function Wallet() {
 
   // Separate, lower-priority query — never blocks the main wallet render.
   // No-ops (empty list) outside testnet, so this is always cheap in prod.
-  const { data: testnetAssetsData, isLoading: testnetAssetsLoading } = useQuery({
-    queryKey: ["wallet", "testnet-assets"],
-    queryFn: () => api.wallet.testnetAssets(accessToken!),
-    enabled: !!accessToken,
-    staleTime: 60_000,
-  });
+  const { data: testnetAssetsData, isLoading: testnetAssetsLoading } = useQuery(
+    {
+      queryKey: ["wallet", "testnet-assets"],
+      queryFn: () => api.wallet.testnetAssets(accessToken!),
+      enabled: !!accessToken,
+      staleTime: 60_000,
+    },
+  );
   const discoveredAssets = testnetAssetsData?.assets ?? [];
 
   // Both mutations update the linked/unlinked wallet address optimistically
   // — this is account metadata, not a financial transaction, so it's safe
   // to reflect immediately with rollback on failure (4.4).
   const connectMutation = useMutation({
-    mutationFn: ({ address, walletType }: { address: string; walletType: string }) =>
-      api.wallet.connect(address, walletType, accessToken!),
+    mutationFn: ({
+      address,
+      walletType,
+    }: {
+      address: string;
+      walletType: string;
+    }) => api.wallet.connect(address, walletType, accessToken!),
     onMutate: async ({ address, walletType }) => {
       await queryClient.cancelQueries({ queryKey: ["wallet"] });
       const previous = queryClient.getQueryData<WalletData>(["wallet"]);
       queryClient.setQueryData<WalletData | undefined>(["wallet"], (old) =>
-        old ? { ...old, externalWalletAddress: address, externalWalletType: walletType } : old
+        old
+          ? {
+              ...old,
+              externalWalletAddress: address,
+              externalWalletType: walletType,
+            }
+          : old,
       );
       setConnectError(null);
       return { previous };
     },
     onError: (e, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(["wallet"], context.previous);
-      setConnectError(e instanceof ApiError ? e.message : "Failed to link wallet.");
+      if (context?.previous)
+        queryClient.setQueryData(["wallet"], context.previous);
+      setConnectError(
+        e instanceof ApiError ? e.message : "Failed to link wallet.",
+      );
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
@@ -104,12 +155,15 @@ function Wallet() {
       await queryClient.cancelQueries({ queryKey: ["wallet"] });
       const previous = queryClient.getQueryData<WalletData>(["wallet"]);
       queryClient.setQueryData<WalletData | undefined>(["wallet"], (old) =>
-        old ? { ...old, externalWalletAddress: null, externalWalletType: null } : old
+        old
+          ? { ...old, externalWalletAddress: null, externalWalletType: null }
+          : old,
       );
       return { previous };
     },
     onError: (_e, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(["wallet"], context.previous);
+      if (context?.previous)
+        queryClient.setQueryData(["wallet"], context.previous);
     },
     onSuccess: () => {
       disconnect();
@@ -127,7 +181,10 @@ function Wallet() {
     // connection event more than once in quick succession.
     if (wallet?.externalWalletAddress === wagmiAddress) return;
     if (connectMutation.isPending) return;
-    connectMutation.mutate({ address: wagmiAddress, walletType: "walletconnect" });
+    connectMutation.mutate({
+      address: wagmiAddress,
+      walletType: "walletconnect",
+    });
   }, [isConnected, wagmiAddress, accessToken, wallet?.externalWalletAddress]);
 
   const tumaAddress = wallet?.walletAddress;
@@ -135,23 +192,35 @@ function Wallet() {
   const totalUsd = wallet?.totalUsd ?? 0;
   const isDeploying = wallet?.status === "deploying";
   const explorerUrl = wallet?.explorerUrl;
-  const short = tumaAddress ? `${tumaAddress.slice(0, 6)}…${tumaAddress.slice(-4)}` : "—";
+  const short = tumaAddress
+    ? `${tumaAddress.slice(0, 6)}…${tumaAddress.slice(-4)}`
+    : "—";
 
   function copy(s: string, ext?: boolean) {
     navigator.clipboard?.writeText(s);
-    if (ext) { setExtCopied(true); setTimeout(() => setExtCopied(false), 1500); }
-    else { setCopied(true); setTimeout(() => setCopied(false), 1500); }
+    if (ext) {
+      setExtCopied(true);
+      setTimeout(() => setExtCopied(false), 1500);
+    } else {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
   }
 
   return (
     <PageFrame sidebar maxWidth="wide">
       <div className="flex min-h-full flex-col font-manrope">
         <header className="flex items-center justify-between px-5 pt-6 pb-2">
-          <Link to="/dashboard" className="h-9 w-9 rounded-full border border-ink/10 bg-paper flex items-center justify-center">
+          <Link
+            to="/dashboard"
+            className="h-9 w-9 rounded-full border border-ink/10 bg-paper flex items-center justify-center"
+          >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <h1 className="text-sm font-bold">Smart wallet</h1>
-          <span className="text-[10px] font-bold text-forest-light bg-forest/15 px-2 py-1 rounded-full">Avalanche</span>
+          <span className="text-[10px] font-bold text-forest-light bg-forest/15 px-2 py-1 rounded-full">
+            Avalanche
+          </span>
         </header>
 
         {isDeploying && (
@@ -165,9 +234,15 @@ function Wallet() {
         <div className="px-5 mt-3">
           <div className="rounded-3xl border border-ink/10 bg-paper p-5">
             <div className="flex items-center gap-2">
-              <img src="/autopay_iconlogo.svg" alt="Autopayke" className="h-9 w-9 rounded-xl" />
+              <img
+                src="/autopay_iconlogo.svg"
+                alt="Autopayke"
+                className="h-9 w-9 rounded-xl"
+              />
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate">Autopayke smart wallet</p>
+                <p className="text-[10px] uppercase tracking-wider text-slate">
+                  Autopayke smart wallet
+                </p>
                 <p className="text-sm font-bold">{user?.phone ?? "—"}</p>
               </div>
             </div>
@@ -175,19 +250,34 @@ function Wallet() {
               <div className="mt-3 h-8 w-48 rounded-xl bg-ink/8 animate-pulse" />
             ) : (
               <>
-                <p className="mt-4 text-[10px] uppercase tracking-wider text-slate">Address</p>
-                <p className="font-mono text-xs break-all mt-1">{tumaAddress ?? (isDeploying ? "Deploying…" : "—")}</p>
+                <p className="mt-4 text-[10px] uppercase tracking-wider text-slate">
+                  Address
+                </p>
+                <p className="font-mono text-xs break-all mt-1">
+                  {tumaAddress ?? (isDeploying ? "Deploying…" : "—")}
+                </p>
               </>
             )}
             {tumaAddress && (
               <div className="mt-4 grid grid-cols-2 gap-2">
-                <button onClick={() => copy(tumaAddress)}
-                  className="rounded-xl border border-ink/10 bg-linen py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5">
-                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied ? "Copied" : "Copy"}
+                <button
+                  onClick={() => copy(tumaAddress)}
+                  className="rounded-xl border border-ink/10 bg-linen py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5"
+                >
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}{" "}
+                  {copied ? "Copied" : "Copy"}
                 </button>
                 {explorerUrl ? (
-                  <a href={explorerUrl} target="_blank" rel="noreferrer"
-                    className="rounded-xl border border-ink/10 bg-linen py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5">
+                  <a
+                    href={explorerUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl border border-ink/10 bg-linen py-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5"
+                  >
                     <ExternalLink className="h-3.5 w-3.5" /> Snowtrace
                   </a>
                 ) : (
@@ -203,19 +293,34 @@ function Wallet() {
         {/* On-chain balance */}
         <div className="px-5 mt-4">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] uppercase tracking-wider text-slate">On-chain total</p>
-            <CurrencyToggle />
+            <p className="text-[10px] uppercase tracking-wider text-slate">
+              On-chain total
+            </p>
+            <CurrencyToggle localLabel={localCurrency} />
           </div>
-          <p className="mt-1 text-2xl font-black text-right">{formatMoney(totalUsd, displayCurrency, kesRate)}</p>
+          <p className="mt-1 text-2xl font-black text-right">
+            {formatMoney(totalUsd, displayCurrency, localRate, localCurrency)}
+          </p>
         </div>
 
         <div className="px-5 mt-3 space-y-2">
-          {isLoading && [0,1].map((i) => <div key={i} className="h-16 rounded-2xl bg-paper border border-ink/10 animate-pulse" />)}
+          {isLoading &&
+            [0, 1].map((i) => (
+              <div
+                key={i}
+                className="h-16 rounded-2xl bg-paper border border-ink/10 animate-pulse"
+              />
+            ))}
           {!isLoading && assets.length === 0 && !isDeploying && (
-            <p className="text-xs text-slate py-2">No assets yet. Fund your wallet to get started.</p>
+            <p className="text-xs text-slate py-2">
+              No assets yet. Fund your wallet to get started.
+            </p>
           )}
           {assets.map((a) => (
-            <div key={a.symbol} className="rounded-2xl border border-ink/10 bg-paper p-4 flex items-center gap-3">
+            <div
+              key={a.symbol}
+              className="rounded-2xl border border-ink/10 bg-paper p-4 flex items-center gap-3"
+            >
               <div
                 className="h-11 w-11 rounded-full flex items-center justify-center text-sm font-bold text-white"
                 style={{ backgroundColor: getAssetMeta(a.symbol).color }}
@@ -227,8 +332,17 @@ function Wallet() {
                 <p className="text-[11px] text-slate">Avalanche C-Chain</p>
               </div>
               <div className="text-right">
-                <p className="text-sm font-bold">{parseFloat(a.balance).toFixed(4)}</p>
-                <p className="text-[11px] text-slate">{formatMoney(a.balanceUsd, displayCurrency, kesRate)}</p>
+                <p className="text-sm font-bold">
+                  {parseFloat(a.balance).toFixed(4)}
+                </p>
+                <p className="text-[11px] text-slate">
+                  {formatMoney(
+                    a.balanceUsd,
+                    displayCurrency,
+                    localRate,
+                    localCurrency,
+                  )}
+                </p>
               </div>
             </div>
           ))}
@@ -243,11 +357,16 @@ function Wallet() {
               <p className="text-[10px] uppercase tracking-wider text-slate">
                 Other testnet balances (auto-detected)
               </p>
-              {testnetAssetsLoading && <Loader2 className="h-3 w-3 animate-spin text-slate" />}
+              {testnetAssetsLoading && (
+                <Loader2 className="h-3 w-3 animate-spin text-slate" />
+              )}
             </div>
             <div className="space-y-2">
               {discoveredAssets.map((a) => (
-                <div key={a.address} className="rounded-2xl border border-dashed border-ink/10 bg-paper p-4 flex items-center gap-3">
+                <div
+                  key={a.address}
+                  className="rounded-2xl border border-dashed border-ink/10 bg-paper p-4 flex items-center gap-3"
+                >
                   <div
                     className="h-11 w-11 rounded-full flex items-center justify-center text-sm font-bold text-white"
                     style={{ backgroundColor: getAssetMeta(a.symbol).color }}
@@ -256,9 +375,13 @@ function Wallet() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate">{a.symbol}</p>
-                    <p className="text-[11px] text-slate truncate">{a.address}</p>
+                    <p className="text-[11px] text-slate truncate">
+                      {a.address}
+                    </p>
                   </div>
-                  <p className="text-sm font-bold">{parseFloat(a.balance).toFixed(4)}</p>
+                  <p className="text-sm font-bold">
+                    {parseFloat(a.balance).toFixed(4)}
+                  </p>
                 </div>
               ))}
             </div>
@@ -268,38 +391,61 @@ function Wallet() {
         {/* External wallet connect */}
         <div className="px-5 mt-5">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] uppercase tracking-wider text-slate">External wallet</p>
+            <p className="text-[10px] uppercase tracking-wider text-slate">
+              External wallet
+            </p>
             {extAddress && (
-              <button onClick={() => disconnectMutation.mutate()}
-                className="text-[10px] text-rust font-semibold flex items-center gap-1">
+              <button
+                onClick={() => disconnectMutation.mutate()}
+                className="text-[10px] text-rust font-semibold flex items-center gap-1"
+              >
                 <Unlink className="h-3 w-3" /> Disconnect
               </button>
             )}
           </div>
 
           {!extAddress ? (
-            <button onClick={() => open()} disabled={connectMutation.isPending}
-              className="w-full flex items-center justify-center gap-2 rounded-2xl border border-ink/10 bg-paper py-3.5 text-sm font-semibold hover:bg-ink/5 transition disabled:opacity-60">
-              {connectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin text-forest" /> : <Wallet2 className="h-4 w-4 text-forest" />}
-              {connectMutation.isPending ? "Linking wallet…" : "Connect MetaMask / Core / WalletConnect"}
+            <button
+              onClick={() => open()}
+              disabled={connectMutation.isPending}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl border border-ink/10 bg-paper py-3.5 text-sm font-semibold hover:bg-ink/5 transition disabled:opacity-60"
+            >
+              {connectMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin text-forest" />
+              ) : (
+                <Wallet2 className="h-4 w-4 text-forest" />
+              )}
+              {connectMutation.isPending
+                ? "Linking wallet…"
+                : "Connect MetaMask / Core / WalletConnect"}
             </button>
           ) : (
             <div className="rounded-3xl border border-ink/10 bg-paper p-4">
               <div className="flex items-center gap-2">
                 <Wallet2 className="h-5 w-5 text-forest shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-slate">Connected</p>
+                  <p className="text-[10px] uppercase tracking-wider text-slate">
+                    Connected
+                  </p>
                   <p className="font-mono text-xs truncate">{extAddress}</p>
                 </div>
-                <button onClick={() => copy(extAddress, true)}
-                  className="h-7 w-7 rounded-xl border border-ink/10 bg-linen flex items-center justify-center">
-                  {extCopied ? <Check className="h-3 w-3 text-forest-light" /> : <Copy className="h-3 w-3" />}
+                <button
+                  onClick={() => copy(extAddress, true)}
+                  className="h-7 w-7 rounded-xl border border-ink/10 bg-linen flex items-center justify-center"
+                >
+                  {extCopied ? (
+                    <Check className="h-3 w-3 text-forest-light" />
+                  ) : (
+                    <Copy className="h-3 w-3" />
+                  )}
                 </button>
               </div>
 
               {wrongChain && (
                 <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl border border-amber/30 bg-amber/16 px-3 py-2 text-xs text-ink">
-                  <span>Wrong network — switch to Avalanche to see your balance.</span>
+                  <span>
+                    Wrong network — switch to Avalanche to see your balance.
+                  </span>
                   <button
                     onClick={() => switchChain({ chainId: avalanche.id })}
                     disabled={isSwitchingChain}
@@ -310,25 +456,51 @@ function Wallet() {
                 </div>
               )}
 
-              {extLoading && <div className="mt-3 h-16 rounded-2xl bg-ink/8 animate-pulse" />}
+              {extLoading && (
+                <div className="mt-3 h-16 rounded-2xl bg-ink/8 animate-pulse" />
+              )}
 
               {extBalances && (
                 <div className="mt-3 pt-3 border-t border-ink/10">
                   <div className="flex items-baseline justify-between mb-2">
-                    <p className="text-[10px] uppercase tracking-wider text-slate">On-chain balance</p>
-                    <p className="text-sm font-black">{formatMoney(extBalances.totalUsd, displayCurrency, kesRate)}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-slate">
+                      On-chain balance
+                    </p>
+                    <p className="text-sm font-black">
+                      {formatMoney(
+                        extBalances.totalUsd,
+                        displayCurrency,
+                        localRate,
+                        localCurrency,
+                      )}
+                    </p>
                   </div>
                   <div className="space-y-1.5">
                     {extBalances.assets.map((a) => (
-                      <div key={a.symbol} className="flex items-center justify-between text-xs">
+                      <div
+                        key={a.symbol}
+                        className="flex items-center justify-between text-xs"
+                      >
                         <span className="font-semibold">{a.symbol}</span>
-                        <span className="text-slate">{parseFloat(a.balance).toFixed(4)} · {formatMoney(a.balanceUsd, displayCurrency, kesRate)}</span>
+                        <span className="text-slate">
+                          {parseFloat(a.balance).toFixed(4)} ·{" "}
+                          {formatMoney(
+                            a.balanceUsd,
+                            displayCurrency,
+                            localRate,
+                            localCurrency,
+                          )}
+                        </span>
                       </div>
                     ))}
                   </div>
                   {extBalances.explorerUrl && (
-                    <a href={extBalances.explorerUrl} target="_blank" rel="noreferrer"
-                      className="mt-2 inline-flex items-center gap-1 text-[11px] text-forest font-semibold">
+                    <a
+                      href={extBalances.explorerUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-[11px] text-forest font-semibold"
+                    >
                       <ExternalLink className="h-3 w-3" /> View on Snowtrace
                     </a>
                   )}
@@ -339,7 +511,8 @@ function Wallet() {
 
           {connectError && (
             <div className="mt-2 flex items-center gap-2 rounded-2xl border border-rust/30 bg-rust/10 px-3 py-2 text-xs text-rust">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />{connectError}
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              {connectError}
             </div>
           )}
         </div>
@@ -349,8 +522,13 @@ function Wallet() {
           <div className="rounded-2xl bg-amber/16 p-4 flex gap-3">
             <ShieldCheck className="h-5 w-5 text-forest shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold">Self-custodial. No seed phrase.</p>
-              <p className="text-[11px] text-slate mt-1">Your Autopayke wallet is derived on-device from your phone number. We can't see your keys or move your funds.</p>
+              <p className="text-sm font-semibold">
+                Self-custodial. No seed phrase.
+              </p>
+              <p className="text-[11px] text-slate mt-1">
+                Your Autopayke wallet is derived on-device from your phone
+                number. We can't see your keys or move your funds.
+              </p>
             </div>
           </div>
         </div>
