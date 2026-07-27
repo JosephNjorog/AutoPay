@@ -22,8 +22,11 @@ export const countries = [
 ];
 
 // Mid-market rates (mocked CoinGecko) — local currency per 1 USDC
-export const midRates: Record<string, { ccy: string; rate: number; flag: string; rail: string }> = {
-  GH: { ccy: "GHS", rate: 15.20, flag: "🇬🇭", rail: "MTN MoMo" },
+export const midRates: Record<
+  string,
+  { ccy: string; rate: number; flag: string; rail: string }
+> = {
+  GH: { ccy: "GHS", rate: 15.2, flag: "🇬🇭", rail: "MTN MoMo" },
   NG: { ccy: "NGN", rate: 1582, flag: "🇳🇬", rail: "Paystack bank" },
   KE: { ccy: "KES", rate: 129.4, flag: "🇰🇪", rail: "M-Pesa STK" },
   SN: { ccy: "XOF", rate: 605, flag: "🇸🇳", rail: "Wave" },
@@ -33,12 +36,19 @@ export const midRates: Record<string, { ccy: string; rate: number; flag: string;
   UG: { ccy: "UGX", rate: 3720, flag: "🇺🇬", rail: "MTN MoMo" },
 };
 
-// Formats a USD amount for display, converting to KES when requested.
-export function formatMoney(usd: number, currency: DisplayCurrency, kesRate: number): string {
+// Formats a USD amount for display, converting to the caller's local
+// currency (KES, GHS, NGN, ...) when requested — not hardcoded to KES, since
+// Autopayke operates in several countries.
+export function formatMoney(
+  usd: number,
+  currency: DisplayCurrency,
+  localRate: number,
+  localCurrency: string,
+): string {
   if (currency === "USD") return `$${usd.toFixed(2)}`;
   return new Intl.NumberFormat("en-KE", {
     style: "currency",
-    currency: "KES",
+    currency: localCurrency,
     maximumFractionDigits: 0,
-  }).format(usd * kesRate);
+  }).format(usd * localRate);
 }
