@@ -31,7 +31,8 @@ export function stringToBytes32(s: string): `0x${string}` {
 // silently redirect fund flows to the wrong chain/contracts. Defaults to
 // testnet; going live requires explicitly setting AVALANCHE_NETWORK=mainnet
 // (see render.yaml) once the mainnet contract addresses below are real.
-export const isTestnet = (process.env.AVALANCHE_NETWORK ?? "testnet").toLowerCase() !== "mainnet";
+export const isTestnet =
+  (process.env.AVALANCHE_NETWORK ?? "testnet").toLowerCase() !== "mainnet";
 const chain = isTestnet ? avalancheFuji : avalanche;
 const rpcUrl = isTestnet
   ? process.env.AVALANCHE_FUJI_RPC_URL!
@@ -47,14 +48,19 @@ export const publicClient = createPublicClient({
 // RELAYER_KMS_KEY_ID nor RELAYER_PRIVATE_KEY is set. Prefers AWS KMS (see
 // ../lib/kms-signer.ts) whenever RELAYER_KMS_KEY_ID is configured — that's
 // the production path; a raw RELAYER_PRIVATE_KEY remains for local dev/testnet.
-let _relayerAccountPromise: ReturnType<typeof getRelayerOrSignerAccount> | null = null;
+let _relayerAccountPromise: ReturnType<
+  typeof getRelayerOrSignerAccount
+> | null = null;
 
 export function requireRelayerAccount() {
   if (!_relayerAccountPromise) {
-    _relayerAccountPromise = getRelayerOrSignerAccount("RELAYER_PRIVATE_KEY", "RELAYER_KMS_KEY_ID").catch((err) => {
+    _relayerAccountPromise = getRelayerOrSignerAccount(
+      "RELAYER_PRIVATE_KEY",
+      "RELAYER_KMS_KEY_ID",
+    ).catch((err) => {
       _relayerAccountPromise = null;
       throw new BlockchainError(
-        `Relayer account unavailable — blockchain write operations are disabled: ${(err as Error).message}`
+        `Relayer account unavailable — blockchain write operations are disabled: ${(err as Error).message}`,
       );
     });
   }
@@ -64,6 +70,23 @@ export function requireRelayerAccount() {
 async function requireRelayer() {
   const account = await requireRelayerAccount();
   return createWalletClient({ account, chain, transport: http(rpcUrl) });
+}
+
+// A relayer-signed execute() call can fail on-chain even after our own
+// pre-flight balance check passed — the wallet's real balance can move
+// between that check and the transaction actually landing (e.g. a second,
+// near-simultaneous send from the same wallet). Left as-is, viem's raw
+// RPC error bubbles up as an unhandled 500 with a wall of internal detail.
+// Detecting that specific case here, in one shared place, turns it into a
+// clean, friendly error every caller (Send, Withdraw, Pay) gets for free.
+function wrapChainWriteError(err: unknown, assetLabel: string): never {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/insufficient funds/i.test(message)) {
+    throw new BlockchainError(
+      `Your on-chain ${assetLabel} balance no longer covers this transfer — refresh your balance and try again.`,
+    );
+  }
+  throw err;
 }
 
 // ── Token addresses ───────────────────────────────────────────────────────────
@@ -94,8 +117,8 @@ export const TOKEN_ADDRESSES: {
   USDT: process.env.USDT_ADDRESS
     ? (process.env.USDT_ADDRESS as Address)
     : isTestnet
-    ? undefined
-    : MAINNET_TOKEN_ADDRESSES.USDT,
+      ? undefined
+      : MAINNET_TOKEN_ADDRESSES.USDT,
 };
 
 /**
@@ -104,7 +127,9 @@ export const TOKEN_ADDRESSES: {
  * Escrow can only ever hold USDC/USDT (it's ERC20-only, see AutopayEscrow.sol),
  * so "unknown" here would itself be a signal something's wrong.
  */
-export function symbolForTokenAddress(address: string): "USDC" | "USDT" | "unknown" {
+export function symbolForTokenAddress(
+  address: string,
+): "USDC" | "USDT" | "unknown" {
   const lower = address.toLowerCase();
   if (TOKEN_ADDRESSES.USDC.toLowerCase() === lower) return "USDC";
   if (TOKEN_ADDRESSES.USDT?.toLowerCase() === lower) return "USDT";
@@ -299,7 +324,9 @@ export function getUserAccount(phoneHash: string) {
 }
 
 /** Predicts the smart wallet address for a user before deployment. */
-export async function getSmartWalletAddress(phoneHash: string): Promise<Address> {
+export async function getSmartWalletAddress(
+  phoneHash: string,
+): Promise<Address> {
   const factoryAddress = process.env.AUTOPAYKE_FACTORY_ADDRESS as Address;
   if (!factoryAddress || factoryAddress === "0x") {
     throw new BlockchainError("AUTOPAYKE_FACTORY_ADDRESS is not configured");
@@ -326,7 +353,9 @@ export async function deploySmartWallet(phoneHash: string): Promise<Address> {
 
   const userAccount = getUserAccount(phoneHash);
 
-  const hash = await (await requireRelayer()).writeContract({
+  const hash = await (
+    await requireRelayer()
+  ).writeContract({
     chain,
     account: await requireRelayerAccount(),
     address: factoryAddress,
@@ -349,9 +378,13 @@ export async function deploySmartWallet(phoneHash: string): Promise<Address> {
  * works, just without this particular defense-in-depth layer until it's set
  * manually or retried), so this logs and swallows rather than throwing.
  */
-async function setDefaultGuardianDailyLimit(walletAddress: Address): Promise<void> {
+async function setDefaultGuardianDailyLimit(
+  walletAddress: Address,
+): Promise<void> {
   try {
-    const hash = await (await requireRelayer()).writeContract({
+    const hash = await (
+      await requireRelayer()
+    ).writeContract({
       chain,
       account: await requireRelayerAccount(),
       address: walletAddress,
@@ -363,7 +396,7 @@ async function setDefaultGuardianDailyLimit(walletAddress: Address): Promise<voi
   } catch (err) {
     console.error(
       `[Avalanche] Failed to set default guardian daily limit on ${walletAddress}:`,
-      err instanceof Error ? err.message : err
+      err instanceof Error ? err.message : err,
     );
   }
 }
@@ -381,7 +414,7 @@ export type TokenBalance = {
 export async function getWalletBalances(
   walletAddress: Address,
   usdcPriceUsd = 1.0,
-  usdtPriceUsd = 1.0
+  usdtPriceUsd = 1.0,
 ): Promise<TokenBalance[]> {
   // Each token balance is fetched independently — a missing/misconfigured
   // token address (e.g. no canonical USDT test contract on Fuji) shouldn't
@@ -444,36 +477,44 @@ export async function getWalletBalances(
 // the wallet page for testnet QA — display only, never wired into send/pay.
 
 const DISCOVERY_LOOKBACK_BLOCKS = BigInt(
-  parseInt(process.env.TESTNET_TOKEN_DISCOVERY_LOOKBACK_BLOCKS ?? "", 10) || 20_000
+  parseInt(process.env.TESTNET_TOKEN_DISCOVERY_LOOKBACK_BLOCKS ?? "", 10) ||
+    20_000,
 );
 const DISCOVERY_BATCH_BLOCKS = 2_000n;
 
 export type DiscoveredTokenBalance = TokenBalance & { name: string };
 
 export async function discoverTestnetTokenBalances(
-  walletAddress: Address
+  walletAddress: Address,
 ): Promise<DiscoveredTokenBalance[]> {
   if (!isTestnet) return [];
 
   const currentBlock = await publicClient.getBlockNumber();
   const fromBlockFloor =
-    currentBlock > DISCOVERY_LOOKBACK_BLOCKS ? currentBlock - DISCOVERY_LOOKBACK_BLOCKS : 0n;
+    currentBlock > DISCOVERY_LOOKBACK_BLOCKS
+      ? currentBlock - DISCOVERY_LOOKBACK_BLOCKS
+      : 0n;
 
   const transferEvent = ERC20_ABI.find((i) => i.name === "Transfer")!;
   const knownAddresses = new Set(
     [TOKEN_ADDRESSES.USDC, TOKEN_ADDRESSES.USDT]
       .filter((a): a is Address => !!a)
-      .map((a) => a.toLowerCase())
+      .map((a) => a.toLowerCase()),
   );
 
   // Public RPCs cap the block range per getLogs call, so scan in batches —
   // in parallel since this is a bounded, recent-history window, not the
   // open-ended scan the settlement worker does.
   const batches: Promise<Address[]>[] = [];
-  for (let from = fromBlockFloor; from <= currentBlock; from += DISCOVERY_BATCH_BLOCKS) {
-    const to = from + DISCOVERY_BATCH_BLOCKS - 1n < currentBlock
-      ? from + DISCOVERY_BATCH_BLOCKS - 1n
-      : currentBlock;
+  for (
+    let from = fromBlockFloor;
+    from <= currentBlock;
+    from += DISCOVERY_BATCH_BLOCKS
+  ) {
+    const to =
+      from + DISCOVERY_BATCH_BLOCKS - 1n < currentBlock
+        ? from + DISCOVERY_BATCH_BLOCKS - 1n
+        : currentBlock;
     batches.push(
       publicClient
         .getLogs({
@@ -483,7 +524,7 @@ export async function discoverTestnetTokenBalances(
           toBlock: to,
         })
         .then((logs) => logs.map((log) => log.address))
-        .catch(() => [] as Address[])
+        .catch(() => [] as Address[]),
     );
   }
 
@@ -491,7 +532,7 @@ export async function discoverTestnetTokenBalances(
     (await Promise.all(batches))
       .flat()
       .map((a) => a.toLowerCase())
-      .filter((a) => !knownAddresses.has(a))
+      .filter((a) => !knownAddresses.has(a)),
   );
 
   const results = await Promise.all(
@@ -499,9 +540,22 @@ export async function discoverTestnetTokenBalances(
       const address = lowerAddress as Address;
       try {
         const [balance, symbol, decimals] = await Promise.all([
-          publicClient.readContract({ address, abi: ERC20_ABI, functionName: "balanceOf", args: [walletAddress] }) as Promise<bigint>,
-          publicClient.readContract({ address, abi: ERC20_ABI, functionName: "symbol" }) as Promise<string>,
-          publicClient.readContract({ address, abi: ERC20_ABI, functionName: "decimals" }) as Promise<number>,
+          publicClient.readContract({
+            address,
+            abi: ERC20_ABI,
+            functionName: "balanceOf",
+            args: [walletAddress],
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address,
+            abi: ERC20_ABI,
+            functionName: "symbol",
+          }) as Promise<string>,
+          publicClient.readContract({
+            address,
+            abi: ERC20_ABI,
+            functionName: "decimals",
+          }) as Promise<number>,
         ]);
         if (balance <= 0n) return null;
         const result: DiscoveredTokenBalance = {
@@ -518,7 +572,7 @@ export async function discoverTestnetTokenBalances(
         // reverted — skip rather than fail the whole discovery pass.
         return null;
       }
-    })
+    }),
   );
 
   return results.filter((r): r is DiscoveredTokenBalance => r !== null);
@@ -537,7 +591,7 @@ function requireTokenAddress(token: StablecoinToken): Address {
 
 export async function getTokenBalance(
   token: StablecoinToken,
-  walletAddress: Address
+  walletAddress: Address,
 ): Promise<bigint> {
   return publicClient.readContract({
     address: requireTokenAddress(token),
@@ -572,11 +626,13 @@ export type IncomingTransfer = {
 export async function getIncomingTransfers(
   walletAddress: Address,
   fromBlock: bigint,
-  toBlock: bigint
+  toBlock: bigint,
 ): Promise<IncomingTransfer[]> {
   const tokens: { address: Address; symbol: "USDC" | "USDT" }[] = [
     { address: TOKEN_ADDRESSES.USDC, symbol: "USDC" },
-    ...(TOKEN_ADDRESSES.USDT ? [{ address: TOKEN_ADDRESSES.USDT, symbol: "USDT" as const }] : []),
+    ...(TOKEN_ADDRESSES.USDT
+      ? [{ address: TOKEN_ADDRESSES.USDT, symbol: "USDT" as const }]
+      : []),
   ];
 
   const results = await Promise.all(
@@ -600,13 +656,16 @@ export async function getIncomingTransfers(
             amount: (log.args as { value: bigint }).value,
             token: symbol,
             blockNumber: log.blockNumber,
-          }))
+          })),
         )
         .catch((err) => {
-          console.error(`[Avalanche] getIncomingTransfers(${symbol}) failed:`, (err as Error).message);
+          console.error(
+            `[Avalanche] getIncomingTransfers(${symbol}) failed:`,
+            (err as Error).message,
+          );
           return [] as IncomingTransfer[];
-        })
-    )
+        }),
+    ),
   );
 
   return results.flat();
@@ -620,18 +679,26 @@ export async function getIncomingTransfers(
  */
 export async function verifyIncomingTransfer(
   txHash: Hash,
-  expectedTo: Address
-): Promise<{ from: Address; amount: bigint; token: "USDC" | "USDT" | "AVAX" } | null> {
+  expectedTo: Address,
+): Promise<{
+  from: Address;
+  amount: bigint;
+  token: "USDC" | "USDT" | "AVAX";
+} | null> {
   const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
   if (receipt.status !== "success") return null;
 
   const tokens: { address: Address; symbol: "USDC" | "USDT" }[] = [
     { address: TOKEN_ADDRESSES.USDC, symbol: "USDC" },
-    ...(TOKEN_ADDRESSES.USDT ? [{ address: TOKEN_ADDRESSES.USDT, symbol: "USDT" as const }] : []),
+    ...(TOKEN_ADDRESSES.USDT
+      ? [{ address: TOKEN_ADDRESSES.USDT, symbol: "USDT" as const }]
+      : []),
   ];
 
   for (const log of receipt.logs) {
-    const token = tokens.find((t) => t.address.toLowerCase() === log.address.toLowerCase());
+    const token = tokens.find(
+      (t) => t.address.toLowerCase() === log.address.toLowerCase(),
+    );
     if (!token) continue;
 
     // Transfer(address indexed from, address indexed to, uint256 value)
@@ -648,7 +715,11 @@ export async function verifyIncomingTransfer(
   // No ERC-20 Transfer log matched — check whether this was instead a plain
   // native AVAX transfer straight to the expected address.
   const tx = await publicClient.getTransaction({ hash: txHash });
-  if (tx.to && tx.to.toLowerCase() === expectedTo.toLowerCase() && tx.value > 0n) {
+  if (
+    tx.to &&
+    tx.to.toLowerCase() === expectedTo.toLowerCase() &&
+    tx.value > 0n
+  ) {
     return { from: tx.from, amount: tx.value, token: "AVAX" };
   }
 
@@ -666,7 +737,7 @@ export async function transferToken(
   fromPhoneHash: string,
   fromWalletAddress: Address,
   toAddress: Address,
-  amountUsd: number
+  amountUsd: number,
 ): Promise<Hash> {
   const tokenAddress = requireTokenAddress(token);
   const amountRaw = parseUnits(amountUsd.toFixed(6), 6);
@@ -682,14 +753,21 @@ export async function transferToken(
     args: [toAddress, amountRaw],
   });
 
-  const hash = await (await requireRelayer()).writeContract({
-    chain,
-    account: await requireRelayerAccount(),
-    address: fromWalletAddress,
-    abi: SMART_WALLET_ABI,
-    functionName: "execute",
-    args: [tokenAddress, 0n, transferCalldata],
-  });
+  let hash: Hash;
+  try {
+    hash = await (
+      await requireRelayer()
+    ).writeContract({
+      chain,
+      account: await requireRelayerAccount(),
+      address: fromWalletAddress,
+      abi: SMART_WALLET_ABI,
+      functionName: "execute",
+      args: [tokenAddress, 0n, transferCalldata],
+    });
+  } catch (err) {
+    wrapChainWriteError(err, token);
+  }
 
   await publicClient.waitForTransactionReceipt({ hash });
   return hash;
@@ -699,9 +777,15 @@ export async function transferUsdc(
   fromPhoneHash: string,
   fromWalletAddress: Address,
   toAddress: Address,
-  amountUsd: number
+  amountUsd: number,
 ): Promise<Hash> {
-  return transferToken("USDC", fromPhoneHash, fromWalletAddress, toAddress, amountUsd);
+  return transferToken(
+    "USDC",
+    fromPhoneHash,
+    fromWalletAddress,
+    toAddress,
+    amountUsd,
+  );
 }
 
 /**
@@ -714,7 +798,7 @@ export async function transferUsdc(
 export async function transferNativeAvax(
   fromWalletAddress: Address,
   toAddress: Address,
-  amountAvax: number
+  amountAvax: number,
 ): Promise<Hash> {
   const amountRaw = parseUnits(amountAvax.toFixed(18), 18);
 
@@ -723,14 +807,21 @@ export async function transferNativeAvax(
     throw new BlockchainError("Insufficient AVAX balance");
   }
 
-  const hash = await (await requireRelayer()).writeContract({
-    chain,
-    account: await requireRelayerAccount(),
-    address: fromWalletAddress,
-    abi: SMART_WALLET_ABI,
-    functionName: "execute",
-    args: [toAddress, amountRaw, "0x"],
-  });
+  let hash: Hash;
+  try {
+    hash = await (
+      await requireRelayer()
+    ).writeContract({
+      chain,
+      account: await requireRelayerAccount(),
+      address: fromWalletAddress,
+      abi: SMART_WALLET_ABI,
+      functionName: "execute",
+      args: [toAddress, amountRaw, "0x"],
+    });
+  } catch (err) {
+    wrapChainWriteError(err, "AVAX");
+  }
 
   await publicClient.waitForTransactionReceipt({ hash });
   return hash;
@@ -740,7 +831,7 @@ export async function transferNativeAvax(
 export async function approveEscrowToken(
   token: StablecoinToken,
   fromWalletAddress: Address,
-  amountUsd: number
+  amountUsd: number,
 ): Promise<Hash> {
   const tokenAddress = requireTokenAddress(token);
   const escrowAddress = process.env.AUTOPAYKE_ESCROW_ADDRESS as Address;
@@ -752,14 +843,21 @@ export async function approveEscrowToken(
     args: [escrowAddress, amountRaw],
   });
 
-  const hash = await (await requireRelayer()).writeContract({
-    chain,
-    account: await requireRelayerAccount(),
-    address: fromWalletAddress,
-    abi: SMART_WALLET_ABI,
-    functionName: "execute",
-    args: [tokenAddress, 0n, approveCalldata],
-  });
+  let hash: Hash;
+  try {
+    hash = await (
+      await requireRelayer()
+    ).writeContract({
+      chain,
+      account: await requireRelayerAccount(),
+      address: fromWalletAddress,
+      abi: SMART_WALLET_ABI,
+      functionName: "execute",
+      args: [tokenAddress, 0n, approveCalldata],
+    });
+  } catch (err) {
+    wrapChainWriteError(err, token);
+  }
 
   await publicClient.waitForTransactionReceipt({ hash });
   return hash;
@@ -767,7 +865,7 @@ export async function approveEscrowToken(
 
 export async function approveEscrow(
   fromWalletAddress: Address,
-  amountUsd: number
+  amountUsd: number,
 ): Promise<Hash> {
   return approveEscrowToken("USDC", fromWalletAddress, amountUsd);
 }
@@ -780,12 +878,16 @@ export async function approveEscrow(
  */
 export async function registerWalletOnChain(
   phoneHash: string,
-  walletAddress: Address
+  walletAddress: Address,
 ): Promise<void> {
-  const registryAddress = process.env.AUTOPAYKE_REGISTRY_ADDRESS as Address | undefined;
+  const registryAddress = process.env.AUTOPAYKE_REGISTRY_ADDRESS as
+    | Address
+    | undefined;
   if (!registryAddress || registryAddress === "0x") return;
 
-  const hash = await (await requireRelayer()).writeContract({
+  const hash = await (
+    await requireRelayer()
+  ).writeContract({
     chain,
     account: await requireRelayerAccount(),
     address: registryAddress,
@@ -808,7 +910,7 @@ export async function depositToEscrowToken(
   token: StablecoinToken,
   senderWalletAddress: Address,
   escrowRef: string,
-  amountUsd: number
+  amountUsd: number,
 ): Promise<Hash> {
   const tokenAddress = requireTokenAddress(token);
   const escrowAddress = process.env.AUTOPAYKE_ESCROW_ADDRESS as Address;
@@ -826,14 +928,21 @@ export async function depositToEscrowToken(
     args: [claimRefBytes32, tokenAddress, amountRaw, EXPIRY_OFFSET],
   });
 
-  const hash = await (await requireRelayer()).writeContract({
-    chain,
-    account: await requireRelayerAccount(),
-    address: senderWalletAddress,
-    abi: SMART_WALLET_ABI,
-    functionName: "execute",
-    args: [escrowAddress, 0n, depositCalldata],
-  });
+  let hash: Hash;
+  try {
+    hash = await (
+      await requireRelayer()
+    ).writeContract({
+      chain,
+      account: await requireRelayerAccount(),
+      address: senderWalletAddress,
+      abi: SMART_WALLET_ABI,
+      functionName: "execute",
+      args: [escrowAddress, 0n, depositCalldata],
+    });
+  } catch (err) {
+    wrapChainWriteError(err, token);
+  }
 
   await publicClient.waitForTransactionReceipt({ hash });
   return hash;
@@ -842,9 +951,14 @@ export async function depositToEscrowToken(
 export async function depositToEscrow(
   senderWalletAddress: Address,
   escrowRef: string,
-  amountUsd: number
+  amountUsd: number,
 ): Promise<Hash> {
-  return depositToEscrowToken("USDC", senderWalletAddress, escrowRef, amountUsd);
+  return depositToEscrowToken(
+    "USDC",
+    senderWalletAddress,
+    escrowRef,
+    amountUsd,
+  );
 }
 
 /**
@@ -854,7 +968,7 @@ export async function depositToEscrow(
 export async function claimEscrowOnChain(
   escrowRef: string,
   recipientAddress: Address,
-  signature: `0x${string}`
+  signature: `0x${string}`,
 ): Promise<Hash> {
   const escrowAddress = process.env.AUTOPAYKE_ESCROW_ADDRESS as Address;
   if (!escrowAddress || escrowAddress === "0x") {
@@ -863,7 +977,9 @@ export async function claimEscrowOnChain(
 
   const claimRefBytes32 = stringToBytes32(escrowRef);
 
-  const hash = await (await requireRelayer()).writeContract({
+  const hash = await (
+    await requireRelayer()
+  ).writeContract({
     chain,
     account: await requireRelayerAccount(),
     address: escrowAddress,
@@ -886,7 +1002,9 @@ export async function refundEscrowOnChain(escrowRef: string): Promise<Hash> {
     throw new BlockchainError("AUTOPAYKE_ESCROW_ADDRESS is not configured");
   }
 
-  const hash = await (await requireRelayer()).writeContract({
+  const hash = await (
+    await requireRelayer()
+  ).writeContract({
     chain,
     account: await requireRelayerAccount(),
     address: escrowAddress,
@@ -906,11 +1024,13 @@ export async function refundEscrowOnChain(escrowRef: string): Promise<Hash> {
  */
 export async function creditFromFloat(
   toWalletAddress: Address,
-  amountUsd: number
+  amountUsd: number,
 ): Promise<Hash> {
   const amountRaw = parseUnits(amountUsd.toFixed(6), 6);
 
-  const hash = await (await requireRelayer()).writeContract({
+  const hash = await (
+    await requireRelayer()
+  ).writeContract({
     chain,
     account: await requireRelayerAccount(),
     address: TOKEN_ADDRESSES.USDC,
@@ -929,7 +1049,9 @@ export async function creditFromFloat(
  * Silently skips if AUTOPAYKE_PAYMASTER_ADDRESS is not yet configured.
  */
 export async function sponsorWallet(walletAddress: Address): Promise<void> {
-  const paymasterAddress = process.env.AUTOPAYKE_PAYMASTER_ADDRESS as Address | undefined;
+  const paymasterAddress = process.env.AUTOPAYKE_PAYMASTER_ADDRESS as
+    | Address
+    | undefined;
   if (!paymasterAddress || paymasterAddress === "0x") return;
 
   const PAYMASTER_APPROVE_ABI = [
@@ -942,7 +1064,9 @@ export async function sponsorWallet(walletAddress: Address): Promise<void> {
     },
   ] as const;
 
-  const hash = await (await requireRelayer()).writeContract({
+  const hash = await (
+    await requireRelayer()
+  ).writeContract({
     chain,
     account: await requireRelayerAccount(),
     address: paymasterAddress,
@@ -963,12 +1087,15 @@ const AVAX_PRICE_CACHE_TTL_MS = 60_000;
 let cachedAvaxPrice: { price: number; fetchedAt: number } | null = null;
 
 export async function getAvaxPriceUsd(): Promise<number> {
-  if (cachedAvaxPrice && Date.now() - cachedAvaxPrice.fetchedAt < AVAX_PRICE_CACHE_TTL_MS) {
+  if (
+    cachedAvaxPrice &&
+    Date.now() - cachedAvaxPrice.fetchedAt < AVAX_PRICE_CACHE_TTL_MS
+  ) {
     return cachedAvaxPrice.price;
   }
   try {
     const res = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=avalanche-2&vs_currencies=usd"
+      "https://api.coingecko.com/api/v3/simple/price?ids=avalanche-2&vs_currencies=usd",
     );
     const data = (await res.json()) as { "avalanche-2": { usd: number } };
     const price = data["avalanche-2"].usd;
