@@ -31,7 +31,6 @@ type SessionState = {
   phone: string | null;
   display_name: string | null;
   wallet_address: string | null;
-  kes_rate: number;
   pin_hash: string | null;
 
   // Mirrors sessionStorage — survives in-session page reloads (PWA navigation),
@@ -41,7 +40,6 @@ type SessionState = {
   setSession: (session: UserSession) => void;
   setPinHash: (hash: string) => void;
   setWalletAddress: (address: string) => void;
-  setKesRate: (rate: number) => void;
   setUnlocked: (val: boolean) => void;
   clearSession: () => void;
   isAuthenticated: () => boolean;
@@ -57,7 +55,6 @@ export const useSessionStore = create<SessionState>()(
       phone: null,
       display_name: null,
       wallet_address: null,
-      kes_rate: 130,
       pin_hash: null,
       // Initialise from sessionStorage so in-session page reloads don't re-ask for PIN
       is_unlocked: readUnlockFromSession(),
@@ -78,8 +75,6 @@ export const useSessionStore = create<SessionState>()(
       setPinHash: (pin_hash) => set({ pin_hash }),
 
       setWalletAddress: (wallet_address) => set({ wallet_address }),
-
-      setKesRate: (kes_rate) => set({ kes_rate }),
 
       setUnlocked: (is_unlocked) => {
         writeUnlockToSession(is_unlocked);
@@ -115,7 +110,8 @@ export const useSessionStore = create<SessionState>()(
           const value = localStorage.getItem(key);
           return value ? JSON.parse(value) : null;
         },
-        setItem: (key, value) => localStorage.setItem(key, JSON.stringify(value)),
+        setItem: (key, value) =>
+          localStorage.setItem(key, JSON.stringify(value)),
         removeItem: (key) => localStorage.removeItem(key),
       },
       partialize: (s) =>
@@ -126,10 +122,9 @@ export const useSessionStore = create<SessionState>()(
           phone: s.phone,
           display_name: s.display_name,
           wallet_address: s.wallet_address,
-          kes_rate: s.kes_rate,
           pin_hash: s.pin_hash,
           // is_unlocked excluded from localStorage — sessionStorage handles it
         }) as SessionState,
-    }
-  )
+    },
+  ),
 );
