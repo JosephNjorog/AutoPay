@@ -1,12 +1,18 @@
-import type { CountryPayConfig, PayableAsset, PayQuote as PayQuoteData } from "@tuma/shared";
+import type {
+  CountryPayConfig,
+  PayableAsset,
+  PayQuote as PayQuoteData,
+} from "@tuma/shared";
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:3001";
+const API_BASE =
+  (import.meta.env.VITE_API_URL as string | undefined) ??
+  "http://localhost:3001";
 
 export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
-    public code?: string
+    public code?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -15,7 +21,7 @@ export class ApiError extends Error {
 
 async function request<T>(
   path: string,
-  options: RequestInit & { token?: string | null } = {}
+  options: RequestInit & { token?: string | null } = {},
 ): Promise<T> {
   const { token, ...init } = options;
   const res = await fetch(`${API_BASE}${path}`, {
@@ -27,9 +33,18 @@ async function request<T>(
     },
   });
 
-  const json = (await res.json()) as { ok: boolean; data?: T; error?: string; code?: string };
+  const json = (await res.json()) as {
+    ok: boolean;
+    data?: T;
+    error?: string;
+    code?: string;
+  };
   if (!res.ok || !json.ok) {
-    throw new ApiError(res.status, json.error ?? `HTTP ${res.status}`, json.code);
+    throw new ApiError(
+      res.status,
+      json.error ?? `HTTP ${res.status}`,
+      json.code,
+    );
   }
   return json.data as T;
 }
@@ -184,10 +199,13 @@ export type DiscoveredTestnetAsset = {
 export const api = {
   auth: {
     sendOtp: (phone: string, email?: string) =>
-      request<{ message: string; expiresIn: number; channel: "email" | "sms" }>("/api/auth/send-otp", {
-        method: "POST",
-        body: JSON.stringify({ phone, email }),
-      }),
+      request<{ message: string; expiresIn: number; channel: "email" | "sms" }>(
+        "/api/auth/send-otp",
+        {
+          method: "POST",
+          body: JSON.stringify({ phone, email }),
+        },
+      ),
 
     verifyOtp: (phone: string, code: string) =>
       request<AuthResponse>("/api/auth/verify-otp", {
@@ -236,19 +254,29 @@ export const api = {
       request<void>("/api/wallet/connect", { method: "DELETE", token }),
 
     balances: (address: string, token: string) =>
-      request<{ address: string; totalUsd: number; assets: WalletAsset[]; explorerUrl: string }>(
-        `/api/wallet/balances/${address}`,
-        { token }
-      ),
+      request<{
+        address: string;
+        totalUsd: number;
+        assets: WalletAsset[];
+        explorerUrl: string;
+      }>(`/api/wallet/balances/${address}`, { token }),
 
     // Testnet-only auto-detected balances beyond USDC/USDT/AVAX — always
     // returns an empty list in production.
     testnetAssets: (token: string) =>
-      request<{ assets: DiscoveredTestnetAsset[] }>("/api/wallet/testnet-assets", { token }),
+      request<{ assets: DiscoveredTestnetAsset[] }>(
+        "/api/wallet/testnet-assets",
+        { token },
+      ),
   },
 
   fx: {
-    quote: (amountUsd: number, recipientPhone: string, asset: PayableAsset, authToken: string) =>
+    quote: (
+      amountUsd: number,
+      recipientPhone: string,
+      asset: PayableAsset,
+      authToken: string,
+    ) =>
       request<FxQuote>("/api/fx/quote", {
         method: "POST",
         body: JSON.stringify({ amountUsd, recipientPhone, token: asset }),
@@ -258,9 +286,21 @@ export const api = {
     rates: async (token: string) => {
       // Backend wraps the array as { rates: [...] } inside the data envelope.
       const { rates } = await request<{
-        rates: { currency: string; mid: number; tuma: number; savings: string }[];
+        rates: {
+          currency: string;
+          mid: number;
+          tuma: number;
+          savings: string;
+        }[];
       }>("/api/fx/rates", { token });
       return rates;
+    },
+
+    tokenPrices: async (token: string) => {
+      const { prices } = await request<{
+        prices: { symbol: PayableAsset; priceUsd: number }[];
+      }>("/api/fx/token-prices", { token });
+      return prices;
     },
   },
 
@@ -268,7 +308,7 @@ export const api = {
     lookup: (phone: string, token: string) =>
       request<{ registered: boolean }>(
         `/api/send/lookup?phone=${encodeURIComponent(phone)}`,
-        { token }
+        { token },
       ),
 
     corridors: (token: string) =>
@@ -277,7 +317,7 @@ export const api = {
     verifyRecipient: (phone: string, countryCode: string, token: string) =>
       request<RecipientVerification>(
         `/api/send/verify-recipient?phone=${encodeURIComponent(phone)}&country=${encodeURIComponent(countryCode)}`,
-        { token }
+        { token },
       ),
 
     send: (
@@ -289,7 +329,7 @@ export const api = {
         note?: string;
         idempotencyKey?: string;
       },
-      token: string
+      token: string,
     ) =>
       request<{
         transactionId: string;
@@ -316,7 +356,11 @@ export const api = {
         reference: string;
         fee: number;
         youReceive: number;
-      }>("/api/fund/card", { method: "POST", body: JSON.stringify({ amountUsd }), token }),
+      }>("/api/fund/card", {
+        method: "POST",
+        body: JSON.stringify({ amountUsd }),
+        token,
+      }),
 
     mobile: (amountLocal: number, token: string) =>
       request<{
@@ -326,7 +370,11 @@ export const api = {
         provider: string;
         displayText: string;
         estimatedUsdc: number;
-      }>("/api/fund/mobile", { method: "POST", body: JSON.stringify({ amountLocal }), token }),
+      }>("/api/fund/mobile", {
+        method: "POST",
+        body: JSON.stringify({ amountLocal }),
+        token,
+      }),
 
     bank: (token: string) =>
       request<{
@@ -348,16 +396,26 @@ export const api = {
       }>("/api/fund/crypto", { token }),
 
     confirmCrypto: (txHash: string, token: string) =>
-      request<{ transactionId: string; amountUsd?: number; token?: string; alreadyRecorded?: boolean }>(
-        "/api/fund/crypto/confirm",
-        { method: "POST", body: JSON.stringify({ txHash }), token }
-      ),
+      request<{
+        transactionId: string;
+        amountUsd?: number;
+        token?: string;
+        alreadyRecorded?: boolean;
+      }>("/api/fund/crypto/confirm", {
+        method: "POST",
+        body: JSON.stringify({ txHash }),
+        token,
+      }),
   },
 
   history: {
     list: (
       token: string,
-      params: { filter?: "all" | "in" | "out"; page?: number; limit?: number } = {}
+      params: {
+        filter?: "all" | "in" | "out";
+        page?: number;
+        limit?: number;
+      } = {},
     ) => {
       const q = new URLSearchParams({
         filter: params.filter ?? "all",
@@ -366,7 +424,12 @@ export const api = {
       });
       return request<{
         transactions: TxSummary[];
-        pagination: { total: number; page: number; limit: number; pages: number };
+        pagination: {
+          total: number;
+          page: number;
+          limit: number;
+          pages: number;
+        };
       }>(`/api/history?${q}`, { token });
     },
 
@@ -396,7 +459,11 @@ export const api = {
           refundTxHash: string | null;
           refundedAt: string | null;
         };
-        events: { step: string; metadata: Record<string, unknown>; createdAt: string }[];
+        events: {
+          step: string;
+          metadata: Record<string, unknown>;
+          createdAt: string;
+        }[];
       }>(`/api/track/${id}`, { token }),
 
     // Binary PDF response — can't go through request<T>()'s unconditional
@@ -406,21 +473,29 @@ export const api = {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
-        const json = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
-        throw new ApiError(res.status, json.error ?? `HTTP ${res.status}`, json.code);
+        const json = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          code?: string;
+        };
+        throw new ApiError(
+          res.status,
+          json.error ?? `HTTP ${res.status}`,
+          json.code,
+        );
       }
       return res.blob();
     },
   },
 
   pay: {
-    config: (token: string) => request<CountryPayConfig>("/api/pay/config", { token }),
+    config: (token: string) =>
+      request<CountryPayConfig>("/api/pay/config", { token }),
 
     quote: (
       amountUsd: number,
       payMethod: "buy_goods" | "paybill",
       asset: PayableAsset,
-      authToken: string
+      authToken: string,
     ) =>
       request<PayQuoteData>("/api/pay/quote", {
         method: "POST",
@@ -438,7 +513,7 @@ export const api = {
         token?: PayableAsset;
         idempotencyKey?: string;
       },
-      token: string
+      token: string,
     ) =>
       request<{
         transactionId: string;
@@ -453,7 +528,11 @@ export const api = {
         merchantPaybillNumber: string | null;
         merchantAccountNumber: string | null;
         idempotentReplay?: boolean;
-      }>("/api/pay/initiate", { method: "POST", body: JSON.stringify(body), token }),
+      }>("/api/pay/initiate", {
+        method: "POST",
+        body: JSON.stringify(body),
+        token,
+      }),
   },
 
   claim: {
@@ -474,7 +553,11 @@ export const api = {
         amountLocal: number;
         localCurrency: string;
         rail: string;
-      }>("/api/claim", { method: "POST", body: JSON.stringify({ ref }), token }),
+      }>("/api/claim", {
+        method: "POST",
+        body: JSON.stringify({ ref }),
+        token,
+      }),
   },
 
   withdraw: {
@@ -485,7 +568,7 @@ export const api = {
           | { method: "mobile"; phone: string; mobileNetwork: string }
           | { method: "bank"; accountNumber: string; institution: string };
       },
-      token: string
+      token: string,
     ) =>
       request<PayoutQuote>("/api/withdraw/payout/quote", {
         method: "POST",
@@ -511,9 +594,15 @@ export const api = {
 
   notifications: {
     list: (token: string) =>
-      request<{ notifications: Notification[]; unread: number }>("/api/notifications", { token }),
+      request<{ notifications: Notification[]; unread: number }>(
+        "/api/notifications",
+        { token },
+      ),
 
     markSeen: (token: string) =>
-      request<Record<string, never>>("/api/notifications/seen", { method: "POST", token }),
+      request<Record<string, never>>("/api/notifications/seen", {
+        method: "POST",
+        token,
+      }),
   },
 };
