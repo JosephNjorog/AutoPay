@@ -27,10 +27,14 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { useWalletStore } from "@/stores/walletStore";
 import { Avatar } from "@/components/Avatar";
-import { getGreeting, usdcToKes, formatUSD } from "@/lib/utils";
+import { getGreeting, usdToLocal, formatUSD } from "@/lib/utils";
 import { getAssetMeta } from "@/lib/asset-meta";
-import { BALANCE_STALE_TIME_MS, TRANSACTIONS_STALE_TIME_MS } from "@/lib/constants";
+import {
+  BALANCE_STALE_TIME_MS,
+  TRANSACTIONS_STALE_TIME_MS,
+} from "@/lib/constants";
 import { useTransactionSocket } from "@/hooks/useTransactionSocket";
+import { useLocalRate } from "@/hooks/use-local-rate";
 import type { WalletBalance, Transaction, AssetBalance } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -70,9 +74,11 @@ function Dashboard() {
   const externalWalletQuery = useQuery({
     queryKey: ["wallet", "external-balance", externalAddress],
     queryFn: () =>
-      apiClient.get<{ address: string; totalUsd: number; assets: AssetBalance[] }>(
-        `/api/wallet/balances/${externalAddress}`
-      ),
+      apiClient.get<{
+        address: string;
+        totalUsd: number;
+        assets: AssetBalance[];
+      }>(`/api/wallet/balances/${externalAddress}`),
     enabled: !!externalAddress,
     staleTime: BALANCE_STALE_TIME_MS,
     refetchInterval: 30000,
@@ -85,19 +91,25 @@ function Dashboard() {
     const bySymbol = new Map<string, AssetBalance>();
     for (const a of [...custodial, ...external]) {
       const existing = bySymbol.get(a.symbol);
-      bySymbol.set(a.symbol, existing
-        ? {
-            symbol: a.symbol,
-            balance: (parseFloat(existing.balance) + parseFloat(a.balance)).toString(),
-            balanceUsd: existing.balanceUsd + a.balanceUsd,
-          }
-        : { ...a });
+      bySymbol.set(
+        a.symbol,
+        existing
+          ? {
+              symbol: a.symbol,
+              balance: (
+                parseFloat(existing.balance) + parseFloat(a.balance)
+              ).toString(),
+              balanceUsd: existing.balanceUsd + a.balanceUsd,
+            }
+          : { ...a },
+      );
     }
     return Array.from(bySymbol.values());
   }, [walletQuery.data?.assets, externalWalletQuery.data?.assets]);
 
   const combinedTotalUsd =
-    (walletQuery.data?.totalUsd ?? 0) + (externalWalletQuery.data?.totalUsd ?? 0);
+    (walletQuery.data?.totalUsd ?? 0) +
+    (externalWalletQuery.data?.totalUsd ?? 0);
 
   const transactionsQuery = useQuery({
     queryKey: ["transactions", "recent"],
@@ -113,12 +125,30 @@ function Dashboard() {
     }
   }, [walletQuery.data, setBalance]);
 
-  const kesRate = sessionStore.kes_rate || 130;
+  // The logged-in user's own country/currency — not hardcoded to Kenya,
+  // since Autopayke operates in several countries.
+  const userCountry = sessionStore.phone
+    ? dialCodeToCountry(sessionStore.phone)
+    : null;
+  const localCurrency = userCountry?.currency ?? "KES";
+
+  // Live mid-market rate (same source wallet.tsx already uses), not the
+  // dead sessionStore.kes_rate — that field's setter was never called
+  // anywhere, so it sat frozen at whatever got persisted to a given
+  // browser's localStorage (default 130, or an old stale value for a
+  // returning user), causing a flash of one number then a flip to another
+  // as Zustand's persisted store rehydrated on mount.
+  const localRate = useLocalRate(localCurrency);
   const totalUsd = combinedTotalUsd.toFixed(2);
-  const totalKes = useMemo(() => usdcToKes(totalUsd, kesRate), [totalUsd, kesRate]);
+  const totalLocal = useMemo(
+    () => usdToLocal(totalUsd, localRate),
+    [totalUsd, localRate],
+  );
 
   const isRefetching =
-    walletQuery.isRefetching || externalWalletQuery.isRefetching || transactionsQuery.isRefetching;
+    walletQuery.isRefetching ||
+    externalWalletQuery.isRefetching ||
+    transactionsQuery.isRefetching;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0]?.clientY ?? 0;
@@ -134,8 +164,10 @@ function Dashboard() {
   };
 
   const greeting = getGreeting();
-  const firstName = profile.displayName?.split(" ")[0] ?? sessionStore.getFirstName();
-  const avatarFallback = (firstName || sessionStore.phone || "A")[0]?.toUpperCase() ?? "A";
+  const firstName =
+    profile.displayName?.split(" ")[0] ?? sessionStore.getFirstName();
+  const avatarFallback =
+    (firstName || sessionStore.phone || "A")[0]?.toUpperCase() ?? "A";
   const walletAddress = sessionStore.wallet_address ?? "";
 
   return (
@@ -154,7 +186,6 @@ function Dashboard() {
       )}
 
       <div className="relative z-10 pb-28 md:pb-12 max-w-97.5 md:max-w-6xl mx-auto md:px-10 md:pt-8">
-
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-5 pb-5 md:px-0">
           <button
@@ -191,12 +222,12 @@ function Dashboard() {
         </div>
 
         <div className="md:grid md:grid-cols-3 md:gap-6 md:items-start">
-
           {/* Balance Card */}
           <div className="px-4 mb-5 md:col-span-2 md:order-1 md:px-0 md:mb-0">
             <BalanceCard
               totalUsd={totalUsd}
-              totalKes={totalKes}
+              totalLocal={totalLocal}
+              localCurrency={localCurrency}
               walletAddress={walletAddress}
               isLoading={walletQuery.isLoading}
               hidden={profile.balanceHidden}
@@ -218,14 +249,24 @@ function Dashboard() {
                 onClick={() => navigate({ to: "/settings/pin" })}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-amber/14 border border-amber/50 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber"
               >
-                <ShieldAlert size={20} strokeWidth={1.5} className="text-ink shrink-0" />
+                <ShieldAlert
+                  size={20}
+                  strokeWidth={1.5}
+                  className="text-ink shrink-0"
+                />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-bold text-ink">Set up your lock PIN</p>
+                  <p className="text-[13px] font-bold text-ink">
+                    Set up your lock PIN
+                  </p>
                   <p className="text-[11px] text-charcoal/70 leading-tight mt-0.5">
                     Protect your account when you leave the app
                   </p>
                 </div>
-                <ArrowUpRight size={16} strokeWidth={2} className="text-ink/60 shrink-0" />
+                <ArrowUpRight
+                  size={16}
+                  strokeWidth={2}
+                  className="text-ink/60 shrink-0"
+                />
               </button>
             </div>
           )}
@@ -234,7 +275,11 @@ function Dashboard() {
           <AssetsSection
             data={
               walletQuery.data
-                ? { ...walletQuery.data, assets: combinedAssets, totalUsd: combinedTotalUsd }
+                ? {
+                    ...walletQuery.data,
+                    assets: combinedAssets,
+                    totalUsd: combinedTotalUsd,
+                  }
                 : undefined
             }
             isLoading={walletQuery.isLoading}
@@ -250,9 +295,12 @@ function Dashboard() {
             onReceive={() => navigate({ to: "/receive" })}
             onWithdraw={() => navigate({ to: "/withdraw" })}
             showWithdraw={
-              (walletQuery.data?.assets.find((a) => a.symbol === "USDC")?.balanceUsd ?? 0) > 0 &&
+              (walletQuery.data?.assets.find((a) => a.symbol === "USDC")
+                ?.balanceUsd ?? 0) > 0 &&
               !!sessionStore.phone &&
-              WITHDRAW_COUNTRIES.includes(dialCodeToCountry(sessionStore.phone)?.code ?? "")
+              WITHDRAW_COUNTRIES.includes(
+                dialCodeToCountry(sessionStore.phone)?.code ?? "",
+              )
             }
           />
 
@@ -365,13 +413,18 @@ const AssetsSection = memo(function AssetsSection({
 // of the mockup's grid tiles (it's a separate pill on its balance card) so
 // it gets the same calm ink-tint treatment as Withdraw.
 const QUICK_ACTIONS = [
-  { label: "Add money", icon: Plus,         tone: "soft",   key: "add"     },
-  { label: "Send",      icon: ArrowUpRight, tone: "amber",  key: "send"    },
-  { label: "Pay",       icon: Store,        tone: "ink",    key: "pay"     },
-  { label: "Receive",   icon: QrCode,       tone: "forest", key: "receive" },
+  { label: "Add money", icon: Plus, tone: "soft", key: "add" },
+  { label: "Send", icon: ArrowUpRight, tone: "amber", key: "send" },
+  { label: "Pay", icon: Store, tone: "ink", key: "pay" },
+  { label: "Receive", icon: QrCode, tone: "forest", key: "receive" },
 ] as const;
 
-const WITHDRAW_ACTION = { label: "Withdraw", icon: ArrowDownToLine, tone: "soft", key: "withdraw" } as const;
+const WITHDRAW_ACTION = {
+  label: "Withdraw",
+  icon: ArrowDownToLine,
+  tone: "soft",
+  key: "withdraw",
+} as const;
 
 const QUICK_ACTION_TILE_CLASSES: Record<string, string> = {
   amber: "bg-amber shadow-[0_4px_16px_rgba(232,163,61,0.35)]",
@@ -413,11 +466,18 @@ function QuickActions({
   // Withdraw only shows once there's a USDC balance in a Minisend-covered
   // country — kept hidden rather than shown-disabled for everyone else, so
   // it never promises a feature that doesn't work there yet.
-  const actions = showWithdraw ? [...QUICK_ACTIONS, WITHDRAW_ACTION] : QUICK_ACTIONS;
+  const actions = showWithdraw
+    ? [...QUICK_ACTIONS, WITHDRAW_ACTION]
+    : QUICK_ACTIONS;
 
   return (
     <div className="px-4 mb-5 md:col-span-3 md:order-4 md:px-0 md:mb-0">
-      <div className={cn("grid gap-2 md:max-w-lg", showWithdraw ? "grid-cols-5" : "grid-cols-4")}>
+      <div
+        className={cn(
+          "grid gap-2 md:max-w-lg",
+          showWithdraw ? "grid-cols-5" : "grid-cols-4",
+        )}
+      >
         {/* 4-up layout: touch targets keep their 44px min-height, just with
             tighter horizontal gutters than the previous 3-up grid. */}
         {actions.map(({ label, icon: Icon, tone, key }) => (
@@ -430,7 +490,7 @@ function QuickActions({
             <div
               className={cn(
                 "w-15 h-15 rounded-[18px] flex items-center justify-center active:scale-90 transition-transform",
-                QUICK_ACTION_TILE_CLASSES[tone]
+                QUICK_ACTION_TILE_CLASSES[tone],
               )}
             >
               <Icon
@@ -439,7 +499,9 @@ function QuickActions({
                 className={QUICK_ACTION_ICON_CLASSES[tone]}
               />
             </div>
-            <span className="text-[11px] font-semibold text-charcoal">{label}</span>
+            <span className="text-[11px] font-semibold text-charcoal">
+              {label}
+            </span>
           </button>
         ))}
       </div>
@@ -476,7 +538,9 @@ function RecentActivity({
   return (
     <div className="px-4 md:col-span-3 md:order-5 md:px-0 md:bg-paper md:border md:border-ink/10 md:rounded-2xl md:p-5">
       <div className="flex items-center justify-between mb-4">
-        <span className="font-bold text-[13px] text-charcoal">Recent activity</span>
+        <span className="font-bold text-[13px] text-charcoal">
+          Recent activity
+        </span>
         {transactions.length > 0 && (
           <button
             type="button"
@@ -498,7 +562,11 @@ function RecentActivity({
 
       {!query.isLoading && query.isError && (
         <div className="flex flex-col items-center py-8 text-center">
-          <AlertCircle size={24} strokeWidth={1.5} className="text-ink/25 mb-2" />
+          <AlertCircle
+            size={24}
+            strokeWidth={1.5}
+            className="text-ink/25 mb-2"
+          />
           <p className="text-[13px] text-slate">Could not load transactions.</p>
           <button
             type="button"
@@ -513,7 +581,9 @@ function RecentActivity({
       {!query.isLoading && !query.isError && transactions.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <Activity size={28} strokeWidth={1.5} className="text-ink/25 mb-3" />
-          <p className="text-[14px] font-bold text-charcoal/70 mb-1">No transactions yet</p>
+          <p className="text-[14px] font-bold text-charcoal/70 mb-1">
+            No transactions yet
+          </p>
           <p className="text-[12px] text-slate">Add money to get started.</p>
           <button
             type="button"
