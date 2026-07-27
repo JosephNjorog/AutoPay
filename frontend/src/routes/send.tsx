@@ -805,9 +805,7 @@ function PickRecipient({
                 Send to {normalized} {country.flag}
               </p>
               {lookupPending ? (
-                <p className="text-[11px] text-slate">
-                  Checking Autopayke…
-                </p>
+                <p className="text-[11px] text-slate">Checking Autopayke…</p>
               ) : isRegistered ? (
                 <p className="text-[11px] text-forest-light font-medium">
                   On Autopayke · instant settlement
@@ -905,9 +903,7 @@ function VerifyRecipientStep({
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
         <Loader2 className="h-6 w-6 animate-spin text-slate" />
-        <p className="mt-3 text-xs text-slate">
-          Verifying recipient…
-        </p>
+        <p className="mt-3 text-xs text-slate">Verifying recipient…</p>
       </div>
     );
   }
@@ -989,15 +985,35 @@ function AmountStep({
 }) {
   const [mode, setMode] = useState<AmountMode>("usdc");
   const [localInput, setLocalInput] = useState("");
+  // Separate display state for "enter a token quantity" mode, mirroring
+  // localInput — needed because `amount`/`usd` are always USD underneath
+  // (that's what the quote request and balance checks expect), but AVAX
+  // isn't 1:1 with USD like USDC/USDT are. Without this split, typing "1"
+  // meaning "1 AVAX" would set amount="1" and get read as "$1 of AVAX"
+  // everywhere downstream — a real quantity bug, not just a display one.
+  const [tokenInput, setTokenInput] = useState("");
 
   const localRate = midRates[country.code]?.rate ?? null;
   const quickLocal = LOCAL_QUICK_AMOUNTS[country.code] ?? [
     500, 1_000, 2_500, 5_000,
   ];
+  // Derived from the wallet's own already-correctly-priced balance
+  // (maxBalanceUsd comes from the backend's real getAvaxPriceUsd()), so no
+  // extra fetch is needed to convert a typed AVAX quantity to its USD
+  // equivalent. Falls back to the locked quote price if the wallet balance
+  // is zero (maxBalance divide-by-zero guard).
+  const tokenPriceUsd =
+    token === "AVAX"
+      ? maxBalance > 0
+        ? maxBalanceUsd / maxBalance
+        : (quote?.tokenPriceUsd ?? 0)
+      : 1;
 
   function switchMode(next: AmountMode) {
     if (next === "local" && localRate) {
       setLocalInput(((parseFloat(amount) || 0) * localRate).toFixed(0));
+    } else if (next === "usdc" && token === "AVAX" && tokenPriceUsd > 0) {
+      setTokenInput(((parseFloat(amount) || 0) / tokenPriceUsd).toFixed(6));
     }
     setMode(next);
   }
@@ -1010,16 +1026,28 @@ function AmountStep({
     }
   }
 
+  function handleTokenChange(v: string) {
+    setTokenInput(v);
+    setAmount(
+      tokenPriceUsd > 0
+        ? ((parseFloat(v) || 0) * tokenPriceUsd).toFixed(6)
+        : "0",
+    );
+  }
+
   function handleQuickAmount(v: number) {
     if (mode === "local") {
       setLocalInput(String(v));
       if (localRate) setAmount((v / localRate).toFixed(6));
+    } else if (token === "AVAX") {
+      handleTokenChange(String(v));
     } else {
       setAmount(String(v));
     }
   }
 
-  const displayValue = mode === "local" ? localInput : amount;
+  const displayValue =
+    mode === "local" ? localInput : token === "AVAX" ? tokenInput : amount;
   const displayCurrency = mode === "local" ? country.currency : token;
 
   // Insufficient AutoPayKe balance for the entered amount — the token
@@ -1053,9 +1081,7 @@ function AmountStep({
               ? recipient.name
               : recipient.msisdn}
           </p>
-          <p className="text-[11px] text-slate">
-            {recipient.msisdn}
-          </p>
+          <p className="text-[11px] text-slate">{recipient.msisdn}</p>
         </div>
       </div>
 
@@ -1088,6 +1114,7 @@ function AmountStep({
             onChange={(e) => {
               const v = e.target.value.replace(/[^0-9.]/g, "");
               if (mode === "local") handleLocalChange(v);
+              else if (token === "AVAX") handleTokenChange(v);
               else setAmount(v);
             }}
             inputMode="decimal"
@@ -1099,6 +1126,9 @@ function AmountStep({
           <p className="mt-1 text-[11px] opacity-80">
             ≈ {((parseFloat(localInput) || 0) / localRate).toFixed(2)} {token}
           </p>
+        )}
+        {mode === "usdc" && token === "AVAX" && (
+          <p className="mt-1 text-[11px] opacity-80">≈ ${usd.toFixed(2)}</p>
         )}
         {mode === "usdc" && (
           <p className="mt-2 text-[11px] opacity-80">
