@@ -1,6 +1,11 @@
 import { memo } from "react";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
-import { cn, resolveTransactionLabel, formatUSD, formatKES } from "@/lib/utils";
+import {
+  cn,
+  resolveTransactionLabel,
+  formatUSD,
+  formatLocal,
+} from "@/lib/utils";
 import { StatusPill } from "@/components/StatusPill";
 import type { Transaction } from "@/types";
 
@@ -17,23 +22,25 @@ export const TransactionRow = memo(function TransactionRow({
   const label = resolveTransactionLabel(transaction);
 
   const date = new Date(transaction.createdAt);
-  const relativeDate = new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(
+  const relativeDate = new Intl.RelativeTimeFormat("en", {
+    numeric: "auto",
+  }).format(
     Math.round((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
-    "day"
+    "day",
   );
 
   return (
     <div
       className={cn(
         "flex items-center gap-3 py-3 border-b border-ink/6 last:border-0 font-manrope motion-safe:animate-fade-slide-up",
-        className
+        className,
       )}
     >
       {/* Icon */}
       <div
         className={cn(
           "w-9.5 h-9.5 rounded-xl shrink-0 flex items-center justify-center",
-          isReceived ? "bg-forest/12" : "bg-ink/10"
+          isReceived ? "bg-forest/12" : "bg-ink/10",
         )}
       >
         {isReceived ? (
@@ -52,12 +59,20 @@ export const TransactionRow = memo(function TransactionRow({
         </div>
       </div>
 
-      {/* Amounts — KES primary, USD secondary */}
+      {/* Amounts — settlement currency primary, USD secondary */}
       <div className="text-right ml-auto shrink-0">
-        <p className={cn("text-[14px] font-extrabold", isReceived ? "text-forest" : "text-charcoal")}>
-          {isReceived ? "+" : "-"}{formatKES(transaction.amountLocal)}
+        <p
+          className={cn(
+            "text-[14px] font-extrabold",
+            isReceived ? "text-forest" : "text-charcoal",
+          )}
+        >
+          {isReceived ? "+" : "-"}
+          {formatLocal(transaction.amountLocal, transaction.localCurrency)}
         </p>
-        <p className="text-[11px] text-slate mt-0.5">{formatUSD(transaction.amountUsd)}</p>
+        <p className="text-[11px] text-slate mt-0.5">
+          {formatUSD(transaction.amountUsd)}
+        </p>
       </div>
     </div>
   );
