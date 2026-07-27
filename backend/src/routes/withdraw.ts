@@ -1,21 +1,41 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { WithdrawSchema, dialCodeToCountry, type CountryConfig, type Rail } from "@tuma/shared";
+import {
+  WithdrawSchema,
+  dialCodeToCountry,
+  type CountryConfig,
+  type Rail,
+} from "@tuma/shared";
 import { db } from "../db";
 import { users, transactions } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { authMiddleware } from "../middleware/auth";
 import { withdrawLimiter } from "../middleware/rateLimit";
-import { getMidRate, computeCashoutFeeUsd } from "../services/fx";
+import {
+  getMidRate,
+  computeCashoutFeeUsd,
+  computeNetworkFeeUsd,
+} from "../services/fx";
 import { transferUsdc, getUsdcBalance } from "../services/avalanche";
 import { disburseToRail } from "../services/rails";
 import { railProviderIdempotencyKey } from "../services/rail-disbursement";
-import { startSettlementFlow, recordSettlementStep } from "../services/settlement";
-import { getProviderForCountry, type PayoutRecipient } from "../services/settlement-providers";
+import {
+  startSettlementFlow,
+  recordSettlementStep,
+} from "../services/settlement";
+import {
+  getProviderForCountry,
+  type PayoutRecipient,
+} from "../services/settlement-providers";
 import { generateTxRef } from "../lib/crypto";
 import { getJson, setex, del, keys } from "../lib/redis";
-import { InsufficientFundsError, NotFoundError, ValidationError, BlockchainError } from "../lib/errors";
+import {
+  InsufficientFundsError,
+  NotFoundError,
+  ValidationError,
+  BlockchainError,
+} from "../lib/errors";
 import { parseUnits, formatUnits } from "viem";
 import type { Address } from "viem";
 import { randomUUID } from "crypto";
@@ -33,17 +53,24 @@ withdrawRouter.post(
     const { sub: userId, phone } = c.get("user");
 
     const country = dialCodeToCountry(phone);
-    if (!country) throw new ValidationError("Withdrawals are not yet available for your country");
+    if (!country)
+      throw new ValidationError(
+        "Withdrawals are not yet available for your country",
+      );
 
     const treasuryAddress = process.env.TREASURY_ADDRESS as Address | undefined;
-    if (!treasuryAddress) throw new BlockchainError("TREASURY_ADDRESS is not configured");
+    if (!treasuryAddress)
+      throw new BlockchainError("TREASURY_ADDRESS is not configured");
 
-    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
     if (!user?.walletAddress) throw new NotFoundError("Wallet");
 
     const feeUsd = computeCashoutFeeUsd(amountUsd);
     const netUsd = parseFloat((amountUsd - feeUsd).toFixed(6));
-    if (netUsd <= 0) throw new ValidationError("Amount too small to cover the network fee");
+    if (netUsd <= 0)
+      throw new ValidationError("Amount too small to cover the network fee");
 
     const balanceRaw = await getUsdcBalance(user.walletAddress as Address);
     const requiredRaw = parseUnits(amountUsd.toFixed(6), 6);
@@ -59,7 +86,7 @@ withdrawRouter.post(
       user.phoneHash,
       user.walletAddress as Address,
       treasuryAddress,
-      amountUsd
+      amountUsd,
     );
 
     const [tx] = await db
@@ -92,11 +119,16 @@ withdrawRouter.post(
       reference,
       providerIdempotencyKey: railProviderIdempotencyKey(
         tx.id,
-        "withdraw_rail_disbursement"
+        "withdraw_rail_disbursement",
       ),
     });
 
-    await startSettlementFlow(tx.id, txHash, country.primaryRail as Rail, railReference);
+    await startSettlementFlow(
+      tx.id,
+      txHash,
+      country.primaryRail as Rail,
+      railReference,
+    );
 
     return c.json({
       ok: true,
@@ -111,7 +143,7 @@ withdrawRouter.post(
         status: "routed",
       },
     });
-  }
+  },
 );
 
 // ── Contributor self-withdraw (Minisend off-ramp) ──────────────────────────────
@@ -143,6 +175,7 @@ const PayoutConfirmSchema = z.object({ quoteId: z.string().min(1) });
 type StoredPayoutQuote = {
   userId: string;
   amountUsd: number;
+  networkFeeUsd: number;
   currency: string;
   countryCode: string;
   recipient: PayoutRecipient;
@@ -157,7 +190,7 @@ function toMinisendPhone(phone: string, country: CountryConfig): string {
 function buildRecipient(
   input: z.infer<typeof RecipientInputSchema>,
   country: CountryConfig,
-  accountName: string
+  accountName: string,
 ): PayoutRecipient {
   if (input.method === "bank") {
     return {
@@ -177,14 +210,19 @@ function buildRecipient(
 
 function requireWithdrawCountry(phone: string): CountryConfig {
   const country = dialCodeToCountry(phone);
-  if (!country) throw new ValidationError("Withdrawals are not yet available for your country");
+  if (!country)
+    throw new ValidationError(
+      "Withdrawals are not yet available for your country",
+    );
   return country;
 }
 
 function requireWithdrawProvider(country: CountryConfig) {
   const provider = getProviderForCountry(country.code);
   if (!provider) {
-    throw new ValidationError(`Mobile money withdrawals aren't available in ${country.name} yet`);
+    throw new ValidationError(
+      `Mobile money withdrawals aren't available in ${country.name} yet`,
+    );
   }
   return provider;
 }
@@ -196,31 +234,49 @@ withdrawRouter.post(
   withdrawLimiter,
   zValidator("json", PayoutQuoteSchema),
   async (c) => {
-    const { amountUsd: requestedAmountUsd, recipient: recipientInput } = c.req.valid("json");
+    const { amountUsd: requestedAmountUsd, recipient: recipientInput } =
+      c.req.valid("json");
     const { sub: userId, phone } = c.get("user");
 
     const country = requireWithdrawCountry(phone);
     const provider = requireWithdrawProvider(country);
 
-    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
     if (!user) throw new NotFoundError("User");
     if (!user.walletAddress) {
-      throw new ValidationError("Your wallet is still being set up — try again in a moment");
+      throw new ValidationError(
+        "Your wallet is still being set up — try again in a moment",
+      );
     }
     if (!user.fullName) {
-      throw new ValidationError("Add your name to your profile before withdrawing");
+      throw new ValidationError(
+        "Add your name to your profile before withdrawing",
+      );
     }
+
+    const treasuryAddress = process.env.TREASURY_ADDRESS as Address | undefined;
+    const networkFeeUsd = treasuryAddress ? computeNetworkFeeUsd() : 0;
 
     const balanceRaw = await getUsdcBalance(user.walletAddress as Address);
     const balanceUsd = parseFloat(formatUnits(balanceRaw, 6));
-    if (balanceUsd <= 0) throw new InsufficientFundsError();
+    if (balanceUsd <= networkFeeUsd) throw new InsufficientFundsError();
 
-    const amountUsd = requestedAmountUsd ?? balanceUsd;
-    const requiredRaw = parseUnits(amountUsd.toFixed(6), 6);
+    // Requested amount is what actually reaches the recipient — the network
+    // fee is charged on top, not carved out of it, so a "withdraw everything"
+    // request (no amountUsd) uses the wallet's spare balance above the fee.
+    const amountUsd =
+      requestedAmountUsd ?? parseFloat((balanceUsd - networkFeeUsd).toFixed(6));
+    const requiredRaw = parseUnits((amountUsd + networkFeeUsd).toFixed(6), 6);
     if (balanceRaw < requiredRaw) throw new InsufficientFundsError();
 
     const recipient = buildRecipient(recipientInput, country, user.fullName);
-    const quote = await provider.getQuote({ amountUsd, currency: country.currency, recipient });
+    const quote = await provider.getQuote({
+      amountUsd,
+      currency: country.currency,
+      recipient,
+    });
 
     // Cosmetic only — reuses the existing OXR-backed mid rate purely so the
     // shared FX UI's "savings vs banks" figure has something to compare
@@ -230,11 +286,15 @@ withdrawRouter.post(
     const quoteId = randomUUID();
     const ttlSeconds = Math.max(
       15,
-      Math.min(280, Math.round((new Date(quote.expiresAt).getTime() - Date.now()) / 1000))
+      Math.min(
+        280,
+        Math.round((new Date(quote.expiresAt).getTime() - Date.now()) / 1000),
+      ),
     );
     const stored: StoredPayoutQuote = {
       userId,
       amountUsd,
+      networkFeeUsd,
       currency: country.currency,
       countryCode: country.code,
       recipient,
@@ -250,15 +310,17 @@ withdrawRouter.post(
         toCurrency: quote.currency,
         tumaRate: quote.rate,
         midRate,
-        savingsVsBank: parseFloat(((midRate - quote.rate) * amountUsd).toFixed(2)),
+        savingsVsBank: parseFloat(
+          ((midRate - quote.rate) * amountUsd).toFixed(2),
+        ),
         lockedUntil: quote.expiresAt,
-        networkFeeUsd: 0,
+        networkFeeUsd,
         feeLocal: quote.feeLocal,
         recipientName: quote.recipientName,
         provider: provider.name,
       },
     });
-  }
+  },
 );
 
 // POST /api/withdraw/payout/confirm — creates the Minisend order, sends the
@@ -272,22 +334,35 @@ withdrawRouter.post(
     const { quoteId } = c.req.valid("json");
     const { sub: userId, phone } = c.get("user");
 
-    const stored = await getJson<StoredPayoutQuote>(keys.withdrawPayoutQuote(quoteId));
+    const stored = await getJson<StoredPayoutQuote>(
+      keys.withdrawPayoutQuote(quoteId),
+    );
     if (!stored || stored.userId !== userId) {
-      throw new ValidationError("Quote expired or not found — request a new one");
+      throw new ValidationError(
+        "Quote expired or not found — request a new one",
+      );
     }
     await del(keys.withdrawPayoutQuote(quoteId)); // one-time use
 
     const country = requireWithdrawCountry(phone);
     const provider = requireWithdrawProvider(country);
 
-    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
     if (!user?.walletAddress) {
-      throw new ValidationError("Your wallet is still being set up — try again in a moment");
+      throw new ValidationError(
+        "Your wallet is still being set up — try again in a moment",
+      );
     }
 
+    const treasuryAddress = process.env.TREASURY_ADDRESS as Address | undefined;
+
     const balanceRaw = await getUsdcBalance(user.walletAddress as Address);
-    const requiredRaw = parseUnits(stored.amountUsd.toFixed(6), 6);
+    const requiredRaw = parseUnits(
+      (stored.amountUsd + stored.networkFeeUsd).toFixed(6),
+      6,
+    );
     if (balanceRaw < requiredRaw) throw new InsufficientFundsError();
 
     const reference = generateTxRef();
@@ -320,6 +395,7 @@ withdrawRouter.post(
         rail: "minisend",
         railReference: order.orderId,
         feeUsdc: (order.feeLocal / order.rate).toFixed(6),
+        networkFeeUsdc: stored.networkFeeUsd.toFixed(6),
         note: "Contributor payout via Minisend",
       })
       .returning();
@@ -332,7 +408,7 @@ withdrawRouter.post(
         user.phoneHash,
         user.walletAddress as Address,
         order.depositAddress as Address,
-        order.totalDepositUsdc
+        order.totalDepositUsdc,
       );
     } catch (err) {
       await recordSettlementStep(tx.id, "failed", {
@@ -342,8 +418,27 @@ withdrawRouter.post(
       throw err;
     }
 
-    await db.update(transactions).set({ txHash }).where(eq(transactions.id, tx.id));
+    await db
+      .update(transactions)
+      .set({ txHash })
+      .where(eq(transactions.id, tx.id));
     await recordSettlementStep(tx.id, "onchain", { txHash });
+
+    // Separate leg from the Minisend deposit above — recoups the relayer's
+    // gas cost for this send, charged on the contributor's side.
+    if (stored.networkFeeUsd > 0 && treasuryAddress) {
+      transferUsdc(
+        user.phoneHash,
+        user.walletAddress as Address,
+        treasuryAddress,
+        stored.networkFeeUsd,
+      ).catch((err) =>
+        console.error(
+          `[Withdraw] Network fee transfer failed for ${reference}:`,
+          err.message,
+        ),
+      );
+    }
 
     // NGN deposits are auto-detected by Minisend; KES/GHS/UGX need the hash
     // submitted explicitly to trigger the fiat payout.
@@ -389,5 +484,5 @@ withdrawRouter.post(
         status: "routed",
       },
     });
-  }
+  },
 );
