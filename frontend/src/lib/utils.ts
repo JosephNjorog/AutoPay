@@ -6,10 +6,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatKES(amount: string | number): string {
+// en-KE's grouping/digit conventions read fine for all of Autopayke's
+// currencies (KES/GHS/NGN/TZS/UGX/XOF) — only the currency code itself
+// needs to vary per amount, not the locale.
+export function formatLocal(amount: string | number, currency: string): string {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
-  if (isNaN(num)) return "KES 0";
-  return `KES ${num.toLocaleString("en-KE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  if (isNaN(num)) return `${currency} 0`;
+  return `${currency} ${num.toLocaleString("en-KE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 export function formatUSD(amount: string | number): string {
@@ -42,7 +45,8 @@ export function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
   if (!local || !domain) return email;
   if (local.length <= 2) return `${local}@${domain}`;
-  const masked = local[0] + "*".repeat(local.length - 2) + local[local.length - 1];
+  const masked =
+    local[0] + "*".repeat(local.length - 2) + local[local.length - 1];
   return `${masked}@${domain}`;
 }
 
@@ -62,8 +66,10 @@ export function resolveTransactionLabel(tx: Transaction): string {
   return "Transfer";
 }
 
-export function usdcToKes(usdc: string, rate: number): string {
-  const amount = parseFloat(usdc);
+// Purely computational — works for any local currency, despite the name's
+// history; `rate` should be that currency's own USD mid-rate.
+export function usdToLocal(usd: string, rate: number): string {
+  const amount = parseFloat(usd);
   if (isNaN(amount)) return "0";
   return (amount * rate).toFixed(0);
 }
