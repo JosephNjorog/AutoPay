@@ -107,30 +107,24 @@ function WithdrawPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Default the amount field to the full balance once it's loaded — user can
-  // still edit it down for a partial withdrawal.
-  useEffect(() => {
-    if (balanceUsd > 0 && !amount) setAmount(balanceUsd.toFixed(2));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [balanceUsd]);
-
   const usd = Number(amount) || 0;
+
+  function currentRecipient() {
+    return isBankCountry
+      ? {
+          method: "bank" as const,
+          accountNumber: bankAccountNumber,
+          institution: bankInstitution,
+        }
+      : { method: "mobile" as const, phone, mobileNetwork };
+  }
 
   async function fetchQuote(): Promise<boolean> {
     if (!accessToken || !country) return false;
     setError(null);
     try {
       const q = await api.withdraw.payoutQuote(
-        {
-          amountUsd: usd,
-          recipient: isBankCountry
-            ? {
-                method: "bank",
-                accountNumber: bankAccountNumber,
-                institution: bankInstitution,
-              }
-            : { method: "mobile", phone, mobileNetwork },
-        },
+        { amountUsd: usd, recipient: currentRecipient() },
         accessToken,
       );
       setQuote(q);
@@ -140,6 +134,30 @@ function WithdrawPage() {
         e instanceof ApiError ? e.message : "Couldn't get a quote. Try again.",
       );
       return false;
+    }
+  }
+
+  // "Max" can't just be the raw wallet balance — a network fee is charged on
+  // top of the withdrawn amount, so the true max is whatever the backend says
+  // is left over after that fee. Ask it directly rather than guessing.
+  async function fetchMaxAmount() {
+    if (!accessToken || !country) return;
+    setError(null);
+    setLoading(true);
+    try {
+      const q = await api.withdraw.payoutQuote(
+        { recipient: currentRecipient() },
+        accessToken,
+      );
+      setAmount(q.fromAmountUsd.toFixed(2));
+    } catch (e) {
+      setError(
+        e instanceof ApiError
+          ? e.message
+          : "Couldn't fetch your max withdrawable amount. Try again.",
+      );
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -241,6 +259,7 @@ function WithdrawPage() {
             walletLoaded={!!wallet}
             loading={loading}
             onNext={handleReview}
+            onMax={fetchMaxAmount}
           />
         )}
 
@@ -490,6 +509,7 @@ function AmountStep({
   walletLoaded,
   loading,
   onNext,
+  onMax,
 }: {
   country: CountryConfig;
   amount: string;
@@ -498,6 +518,7 @@ function AmountStep({
   walletLoaded: boolean;
   loading: boolean;
   onNext: () => void;
+  onMax: () => void;
 }) {
   const usd = Number(amount) || 0;
   const insufficientBalance = usd > 0 && usd > balanceUsd;
@@ -522,8 +543,9 @@ function AmountStep({
               : "Loading balance…"}
           </p>
           <button
-            onClick={() => setAmount(balanceUsd.toFixed(2))}
-            className="rounded-full bg-paper/15 backdrop-blur px-3 py-1 text-[10px] font-semibold"
+            onClick={onMax}
+            disabled={loading}
+            className="rounded-full bg-paper/15 backdrop-blur px-3 py-1 text-[10px] font-semibold disabled:opacity-50"
           >
             Max
           </button>
