@@ -89,6 +89,50 @@ function wrapChainWriteError(err: unknown, assetLabel: string): never {
   throw err;
 }
 
+// Letting viem auto-estimate gas/fees for these execute() calls has produced
+// a signed transaction with a gas limit in the quadrillions (vs. the ~48k
+// the RPC's own eth_estimateGas returns for the same call directly) — a
+// mismatch reproduced independently of our code, seemingly tied to Avalanche
+// Fuji's fee market occasionally decaying to near-zero (single-digit wei)
+// when the testnet is idle. Computing gas/fees ourselves, with a floor and a
+// buffer, and passing them explicitly sidesteps whatever's going wrong in
+// the automatic path — regardless of root cause, a runaway gas limit should
+// never reach eth_sendRawTransaction.
+const MIN_MAX_PRIORITY_FEE_PER_GAS = 1_000_000_000n; // 1 nAVAX floor
+const GAS_ESTIMATE_BUFFER_PERCENT = 130n; // +30%
+
+async function safeExecuteGasParams(
+  smartWalletAddress: Address,
+  args: readonly [Address, bigint, `0x${string}`],
+): Promise<{
+  gas: bigint;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+}> {
+  const account = await requireRelayerAccount();
+
+  const estimatedGas = await publicClient.estimateContractGas({
+    address: smartWalletAddress,
+    abi: SMART_WALLET_ABI,
+    functionName: "execute",
+    args,
+    account,
+  });
+  const gas = (estimatedGas * GAS_ESTIMATE_BUFFER_PERCENT) / 100n;
+
+  const fees = await publicClient.estimateFeesPerGas();
+  const maxPriorityFeePerGas =
+    fees.maxPriorityFeePerGas > MIN_MAX_PRIORITY_FEE_PER_GAS
+      ? fees.maxPriorityFeePerGas
+      : MIN_MAX_PRIORITY_FEE_PER_GAS;
+  const maxFeePerGas =
+    fees.maxFeePerGas > maxPriorityFeePerGas * 2n
+      ? fees.maxFeePerGas
+      : maxPriorityFeePerGas * 2n;
+
+  return { gas, maxFeePerGas, maxPriorityFeePerGas };
+}
+
 // ── Token addresses ───────────────────────────────────────────────────────────
 // Defaults are network-aware: mainnet defaults are the real Circle USDC /
 // Tether USDT contracts on Avalanche C-Chain; testnet defaults are Circle's
@@ -755,6 +799,9 @@ export async function transferToken(
 
   let hash: Hash;
   try {
+    const executeArgs = [tokenAddress, 0n, transferCalldata] as const;
+    const { gas, maxFeePerGas, maxPriorityFeePerGas } =
+      await safeExecuteGasParams(fromWalletAddress, executeArgs);
     hash = await (
       await requireRelayer()
     ).writeContract({
@@ -763,7 +810,10 @@ export async function transferToken(
       address: fromWalletAddress,
       abi: SMART_WALLET_ABI,
       functionName: "execute",
-      args: [tokenAddress, 0n, transferCalldata],
+      args: executeArgs,
+      gas,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
     });
   } catch (err) {
     wrapChainWriteError(err, token);
@@ -809,6 +859,9 @@ export async function transferNativeAvax(
 
   let hash: Hash;
   try {
+    const executeArgs = [toAddress, amountRaw, "0x"] as const;
+    const { gas, maxFeePerGas, maxPriorityFeePerGas } =
+      await safeExecuteGasParams(fromWalletAddress, executeArgs);
     hash = await (
       await requireRelayer()
     ).writeContract({
@@ -817,7 +870,10 @@ export async function transferNativeAvax(
       address: fromWalletAddress,
       abi: SMART_WALLET_ABI,
       functionName: "execute",
-      args: [toAddress, amountRaw, "0x"],
+      args: executeArgs,
+      gas,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
     });
   } catch (err) {
     wrapChainWriteError(err, "AVAX");
@@ -845,6 +901,9 @@ export async function approveEscrowToken(
 
   let hash: Hash;
   try {
+    const executeArgs = [tokenAddress, 0n, approveCalldata] as const;
+    const { gas, maxFeePerGas, maxPriorityFeePerGas } =
+      await safeExecuteGasParams(fromWalletAddress, executeArgs);
     hash = await (
       await requireRelayer()
     ).writeContract({
@@ -853,7 +912,10 @@ export async function approveEscrowToken(
       address: fromWalletAddress,
       abi: SMART_WALLET_ABI,
       functionName: "execute",
-      args: [tokenAddress, 0n, approveCalldata],
+      args: executeArgs,
+      gas,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
     });
   } catch (err) {
     wrapChainWriteError(err, token);
@@ -930,6 +992,9 @@ export async function depositToEscrowToken(
 
   let hash: Hash;
   try {
+    const executeArgs = [escrowAddress, 0n, depositCalldata] as const;
+    const { gas, maxFeePerGas, maxPriorityFeePerGas } =
+      await safeExecuteGasParams(senderWalletAddress, executeArgs);
     hash = await (
       await requireRelayer()
     ).writeContract({
@@ -938,7 +1003,10 @@ export async function depositToEscrowToken(
       address: senderWalletAddress,
       abi: SMART_WALLET_ABI,
       functionName: "execute",
-      args: [escrowAddress, 0n, depositCalldata],
+      args: executeArgs,
+      gas,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
     });
   } catch (err) {
     wrapChainWriteError(err, token);
