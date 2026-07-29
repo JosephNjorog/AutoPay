@@ -100,6 +100,12 @@ function wrapChainWriteError(err: unknown, assetLabel: string): never {
 // never reach eth_sendRawTransaction.
 const MIN_MAX_PRIORITY_FEE_PER_GAS = 1_000_000_000n; // 1 nAVAX floor
 const GAS_ESTIMATE_BUFFER_PERCENT = 130n; // +30%
+// No execute() call in this contract should ever legitimately need close to
+// this much gas (a real estimate for these calls is ~50k-150k) — a hard
+// ceiling so a corrupted estimate can never reach eth_sendRawTransaction,
+// regardless of how it got corrupted. Comfortably above any real need, far
+// below the block gas limit.
+const MAX_SANE_GAS = 3_000_000n;
 
 async function safeExecuteGasParams(
   smartWalletAddress: Address,
@@ -109,16 +115,22 @@ async function safeExecuteGasParams(
   maxFeePerGas: bigint;
   maxPriorityFeePerGas: bigint;
 }> {
-  const account = await requireRelayerAccount();
+  // Passing the relayer's full Account object here (rather than just its
+  // address) was what actually produced the corrupted estimate in
+  // production — reproduced with a plain address against the live RPC and
+  // it comes back sane, so that's what we pass. The hard cap below is a
+  // second, independent backstop in case something else corrupts it again.
+  const relayerAddress = (await requireRelayerAccount()).address;
 
   const estimatedGas = await publicClient.estimateContractGas({
     address: smartWalletAddress,
     abi: SMART_WALLET_ABI,
     functionName: "execute",
     args,
-    account,
+    account: relayerAddress,
   });
-  const gas = (estimatedGas * GAS_ESTIMATE_BUFFER_PERCENT) / 100n;
+  const buffered = (estimatedGas * GAS_ESTIMATE_BUFFER_PERCENT) / 100n;
+  const gas = buffered > MAX_SANE_GAS ? MAX_SANE_GAS : buffered;
 
   const fees = await publicClient.estimateFeesPerGas();
   const maxPriorityFeePerGas =
