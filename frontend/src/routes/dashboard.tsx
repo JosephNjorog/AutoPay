@@ -14,8 +14,10 @@ import {
 } from "lucide-react";
 import { dialCodeToCountry } from "@tuma/shared";
 
-// Countries Minisend has confirmed coverage for — keep in sync with the
-// backend's getProviderForCountry() gate in services/settlement-providers.
+// Carried over from the prior Minisend integration — NOT yet re-confirmed
+// for Pretium (workstream 1 verification is pending real sandbox
+// credentials). Keep in sync with the backend's getProviderForCountry() gate
+// in services/settlement-providers once PRETIUM_VERIFIED_OFFRAMP_MARKETS is set.
 const WITHDRAW_COUNTRIES = ["KE", "NG", "GH", "UG"];
 import { BalanceCard } from "@/components/BalanceCard";
 import { TransactionRow } from "@/components/TransactionRow";
@@ -463,7 +465,7 @@ function QuickActions({
     withdraw: onWithdraw,
   };
 
-  // Withdraw only shows once there's a USDC balance in a Minisend-covered
+  // Withdraw only shows once there's a USDC balance in a Pretium-covered
   // country — kept hidden rather than shown-disabled for everyone else, so
   // it never promises a feature that doesn't work there yet.
   const actions = showWithdraw
