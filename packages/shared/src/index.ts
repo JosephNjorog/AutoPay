@@ -15,7 +15,18 @@ export type Rail = (typeof SUPPORTED_RAILS)[number];
 // specifically "where a country's payout goes." Crypto deposits aren't tied
 // to a country/payout rail at all, and the Daraja B2B merchant-pay rails are
 // a separate dispatch path from Rail's Paystack-backed payout corridors.
-export type TransactionRail = Rail | "crypto" | "mpesa_b2b_till" | "mpesa_b2b_paybill" | "minisend";
+// "minisend"/"mpesa_b2b_till"/"mpesa_b2b_paybill" are retired (Merchant Pay
+// and contributor withdraw both settle via Pretium now) — kept in the union
+// only so historical transaction records still type-check; no longer written.
+export type TransactionRail =
+  | Rail
+  | "crypto"
+  | "mpesa_b2b_till"
+  | "mpesa_b2b_paybill"
+  | "minisend"
+  | "pretium"
+  | "pretium_till"
+  | "pretium_paybill";
 
 export const SUPPORTED_TOKENS = ["USDC", "USDT"] as const;
 export type Token = (typeof SUPPORTED_TOKENS)[number];
@@ -205,7 +216,7 @@ export const PayQuoteRequestSchema = z.object({
   token: z.enum(PAYABLE_ASSETS).default("USDC"),
 });
 
-export type PayRail = "mpesa_b2b_till" | "mpesa_b2b_paybill";
+export type PayRail = "pretium_till" | "pretium_paybill";
 
 export type PayQuote = {
   quoteId: string;
