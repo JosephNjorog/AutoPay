@@ -14,13 +14,8 @@ import { and, eq } from "drizzle-orm";
 import { authMiddleware } from "../middleware/auth";
 import { sendMoneyLimiter } from "../middleware/rateLimit";
 import { createPayQuote, consumePayQuote } from "../services/pay";
-import {
-  transferPayToken,
-  transferPayNativeAvax,
-  getPayTokenBalance,
-  getPayAvaxBalance,
-} from "../services/avalanche-pay";
-import type { StablecoinToken } from "../services/avalanche";
+import { transferToken, getTokenBalance, type StablecoinToken } from "../services/avalanche";
+import { pretiumProvider } from "../services/settlement-providers/pretium";
 import { recordSettlementStep } from "../services/settlement";
 import { processPayB2BDisbursement } from "../services/pay-disbursement";
 import { enqueuePayB2BDisburse } from "../lib/queue";
@@ -57,13 +52,12 @@ const FALLBACK_PAY_CONFIG: CountryPayConfig = {
   methods: [],
 };
 
-// Merchant Pay is sandbox-only and defaults OFF everywhere, including
-// production — it only turns on where an operator has deliberately set
-// PAY_FEATURE_ENABLED=true (e.g. local/demo environments with the Daraja
-// sandbox credentials configured). Off/unset always reports every country
-// as coming_soon, so /quote and /initiate reject before ever touching a
-// balance check or on-chain call — the same gate a real "not launched yet"
-// country goes through.
+// Merchant Pay defaults OFF everywhere, including production — it only
+// turns on where an operator has deliberately set PAY_FEATURE_ENABLED=true
+// (e.g. once Pretium's Till/PayBill payout has been verified end-to-end).
+// Off/unset always reports every country as coming_soon, so /quote and
+// /initiate reject before ever touching a balance check or on-chain call —
+// the same gate a real "not launched yet" country goes through.
 const PAY_FEATURE_ENABLED = process.env.PAY_FEATURE_ENABLED === "true";
 
 async function resolveCountryPayConfig(userId: string, phone: string): Promise<CountryPayConfig> {
@@ -123,7 +117,7 @@ payRouter.post("/quote", zValidator("json", PayQuoteRequestSchema), async (c) =>
     throw new ValidationError(`Pay is not available in ${config.countryName} yet`);
   }
 
-  const rail: PayRail = payMethod === "buy_goods" ? "mpesa_b2b_till" : "mpesa_b2b_paybill";
+  const rail: PayRail = payMethod === "buy_goods" ? "pretium_till" : "pretium_paybill";
   const quote = await createPayQuote(amountUsd, rail, token);
   return c.json({ ok: true, data: quote });
 });
@@ -188,22 +182,29 @@ payRouter.post(
       const sender = await db.query.users.findFirst({ where: eq(users.id, userId) });
       if (!sender?.walletAddress) throw new NotFoundError("Sender wallet");
 
-      const isAvax = token === "AVAX";
-      if (isAvax) {
-        const avaxAmount = quote.tokenAmount;
-        if (avaxAmount === undefined) throw new FxQuoteExpiredError();
-        const balanceRaw = await getPayAvaxBalance(sender.walletAddress as Address);
-        if (balanceRaw < parseUnits(avaxAmount.toFixed(18), 18)) {
-          throw new InsufficientFundsError();
-        }
-      } else {
-        const balanceRaw = await getPayTokenBalance(token as StablecoinToken, sender.walletAddress as Address);
-        const requiredRaw = parseUnits(amountUsd.toFixed(6), 6);
-        if (balanceRaw < requiredRaw) throw new InsufficientFundsError();
+      // Pretium's settlement wallets only take USDC/USDT deposits (see
+      // pretium.ts) — native AVAX has no route through it. The previous
+      // Daraja-B2B path could accept AVAX because it debited to Autopayke's
+      // own treasury first; that treasury hop is exactly what this
+      // migration removes, so AVAX-denominated Pay is disabled until a
+      // dedicated swap step exists.
+      if (token === "AVAX") {
+        throw new ValidationError("Paying with AVAX isn't available yet — pay with USDC or USDT");
       }
+      const stablecoin = token as StablecoinToken;
 
-      const treasuryAddress = process.env.TREASURY_ADDRESS as Address | undefined;
-      if (!treasuryAddress) throw new BlockchainError("TREASURY_ADDRESS is not configured");
+      const balanceRaw = await getTokenBalance(stablecoin, sender.walletAddress as Address);
+      const requiredRaw = parseUnits(amountUsd.toFixed(6), 6);
+      if (balanceRaw < requiredRaw) throw new InsufficientFundsError();
+
+      const { depositAddress, depositChain } = await pretiumProvider.getDepositAddress({
+        currency: quote.toCurrency,
+        chain: "avalanche",
+        asset: stablecoin,
+      });
+      if (!["avalanche", "avalanche-c-chain", "avax", "avax-c-chain"].includes(depositChain.toLowerCase())) {
+        throw new BlockchainError(`Pretium returned a non-Avalanche deposit chain "${depositChain}" — refusing to send`);
+      }
 
       const reference = generateTxRef();
 
@@ -214,6 +215,7 @@ payRouter.post(
           idempotencyKey,
           senderId: userId,
           recipientPhone: null,
+          recipientWalletAddress: depositAddress,
           amountUsdc: amountUsd.toFixed(6),
           amountLocal: quote.toAmount.toFixed(2),
           localCurrency: quote.toCurrency,
@@ -232,34 +234,32 @@ payRouter.post(
 
       let stage = "pay_onchain_debit";
       try {
-        // Debit the user's stablecoin to the Tuma treasury FIRST. If the
-        // Daraja B2B call subsequently fails, the callback handler auto-
-        // refunds this exact amount — see webhooks.ts's b2b/result handler.
-        // Always Fuji testnet (see services/avalanche-pay.ts), regardless
-        // of NODE_ENV, since Merchant Pay is sandbox-only.
-        const txHash = isAvax
-          ? await transferPayNativeAvax(
-              sender.walletAddress as Address,
-              treasuryAddress,
-              quote.tokenAmount!
-            )
-          : await transferPayToken(
-              token as StablecoinToken,
-              sender.walletAddress as Address,
-              treasuryAddress,
-              amountUsd
-            );
+        // Sends straight from the user's own wallet to Pretium's settlement
+        // address — no treasury hop. If the Pretium leg subsequently fails,
+        // it's surfaced as requires_review (see the catch block below); see
+        // pretium.ts's file header for why there's no auto-refund attempt
+        // (Pretium's docs don't document one, unlike the prior Minisend
+        // integration).
+        const txHash = await transferToken(
+          stablecoin,
+          sender.phoneHash,
+          sender.walletAddress as Address,
+          depositAddress as Address,
+          amountUsd
+        );
 
         await db.update(transactions).set({ txHash, updatedAt: new Date() }).where(eq(transactions.id, tx.id));
         await recordSettlementStep(tx.id, "onchain", { txHash });
 
-        stage = "pay_b2b_disbursement";
+        stage = "pay_pretium_disbursement";
         const disburseJob = {
           transactionId: tx.id,
           payMethod,
           merchantNumber,
           accountNumber,
-          amountKes: quote.toAmount,
+          amountUsd,
+          currency: quote.toCurrency,
+          txHash,
           reference,
         };
 
@@ -285,9 +285,9 @@ payRouter.post(
         });
       } catch (err) {
         // If we already have a txHash for this transaction, the on-chain
-        // debit happened and the failure is in the B2B leg — needs a human,
-        // same posture as every other unclear-money-movement case in this
-        // app (see docs/adr/0002).
+        // debit happened and the failure is in the Pretium leg — needs a
+        // human, same posture as every other unclear-money-movement case in
+        // this app (see docs/adr/0002).
         await markRequiresReview(tx.id, stage, err);
         throw err;
       }
