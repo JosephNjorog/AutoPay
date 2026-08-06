@@ -11,6 +11,7 @@ import { z } from "zod";
 import { db } from "../db";
 import { users, transactions } from "../db/schema";
 import { eq } from "drizzle-orm";
+import { dialCodeToCountry } from "@tuma/shared";
 import { authMiddleware } from "../middleware/auth";
 import {
   initializeCardPayment,
@@ -19,6 +20,7 @@ import {
   verifyTransaction,
 } from "../services/rails/paystack";
 import { creditFromFloat, verifyIncomingTransfer, getAvaxPriceUsd, TOKEN_ADDRESSES } from "../services/avalanche";
+import { pretiumProvider, DEFAULT_MOBILE_NETWORK_BY_COUNTRY } from "../services/settlement-providers/pretium";
 import { recordSettlementStep } from "../services/settlement";
 import { generateTxRef } from "../lib/crypto";
 import { NotFoundError, ValidationError } from "../lib/errors";
@@ -252,6 +254,105 @@ fundRouter.post("/mobile", async (c: Context) => {
     },
   });
 });
+
+// ── GET /api/fund/pretium/config — is Pretium funding available for me? ───────
+// Backend-driven, same "coming soon until confirmed" gating as everywhere
+// else Pretium touches this app — PRETIUM_VERIFIED_ONRAMP_MARKETS stays
+// empty until workstream 1's /account/networks check has actually run, so
+// this reports unavailable everywhere until then.
+
+fundRouter.get("/pretium/config", async (c) => {
+  const { phone } = c.get("user");
+  const country = dialCodeToCountry(phone);
+  const available = !!country && pretiumProvider.supportsOnrampCountry(country.code);
+
+  return c.json({
+    ok: true,
+    data: {
+      available,
+      countryCode: country?.code ?? null,
+      currency: country?.currency ?? null,
+    },
+  });
+});
+
+// ── POST /api/fund/pretium/mobile — Pretium on-ramp (mobile money) ────────────
+// An additional mobile-money funding path alongside Paystack's /mobile above
+// — Paystack collection is a **separate transaction** from the USDC credit
+// (settleFundingCharge calls creditFromFloat off Autopayke's own liquidity
+// once Paystack confirms). Pretium's onramp is different: Pretium settles
+// USDC directly to the wallet address given below from ITS OWN liquidity —
+// no Autopayke float touched, no creditFromFloat call needed here at all.
+
+fundRouter.post(
+  "/pretium/mobile",
+  zValidator("json", z.object({ amountLocal: z.number().positive() })),
+  async (c) => {
+    const { amountLocal } = c.req.valid("json");
+    const { sub: userId, phone } = c.get("user");
+
+    const country = dialCodeToCountry(phone);
+    const mobileNetwork = country ? DEFAULT_MOBILE_NETWORK_BY_COUNTRY[country.code] : undefined;
+    if (!country || !mobileNetwork || !pretiumProvider.supportsOnrampCountry(country.code)) {
+      throw new ValidationError("Pretium funding is not available for your country yet.");
+    }
+
+    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    if (!user?.walletAddress) throw new NotFoundError("Wallet");
+
+    const reference = generateTxRef();
+
+    const session = await pretiumProvider.createOnrampSession({
+      amountLocal,
+      currency: country.currency,
+      payer: { method: "mobile", phone, mobileNetwork },
+      walletAddress: user.walletAddress,
+      chain: "avalanche",
+      asset: "USDC",
+      reference,
+      idempotencyKey: `fund:${userId}:${reference}`,
+    });
+
+    const [tx] = await db
+      .insert(transactions)
+      .values({
+        reference,
+        senderId: null,
+        recipientPhone: phone,
+        recipientUserId: userId,
+        recipientWalletAddress: user.walletAddress,
+        // Best-effort at creation time — the webhook overwrites this with
+        // Pretium's authoritative settled amount once confirmed (see
+        // webhooks.ts's pretiumOnrampWebhookRouter), never trusted as final.
+        amountUsdc: session.amountUsdc.toFixed(6),
+        amountLocal: amountLocal.toFixed(2),
+        localCurrency: country.currency,
+        fxRate: session.amountUsdc > 0 ? (amountLocal / session.amountUsdc).toFixed(8) : "0.00000000",
+        token: "USDC",
+        rail: "pretium",
+        railReference: session.sessionId,
+        status: "initiated",
+        note: "Mobile money funding via Pretium",
+      })
+      .returning();
+
+    await recordSettlementStep(tx.id, "initiated");
+
+    return c.json({
+      ok: true,
+      data: {
+        reference,
+        transactionId: tx.id,
+        amountLocal,
+        currency: country.currency,
+        provider: "Pretium",
+        displayText: session.paymentInstructions ?? "Approve the payment prompt on your phone.",
+        trackingId: session.sessionId,
+        estimatedUsdc: session.amountUsdc,
+      },
+    });
+  }
+);
 
 // ── GET /api/fund/bank — Virtual bank account ──────────────────────────────────
 
