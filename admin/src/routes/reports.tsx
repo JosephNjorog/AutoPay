@@ -69,7 +69,10 @@ export default function ReportsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">All rails</SelectItem>
-                  {["mpesa", "momo", "paystack", "wave", "orange_money", "bank", "crypto"].map((r) => (
+                  {[
+                    "mpesa", "momo", "paystack", "wave", "orange_money", "bank", "crypto",
+                    "pretium", "pretium_till", "pretium_paybill",
+                  ].map((r) => (
                     <SelectItem key={r} value={r}>{railLabel(r)}</SelectItem>
                   ))}
                 </SelectContent>
