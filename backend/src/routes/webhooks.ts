@@ -10,7 +10,8 @@
  *   /webhooks/mpesa/b2b/result   ← Merchant Pay (Daraja B2B) result
  *   /webhooks/mpesa/b2b/timeout  ← Merchant Pay (Daraja B2B) queue timeout
  *   /webhooks/momo               ← MTN MoMo disbursement callback
- *   /webhooks/minisend            ← Minisend off-ramp payout callback
+ *   /webhooks/pretium/offramp     ← Pretium send/withdraw/pay payout callback
+ *   /webhooks/pretium/onramp      ← Pretium funding (add money) callback
  */
 
 import { Hono } from "hono";
@@ -19,7 +20,7 @@ import { transactions, users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { recordSettlementStep } from "../services/settlement";
 import { creditPayFromFloat } from "../services/avalanche-pay";
-import { minisendProvider } from "../services/settlement-providers/minisend";
+import { pretiumProvider } from "../services/settlement-providers/pretium";
 import type { Address } from "viem";
 
 // ── M-Pesa ────────────────────────────────────────────────────────────────────
@@ -208,28 +209,30 @@ momoWebhookRouter.post("/", async (c) => {
   return c.json({ received: true });
 });
 
-// ── Minisend (contributor withdraw off-ramp) ────────────────────────────────
+// ── Pretium ──────────────────────────────────────────────────────────────────
+// Pretium has no documented webhook signature scheme (see pretium.ts header
+// comment) — Pretium's own docs describe webhooks as "at-least-once hints"
+// and say to reconcile via the status API. So neither handler below trusts
+// the webhook body for the actual credited amount/receipt: it only reads the
+// tracking id off the payload, then re-fetches authoritative status via
+// getOrder()/getOnrampSession() before recording anything as settled.
 
-export const minisendWebhookRouter = new Hono();
+export const pretiumOfframpWebhookRouter = new Hono();
 
-// POST /webhooks/minisend — offramp.completed / offramp.failed / offramp.expired
-minisendWebhookRouter.post("/", async (c) => {
+// POST /webhooks/pretium/offramp — send/withdraw/pay payout result
+pretiumOfframpWebhookRouter.post("/", async (c) => {
   const rawBody = await c.req.text();
-  const signature = c.req.header("x-minisend-signature") ?? "";
+  const signature = c.req.header("x-pretium-signature") ?? "";
+  pretiumProvider.verifyWebhookSignature(rawBody, signature); // always true — see pretium.ts
 
-  if (!minisendProvider.verifyWebhookSignature(rawBody, signature)) {
-    console.error("[Webhook:Minisend] Invalid signature — rejecting");
-    return c.json({ error: "Invalid signature" }, 401);
-  }
-
-  const event = minisendProvider.parseWebhookEvent(rawBody);
+  const hint = pretiumProvider.parseWebhookEvent(rawBody);
 
   const tx = await db.query.transactions.findFirst({
-    where: eq(transactions.railReference, event.orderId),
+    where: eq(transactions.railReference, hint.orderId),
   });
 
   if (!tx) {
-    console.warn(`[Webhook:Minisend] No TX found for order_id=${event.orderId}`);
+    console.warn(`[Webhook:Pretium] No TX found for transaction_code=${hint.orderId}`);
     return c.json({ received: true });
   }
 
@@ -237,24 +240,72 @@ minisendWebhookRouter.post("/", async (c) => {
     return c.json({ received: true });
   }
 
-  if (event.status === "completed") {
+  const order = await pretiumProvider.getOrder(hint.orderId);
+
+  if (order.status === "completed") {
     await recordSettlementStep(tx.id, "settled", {
-      orderId: event.orderId,
-      settlementReceipt: event.settlementReceipt,
+      orderId: order.orderId,
+      settlementReceipt: order.settlementReceipt,
     });
-    console.log(`[Webhook:Minisend] ✓ Payout settled TX=${tx.id} order=${event.orderId}`);
-  } else {
-    // Minisend auto-refunds the USDC to the contributor's own wallet on
-    // failure/expiry (refund_address set at order creation) — nothing
-    // on-chain to do here. Marked failed (not requires_review) since the
-    // funds aren't at risk; failureReason/failedAt already surface it for
-    // manual review in history/ops.
+    console.log(`[Webhook:Pretium] ✓ Payout settled TX=${tx.id} order=${order.orderId}`);
+  } else if (order.status === "failed" || order.status === "expired") {
     await recordSettlementStep(tx.id, "failed", {
-      orderId: event.orderId,
-      reason: event.reason ?? `Minisend reported "${event.status}"`,
+      orderId: order.orderId,
+      reason: `Pretium reported "${order.status}"`,
     });
-    console.error(`[Webhook:Minisend] ✗ Payout ${event.status} TX=${tx.id} order=${event.orderId}`);
+    console.error(`[Webhook:Pretium] ✗ Payout ${order.status} TX=${tx.id} order=${order.orderId}`);
   }
+  // pending/settling: no action, let the settlement poller handle it
+
+  return c.json({ received: true });
+});
+
+export const pretiumOnrampWebhookRouter = new Hono();
+
+// POST /webhooks/pretium/onramp — funding (add money) collection result
+pretiumOnrampWebhookRouter.post("/", async (c) => {
+  const rawBody = await c.req.text();
+  const signature = c.req.header("x-pretium-signature") ?? "";
+  pretiumProvider.verifyOnrampWebhookSignature(rawBody, signature); // always true — see pretium.ts
+
+  const hint = pretiumProvider.parseOnrampWebhookEvent(rawBody);
+
+  const tx = await db.query.transactions.findFirst({
+    where: eq(transactions.railReference, hint.sessionId),
+  });
+
+  if (!tx) {
+    console.warn(`[Webhook:Pretium] No TX found for onramp session=${hint.sessionId}`);
+    return c.json({ received: true });
+  }
+
+  if (tx.status === "settled" || tx.status === "failed") {
+    return c.json({ received: true });
+  }
+
+  const session = await pretiumProvider.getOnrampSession(hint.sessionId);
+
+  if (session.status === "completed") {
+    // The USDC amount at session-creation time was an estimate (Pretium's
+    // onramp response doesn't always populate it up front — see pretium.ts)
+    // — this is the authoritative, actually-settled figure, straight from
+    // the same on-chain-backed status check, never an optimistic guess.
+    if (session.amountUsdc > 0) {
+      await db
+        .update(transactions)
+        .set({ amountUsdc: session.amountUsdc.toFixed(6), updatedAt: new Date() })
+        .where(eq(transactions.id, tx.id));
+    }
+    await recordSettlementStep(tx.id, "settled", { sessionId: session.sessionId });
+    console.log(`[Webhook:Pretium] ✓ Funding settled TX=${tx.id} session=${session.sessionId}`);
+  } else if (session.status === "failed" || session.status === "expired") {
+    await recordSettlementStep(tx.id, "failed", {
+      sessionId: session.sessionId,
+      reason: `Pretium reported "${session.status}"`,
+    });
+    console.error(`[Webhook:Pretium] ✗ Funding ${session.status} TX=${tx.id} session=${session.sessionId}`);
+  }
+  // pending/processing: no action, let the settlement poller handle it
 
   return c.json({ received: true });
 });
