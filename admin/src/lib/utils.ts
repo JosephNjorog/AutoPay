@@ -43,6 +43,14 @@ export function railLabel(rail: string) {
     orange_money: "Orange Money",
     bank: "Bank",
     crypto: "Crypto",
+    pretium: "Pretium",
+    pretium_till: "Pretium (Till)",
+    pretium_paybill: "Pretium (PayBill)",
+    // Retired — kept so historical transactions still show a label instead
+    // of the raw enum value.
+    minisend: "Minisend (retired)",
+    mpesa_b2b_till: "M-Pesa Till (retired)",
+    mpesa_b2b_paybill: "M-Pesa PayBill (retired)",
   };
   return map[rail] ?? rail;
 }
