@@ -1,39 +1,48 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { transactions } from "../db/schema";
-import { sendB2B } from "./rails/mpesa";
+import { pretiumProvider } from "./settlement-providers/pretium";
 import { recordSettlementStep } from "./settlement";
 import type { PayDisburseJob } from "../lib/queue";
+import type { PayoutRecipient } from "./settlement-providers/types";
 
 export type { PayDisburseJob };
 
 /**
- * Calls Daraja B2B to push the confirmed KES amount to the merchant's
- * Till/PayBill. Unlike the Paystack rail-disbursement pipeline, this is
- * webhook-only — Daraja's B2B result arrives at /webhooks/mpesa/b2b/result,
- * so no settlement-poll job is scheduled here (mirrors the B2C posture in
- * settlement.ts's `if (rail !== "mpesa")` polling exemption).
+ * Calls Pretium's offramp (POST /v1/pay/{currency}) to push the confirmed
+ * amount to the merchant's Till/PayBill. The on-chain deposit has already
+ * happened by the time this runs (see routes/pay.ts) — this is the
+ * initiatePayout() leg, keyed by the tx hash. Status arrives via
+ * /webhooks/pretium/offramp, which reconciles against the status API rather
+ * than trusting the webhook body (Pretium has no documented signature
+ * scheme — see pretium.ts).
  */
 export async function processPayB2BDisbursement(
   job: PayDisburseJob
 ): Promise<{ railReference: string }> {
-  const result = await sendB2B({
-    payMethod: job.payMethod,
-    merchantNumber: job.merchantNumber,
-    accountNumber: job.accountNumber,
-    amountKes: job.amountKes,
-    ref: job.reference,
+  const recipient: PayoutRecipient =
+    job.payMethod === "buy_goods"
+      ? { method: "till", businessNumber: job.merchantNumber }
+      : { method: "paybill", businessNumber: job.merchantNumber, accountNumber: job.accountNumber ?? "" };
+
+  const order = await pretiumProvider.initiatePayout({
+    amountUsd: job.amountUsd,
+    currency: job.currency,
+    recipient,
+    txHash: job.txHash,
+    reference: job.reference,
+    idempotencyKey: `pay:${job.transactionId}`,
   });
 
   await db
     .update(transactions)
-    .set({ railReference: result.railReference, updatedAt: new Date() })
+    .set({ railReference: order.orderId, updatedAt: new Date() })
     .where(eq(transactions.id, job.transactionId));
 
   await recordSettlementStep(job.transactionId, "routed", {
-    rail: job.payMethod === "buy_goods" ? "mpesa_b2b_till" : "mpesa_b2b_paybill",
-    railReference: result.railReference,
+    rail: job.payMethod === "buy_goods" ? "pretium_till" : "pretium_paybill",
+    railReference: order.orderId,
   });
 
-  return { railReference: result.railReference };
+  return { railReference: order.orderId };
 }
