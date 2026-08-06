@@ -28,9 +28,13 @@ export const RAIL_LABELS: Record<string, string> = {
   orange_money: "Orange Money",
   bank: "Bank transfer",
   crypto: "Crypto deposit",
+  // Retired — kept only so historical transactions still display a label.
   mpesa_b2b_till: "M-Pesa Till (Sandbox)",
   mpesa_b2b_paybill: "M-Pesa PayBill (Sandbox)",
   minisend: "Mobile money withdraw",
+  pretium: "Mobile money withdraw",
+  pretium_till: "Till (via Pretium)",
+  pretium_paybill: "PayBill (via Pretium)",
 };
 
 export function getRailLabel(rail: string): string {
@@ -38,11 +42,11 @@ export function getRailLabel(rail: string): string {
 }
 
 // Plain-language headline shown on Pay's "sending" screen while waiting for
-// the Daraja B2B callback — mirrors Send's inline sending-step copy pattern.
+// the Pretium payout callback — mirrors Send's inline sending-step copy pattern.
 export const PAY_SENDING_COPY: Record<TxStatus, string> = {
   initiated: "Preparing your payment…",
   onchain: "Debiting your balance…",
-  routed: "Sending to the merchant (sandbox)…",
+  routed: "Sending to the merchant…",
   settled: "Payment delivered",
   requires_review: "We hit a snag — reviewing your payment",
   failed: "Payment failed",
