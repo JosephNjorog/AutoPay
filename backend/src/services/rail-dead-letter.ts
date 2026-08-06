@@ -102,11 +102,16 @@ function buildRailJob(
   metadata: Record<string, unknown> | null,
   retryMetadata?: Record<string, unknown>
 ): RailDisburseJob {
-  // Rail dead-letters only ever come from the Paystack-backed disbursement
-  // pipeline (see RAIL_FAILURE_STAGES) — merchant Pay (B2B) transactions
-  // never populate these failure stages, so recipientPhone is always set here.
+  // Rail dead-letters only ever come from the Pretium-backed claim-cashout
+  // pipeline (see RAIL_FAILURE_STAGES) — merchant Pay (Till/PayBill)
+  // transactions never populate these failure stages, so recipientPhone and
+  // recipientWalletAddress are always set here (the latter by
+  // persistEscrowClaim, which always runs before this failure stage exists).
   if (!tx.recipientPhone) {
     throw new ConflictError(`Transaction ${tx.id} has no recipientPhone to retry a rail disbursement with.`);
+  }
+  if (!tx.recipientWalletAddress) {
+    throw new ConflictError(`Transaction ${tx.id} has no recipientWalletAddress to retry a rail disbursement with.`);
   }
 
   const failureStage = isRailFailureStage(tx.failureStage)
@@ -120,6 +125,9 @@ function buildRailJob(
     transactionId: tx.id,
     rail: tx.rail,
     recipientPhone: tx.recipientPhone,
+    recipientWalletAddress: tx.recipientWalletAddress,
+    token: tx.token === "USDT" ? "USDT" : "USDC",
+    amountUsdc: parseFloat(tx.amountUsdc),
     amountLocal: parseFloat(tx.amountLocal),
     localCurrency: tx.localCurrency,
     reference: tx.reference,
