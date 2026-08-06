@@ -105,7 +105,7 @@ export type FxQuote = {
   tokenAmount?: number;
 };
 
-// ── Withdraw (Minisend off-ramp) ────────────────────────────────────────────────
+// ── Withdraw (Pretium off-ramp) ─────────────────────────────────────────────────
 
 export type PayoutQuote = {
   quoteId: string;
@@ -371,6 +371,29 @@ export const api = {
         displayText: string;
         estimatedUsdc: number;
       }>("/api/fund/mobile", {
+        method: "POST",
+        body: JSON.stringify({ amountLocal }),
+        token,
+      }),
+
+    pretiumConfig: (token: string) =>
+      request<{
+        available: boolean;
+        countryCode: string | null;
+        currency: string | null;
+      }>("/api/fund/pretium/config", { token }),
+
+    pretiumMobile: (amountLocal: number, token: string) =>
+      request<{
+        reference: string;
+        transactionId: string;
+        amountLocal: number;
+        currency: string;
+        provider: string;
+        displayText: string;
+        trackingId: string;
+        estimatedUsdc: number;
+      }>("/api/fund/pretium/mobile", {
         method: "POST",
         body: JSON.stringify({ amountLocal }),
         token,
