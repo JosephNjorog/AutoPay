@@ -25,6 +25,7 @@ export type EscrowClaimContext = {
   localCurrency: string;
   rail: string;
   reference: string;
+  token: "USDC" | "USDT";
 };
 
 export type ClaimRailHandoffResult = {
@@ -92,6 +93,7 @@ function claimMetadata(ctx: EscrowClaimContext, source: string) {
     localCurrency: ctx.localCurrency,
     rail: ctx.rail,
     reference: ctx.reference,
+    token: ctx.token,
     source,
   };
 }
@@ -111,6 +113,7 @@ function contextFromMetadata(metadata: unknown): EscrowClaimContext | null {
   const localCurrency = value.localCurrency;
   const rail = value.rail;
   const reference = value.reference;
+  const token = value.token === "USDT" ? "USDT" : "USDC"; // defaults USDC for pre-migration review records that predate this field
 
   if (
     typeof ref !== "string" ||
@@ -139,6 +142,7 @@ function contextFromMetadata(metadata: unknown): EscrowClaimContext | null {
     localCurrency,
     rail,
     reference,
+    token,
   };
 }
 
@@ -241,6 +245,9 @@ export function buildClaimRailJob(ctx: EscrowClaimContext): RailDisburseJob {
     transactionId: ctx.transactionId,
     rail: ctx.rail,
     recipientPhone: ctx.recipientPhone,
+    recipientWalletAddress: ctx.recipientWalletAddress,
+    token: ctx.token,
+    amountUsdc: parseFloat(ctx.amountUsdc),
     amountLocal: ctx.amountLocal,
     localCurrency: ctx.localCurrency,
     reference: ctx.reference,
@@ -257,6 +264,16 @@ export function buildClaimRailJob(ctx: EscrowClaimContext): RailDisburseJob {
   };
 }
 
+// IMPORTANT: claimEscrowOnChain (called just before this, in claim.ts) has
+// already released the escrowed USDC on-chain into ctx.recipientWalletAddress
+// — that's real, final value delivered. This function's job is to forward
+// THAT SAME balance out to the recipient's mobile money via Pretium (see
+// rail-disbursement.ts), not to pay them again from a separate float. An
+// earlier version of this code called Paystack's Transfer API here — funded
+// from Autopayke's own balance, with no awareness of the on-chain leg —
+// which paid every claimed Send twice. Fixed as part of the Pretium
+// migration; if you're re-deriving this function, the on-chain forward and
+// the fiat leg MUST be the same money movement, never parallel ones.
 export async function handoffClaimRailPayout(
   ctx: EscrowClaimContext
 ): Promise<ClaimRailHandoffResult> {
