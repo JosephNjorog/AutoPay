@@ -9,8 +9,11 @@ export const RAIL_LABELS: Record<string, string> = {
   orange_money: "Orange Money",
   bank: "Bank transfer",
   crypto: "Crypto deposit",
+  // Retired — kept only so historical transactions still display a label.
   mpesa_b2b_till: "M-Pesa Till (Sandbox)",
   mpesa_b2b_paybill: "M-Pesa PayBill (Sandbox)",
+  pretium_till: "Till (via Pretium)",
+  pretium_paybill: "PayBill (via Pretium)",
 };
 
 export function getRailLabel(rail: string): string {
