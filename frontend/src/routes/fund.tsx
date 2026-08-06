@@ -673,12 +673,27 @@ function PayMobile({
   const [loading, setLoading] = useState(false);
   const [displayText, setDisplayText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [provider, setProvider] = useState<"paystack" | "pretium">("paystack");
+
+  // Pretium onramp stays hidden until workstream 1 verification confirms
+  // this account's actual enabled markets — supportsOnrampCountry() (and
+  // therefore this config endpoint) reports unavailable everywhere until
+  // then, so this toggle simply won't render for anyone yet.
+  const { data: pretiumConfig } = useQuery({
+    queryKey: ["fund-pretium-config"],
+    queryFn: () => api.fund.pretiumConfig(token),
+    enabled: !!token,
+  });
+  const pretiumAvailable = pretiumConfig?.available ?? false;
 
   async function handlePay() {
     setError(null);
     setLoading(true);
     try {
-      const result = await api.fund.mobile(amount, token);
+      const result =
+        provider === "pretium"
+          ? await api.fund.pretiumMobile(amount, token)
+          : await api.fund.mobile(amount, token);
       setDisplayText(result.displayText);
     } catch (e) {
       setError(
@@ -714,7 +729,7 @@ function PayMobile({
             </li>
             <li className="flex items-start gap-2">
               <span className="text-forest font-bold mt-0.5">2.</span> We
-              receive confirmation from Paystack
+              receive confirmation from {provider === "pretium" ? "Pretium" : "Paystack"}
             </li>
             <li className="flex items-start gap-2">
               <span className="text-forest font-bold mt-0.5">3.</span> USDC is
@@ -745,11 +760,31 @@ function PayMobile({
       <p className="mt-2 text-sm text-slate">
         A payment prompt will be sent to your registered mobile money number.
       </p>
+      {pretiumAvailable && (
+        <div className="mt-4 flex rounded-2xl border border-ink/10 bg-paper p-1">
+          <button
+            onClick={() => setProvider("paystack")}
+            className={`flex-1 rounded-xl py-2 text-xs font-semibold transition ${
+              provider === "paystack" ? "bg-ink text-paper" : "text-slate"
+            }`}
+          >
+            Paystack
+          </button>
+          <button
+            onClick={() => setProvider("pretium")}
+            className={`flex-1 rounded-xl py-2 text-xs font-semibold transition ${
+              provider === "pretium" ? "bg-ink text-paper" : "text-slate"
+            }`}
+          >
+            Pretium
+          </button>
+        </div>
+      )}
       <div className="mt-4 rounded-2xl border border-ink/10 bg-paper p-4 flex items-start gap-2">
         <Info className="h-4 w-4 text-slate shrink-0 mt-0.5" />
         <p className="text-[11px] text-slate">
-          Powered by Paystack. The STK push goes to your registered phone number
-          on file.
+          Powered by {provider === "pretium" ? "Pretium" : "Paystack"}. The STK
+          push goes to your registered phone number on file.
         </p>
       </div>
       {error && (
