@@ -10,9 +10,12 @@ import {
 import {
   enqueueWhatsAppNotify,
   enqueueRailDisburse,
+  enqueuePayB2BDisburse,
   type EscrowExpireJob,
+  type PayDisburseJob,
 } from "../lib/queue";
 import { processRailDisbursement, railProviderIdempotencyKey } from "./rail-disbursement";
+import { processPayB2BDisbursement } from "./pay-disbursement";
 import {
   ConflictError,
   NotFoundError,
@@ -287,6 +290,81 @@ export async function retryRailDisbursement(
       rail: result.rail,
       railReference: result.railReference,
       status: result.status,
+      queued: false,
+    };
+  }
+
+  return {
+    transactionId: tx.id,
+    rail: tx.rail,
+    railReference: tx.railReference ?? "queued",
+    status: "pending",
+    queued: true,
+  };
+}
+
+/**
+ * Retries the Pretium disbursement leg for a Merchant Pay transaction stuck
+ * at "onchain" or "routed" — separate from retryRailDisbursement() above
+ * because Pay transactions have a different shape entirely: no
+ * recipientPhone (they always have it null — see routes/pay.ts), and the
+ * merchant destination lives in merchantPayMethod/merchantTillNumber/
+ * merchantPaybillNumber/merchantAccountNumber instead. Before this function
+ * existed, a stuck Pay transaction had no recovery path at all: the generic
+ * retry-disbursement endpoint rejected it (no recipientPhone) pointing at a
+ * "Pay dead-letter recovery path" that was never built.
+ */
+export async function retryPayDisbursement(
+  transactionId: string,
+  requestedBy: string
+): Promise<DisbursementRetryResult> {
+  const tx = await loadTransaction(transactionId);
+
+  if (!tx.merchantPayMethod) {
+    throw new ConflictError("Transaction is not a Merchant Pay transaction.");
+  }
+  if (tx.status !== "onchain" && tx.status !== "routed" && tx.status !== "requires_review") {
+    throw new ConflictError(
+      `Transaction status is "${tx.status}" — only onchain/routed/requires_review can be retried.`
+    );
+  }
+  if (!tx.txHash) {
+    throw new ConflictError(
+      `Transaction ${tx.id} has no on-chain tx hash yet — the on-chain debit itself needs ` +
+        "investigating before a Pretium disbursement retry makes sense."
+    );
+  }
+
+  const merchantNumber =
+    tx.merchantPayMethod === "buy_goods" ? tx.merchantTillNumber : tx.merchantPaybillNumber;
+  if (!merchantNumber) {
+    throw new ConflictError(`Transaction ${tx.id} is missing its merchant Till/PayBill number.`);
+  }
+
+  const job: PayDisburseJob = {
+    transactionId: tx.id,
+    payMethod: tx.merchantPayMethod,
+    merchantNumber,
+    accountNumber: tx.merchantAccountNumber ?? undefined,
+    amountUsd: parseFloat(tx.amountUsdc),
+    currency: tx.localCurrency,
+    txHash: tx.txHash,
+    reference: tx.reference,
+  };
+
+  await recordSettlementStep(tx.id, "routed", {
+    note: "Pay disbursement retry initiated via ops",
+    retriedBy: requestedBy,
+  });
+
+  const queued = await enqueuePayB2BDisburse(job);
+  if (!queued) {
+    const result = await processPayB2BDisbursement(job);
+    return {
+      transactionId: tx.id,
+      rail: tx.rail,
+      railReference: result.railReference,
+      status: "routed",
       queued: false,
     };
   }
