@@ -24,7 +24,10 @@ import { PageHeader, LoadingSpinner, ErrorDisplay, Pagination } from "@/componen
 export const Route = createFileRoute("/transactions/")({ component: TransactionsPage });
 
 const STATUSES = ["initiated", "onchain", "routed", "settled", "requires_review", "failed", "expired"];
-const RAILS = ["mpesa", "momo", "paystack", "wave", "orange_money", "bank", "crypto"];
+const RAILS = [
+  "mpesa", "momo", "paystack", "wave", "orange_money", "bank", "crypto",
+  "pretium", "pretium_till", "pretium_paybill",
+];
 const TOKENS = ["USDC", "USDT", "AVAX"];
 
 export default function TransactionsPage() {
