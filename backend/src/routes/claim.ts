@@ -44,6 +44,7 @@ type ClaimReplayEscrow = {
     reference: string;
     railReference: string | null;
     status: string;
+    token: string;
   };
 };
 
@@ -181,6 +182,7 @@ claimRouter.post(
         localCurrency: claimedEscrow.transaction.localCurrency,
         rail: claimedEscrow.transaction.rail,
         reference: claimedEscrow.transaction.reference,
+        token: claimedEscrow.transaction.token === "USDT" ? "USDT" : "USDC",
       };
 
       return c.json({
@@ -299,6 +301,7 @@ claimRouter.post(
         localCurrency: latest.transaction.localCurrency,
         rail: latest.transaction.rail,
         reference: latest.transaction.reference,
+        token: latest.transaction.token === "USDT" ? "USDT" : "USDC",
       };
 
       let handoff: ClaimRailHandoffResult;
