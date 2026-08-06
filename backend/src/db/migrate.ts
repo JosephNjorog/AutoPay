@@ -169,6 +169,24 @@ const MIGRATIONS: { name: string; up: string }[] = [
         ADD COLUMN IF NOT EXISTS "refunded_at" timestamp
     `,
   },
+  // NOTE: migrations 0007-0011 (src/db/migrations/0007_*.sql through
+  // 0011_minisend_rail.sql) were never ported into this startup migrator —
+  // same gap already called out in the 0005 comment above. Not backfilled
+  // here since their contents weren't reviewed as part of this change; worth
+  // auditing separately whether production actually has those columns/enum
+  // values (e.g. "minisend") or picked them up via some other deploy step.
+  {
+    name: "0012_pretium_rail/enum_pretium",
+    up: `DO $$ BEGIN ALTER TYPE "public"."rail" ADD VALUE IF NOT EXISTS 'pretium'; EXCEPTION WHEN duplicate_object THEN null; END $$`,
+  },
+  {
+    name: "0013_pretium_till_paybill/enum_till",
+    up: `DO $$ BEGIN ALTER TYPE "public"."rail" ADD VALUE IF NOT EXISTS 'pretium_till'; EXCEPTION WHEN duplicate_object THEN null; END $$`,
+  },
+  {
+    name: "0013_pretium_till_paybill/enum_paybill",
+    up: `DO $$ BEGIN ALTER TYPE "public"."rail" ADD VALUE IF NOT EXISTS 'pretium_paybill'; EXCEPTION WHEN duplicate_object THEN null; END $$`,
+  },
 ];
 
 export async function runStartupMigrations(): Promise<void> {
