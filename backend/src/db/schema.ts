@@ -35,14 +35,20 @@ export const railEnum = pgEnum("rail", [
   "orange_money",
   "bank",
   "crypto",
-  // Daraja B2B merchant-pay rails (Till/PayBill) — a separate dispatch path
-  // from the Paystack-backed payout corridors above, see services/pay.ts.
+  // Retired — Merchant Pay's Till/PayBill dispatch rails, formerly Daraja
+  // B2B, now settled via Pretium's offramp (see pretium_till/pretium_paybill
+  // below). Kept so historical rows still parse; no longer written.
   "mpesa_b2b_till",
   "mpesa_b2b_paybill",
   // Contributor self-withdraw off-ramp — sends directly from the user's own
-  // wallet to a Minisend-supplied deposit address, no treasury involved. See
+  // wallet to Pretium's settlement wallet address, no treasury involved. See
   // services/settlement-providers/.
-  "minisend",
+  "minisend", // retired — kept so historical rows still parse; no longer written.
+  "pretium",
+  // Merchant Pay (Till/PayBill), settled via Pretium's offramp — see
+  // services/pay-disbursement.ts.
+  "pretium_till",
+  "pretium_paybill",
 ]);
 
 export const tokenEnum = pgEnum("token", ["USDC", "USDT", "AVAX"]);
@@ -188,7 +194,8 @@ export const transactions = pgTable(
     // the reasons apart. See services/fx.ts's computeNetworkFeeUsd().
     networkFeeUsdc: numeric("network_fee_usdc", { precision: 20, scale: 6 }).default("0").notNull(),
     // Merchant Pay (Till/PayBill) fields — populated only when rail is
-    // mpesa_b2b_till / mpesa_b2b_paybill.
+    // pretium_till / pretium_paybill (or, historically, mpesa_b2b_till /
+    // mpesa_b2b_paybill).
     merchantPayMethod: payMethodEnum("merchant_pay_method"),
     merchantTillNumber: text("merchant_till_number"),
     merchantPaybillNumber: text("merchant_paybill_number"),
