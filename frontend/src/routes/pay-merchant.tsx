@@ -254,7 +254,7 @@ function PayMerchantPage() {
             </h2>
             {sendingPhase === "confirm" && (
               <p className="mt-2 text-xs text-slate">
-                Debiting your balance → sandbox Daraja B2B call
+                Debiting your balance → routing via Pretium
               </p>
             )}
           </div>
@@ -504,14 +504,15 @@ function ReviewStep({ methodConfig, merchantNumber, accountNumber, quote, onConf
           <KV k="Settles via" v={getRailLabel(quote.rail)} />
           <KV k="Rate" v={`1 USD = ${quote.tumaRate.toFixed(2)} ${quote.toCurrency}`} />
           <KV k="Network fee" v="Free" />
-          <KV k="Arrival" v="Sandbox demo — Daraja sandbox" />
+          <KV k="Arrival" v="Via Pretium" />
         </div>
       </div>
 
       <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-amber/50 bg-amber/16 px-4 py-3">
         <Info className="h-4 w-4 text-forest shrink-0 mt-0.5" />
         <p className="text-[11px] text-slate">
-          Sandbox demo — this pays a real Safaricom sandbox till, not a live merchant.
+          Double-check the till/PayBill number before confirming — there's no merchant name
+          verification on this rail.
         </p>
       </div>
 
