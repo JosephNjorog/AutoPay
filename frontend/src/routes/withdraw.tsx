@@ -43,21 +43,23 @@ export const Route = createFileRoute("/withdraw")({
 
 type Step = "recipient" | "amount" | "review" | "confirming";
 
-// Countries Minisend has confirmed coverage for. Keep in sync with the
-// backend's getProviderForCountry() gate in services/settlement-providers.
+// Carried over from the prior Minisend integration — NOT yet re-confirmed
+// for Pretium (workstream 1 verification is pending real sandbox
+// credentials). Keep in sync with the backend's getProviderForCountry() gate
+// in services/settlement-providers once PRETIUM_VERIFIED_OFFRAMP_MARKETS is set.
 const MOBILE_NETWORKS: Record<string, string[]> = {
   KE: ["Safaricom", "Airtel"],
   GH: ["MTN", "Vodafone", "AirtelTigo"],
   UG: ["MTN", "Airtel"],
 };
 
-// Nigeria pays out to a bank account rather than a phone number — Minisend's
+// Nigeria pays out to a bank account rather than a phone number — the
 // `institution` field takes a bank's SWIFT/BIC code (e.g. "GTBINGLA" for
-// GTBank, per their docs' example). These are the major banks' standard,
-// publicly-documented codes — not Minisend-specific data. Anyone at a smaller
-// bank can enter their institution code manually via the "Other bank" option;
-// Minisend hard-validates NGN accounts server-side either way, so a wrong
-// code here is caught before an order is ever created, not silently sent.
+// GTBank). These are the major banks' standard, publicly-documented codes —
+// not provider-specific data. Anyone at a smaller bank can enter their
+// institution code manually via the "Other bank" option; the provider
+// hard-validates NGN accounts server-side either way, so a wrong code here
+// is caught before a payout is ever initiated, not silently sent.
 const NIGERIA_BANKS: { name: string; code: string }[] = [
   { name: "Access Bank", code: "ABNGNGLA" },
   { name: "Guaranty Trust Bank (GTBank)", code: "GTBINGLA" },
@@ -618,10 +620,10 @@ function ReviewStep({
             v={`1 USDC = ${quote.tumaRate.toFixed(2)} ${quote.toCurrency}`}
           />
           <KV
-            k="Minisend fee"
+            k="Pretium fee"
             v={`${quote.toCurrency} ${quote.feeLocal.toFixed(2)}`}
           />
-          <KV k="Provider" v="Minisend" />
+          <KV k="Provider" v="Pretium" />
         </div>
       </div>
 
