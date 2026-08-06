@@ -72,7 +72,7 @@ export default function BalancesPage() {
     <div>
       <PageHeader
         title="Balances"
-        description="Treasury, relayer float, and aggregate user-held funds"
+        description="Treasury, relayer float, and aggregate user-held funds — Withdraw and Merchant Pay cash-outs settle via Pretium's own liquidity now, not this treasury; Pretium doesn't expose a balance API to this dashboard."
       />
 
       <div className="p-6">
@@ -85,7 +85,7 @@ export default function BalancesPage() {
             <AddressCard
               icon={Wallet}
               title="Treasury"
-              subtitle="Merchant fees + cash-out withdrawals"
+              subtitle="Merchant fees + Send/Withdraw network-fee recoup"
               address={data?.treasury?.address}
               assets={data?.treasury?.assets}
             />
