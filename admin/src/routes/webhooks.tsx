@@ -32,7 +32,14 @@ export default function WebhooksPage() {
                 <li><code className="text-foreground text-xs">/webhooks/paystack</code> — charge.success, transfer.success/failed</li>
                 <li><code className="text-foreground text-xs">/webhooks/mpesa</code> — M-Pesa result callbacks</li>
                 <li><code className="text-foreground text-xs">/webhooks/momo</code> — MoMo callbacks</li>
+                <li><code className="text-foreground text-xs">/webhooks/pretium/offramp</code> — send/withdraw/pay payout result</li>
+                <li><code className="text-foreground text-xs">/webhooks/pretium/onramp</code> — funding (add money) result</li>
               </ul>
+              <p className="mt-2 text-xs">
+                Pretium has no documented webhook signature scheme — both handlers treat the
+                payload as a hint and re-fetch authoritative status before crediting anything
+                (see backend <code className="text-foreground">pretium.ts</code>).
+              </p>
               <p className="mt-3">
                 To enable full webhook inspection, create a <code className="text-foreground">webhook_events</code> table
                 and log all inbound payloads in the webhook handlers.
