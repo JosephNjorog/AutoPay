@@ -146,9 +146,9 @@ withdrawRouter.post(
   },
 );
 
-// ── Contributor self-withdraw (Minisend off-ramp) ──────────────────────────────
-// Sends directly from the contributor's own wallet to a Minisend-supplied
-// deposit address — no treasury involved. Kept as separate routes from the
+// ── Contributor self-withdraw (Pretium off-ramp) ────────────────────────────────
+// Sends directly from the contributor's own wallet to Pretium's settlement
+// wallet address — no treasury involved. Kept as separate routes from the
 // treasury cash-out above (which has no frontend caller today) to avoid any
 // risk of the two flows interfering with each other.
 
@@ -179,11 +179,21 @@ type StoredPayoutQuote = {
   currency: string;
   countryCode: string;
   recipient: PayoutRecipient;
+  // Captured at quote time — Pretium doesn't create a payout record (and
+  // therefore doesn't return fresh rate/amountLocal figures) until
+  // initiatePayout() runs post-on-chain-send, so the initial transaction row
+  // uses these locked-in values and gets corrected from initiatePayout()'s
+  // response afterward.
+  rate: number;
+  amountLocal: number;
+  feeLocal: number;
+  recipientAmount: number;
 };
 
-// Minisend's KES mobile recipient expects local format (0XXXXXXXXX); GHS/UGX
-// accept either — see docs.minisend.xyz/offramp/recipients.
-function toMinisendPhone(phone: string, country: CountryConfig): string {
+// KES mobile recipients expect local format (0XXXXXXXXX); GHS/UGX accept
+// either — confirm this still holds for Pretium's shortcode field once
+// sandbox access exists (carried over from the prior Minisend integration).
+function toPretiumPhone(phone: string, country: CountryConfig): string {
   return country.code === "KE" ? phone.replace(country.dialCode, "0") : phone;
 }
 
@@ -202,7 +212,7 @@ function buildRecipient(
   }
   return {
     method: "mobile",
-    phone: toMinisendPhone(input.phone, country),
+    phone: toPretiumPhone(input.phone, country),
     mobileNetwork: input.mobileNetwork,
     accountName,
   };
@@ -227,7 +237,7 @@ function requireWithdrawProvider(country: CountryConfig) {
   return provider;
 }
 
-// POST /api/withdraw/payout/quote — preview the Minisend rate/fee for a
+// POST /api/withdraw/payout/quote — preview the Pretium rate/fee for a
 // contributor cash-out, no side effects (no order created yet).
 withdrawRouter.post(
   "/payout/quote",
@@ -280,7 +290,7 @@ withdrawRouter.post(
 
     // Cosmetic only — reuses the existing OXR-backed mid rate purely so the
     // shared FX UI's "savings vs banks" figure has something to compare
-    // against. Minisend's own quote.rate is always what's actually used.
+    // against. Pretium's own quote.rate is always what's actually used.
     const midRate = await getMidRate(country.currency).catch(() => quote.rate);
 
     const quoteId = randomUUID();
@@ -298,6 +308,10 @@ withdrawRouter.post(
       currency: country.currency,
       countryCode: country.code,
       recipient,
+      rate: quote.rate,
+      amountLocal: quote.amountLocal,
+      feeLocal: quote.feeLocal,
+      recipientAmount: quote.recipientAmount,
     };
     await setex(keys.withdrawPayoutQuote(quoteId), ttlSeconds, stored);
 
@@ -323,9 +337,10 @@ withdrawRouter.post(
   },
 );
 
-// POST /api/withdraw/payout/confirm — creates the Minisend order, sends the
-// on-chain USDC from the contributor's own wallet, and returns a pending
-// status. Not marked "settled" until the Minisend webhook confirms it.
+// POST /api/withdraw/payout/confirm — resolves Pretium's settlement wallet,
+// sends the on-chain USDC from the contributor's own wallet, then creates
+// the Pretium payout record with the resulting tx hash. Not marked "settled"
+// until the Pretium webhook (reconciled against the status API) confirms it.
 withdrawRouter.post(
   "/payout/confirm",
   withdrawLimiter,
@@ -367,17 +382,18 @@ withdrawRouter.post(
 
     const reference = generateTxRef();
 
-    // Funds auto-refund to refundAddress (the contributor's own wallet) if
-    // the payout fails on Minisend's side — never a treasury, never lost.
-    const order = await provider.createPayoutOrder({
-      amountUsd: stored.amountUsd,
+    const { depositAddress, depositChain } = await provider.getDepositAddress({
       currency: stored.currency,
-      recipient: stored.recipient,
-      refundAddress: user.walletAddress,
-      reference,
-      idempotencyKey: `withdraw:${userId}:${reference}`,
+      chain: "avalanche",
+      asset: "USDC",
     });
+    if (!["avalanche", "avalanche-c-chain", "avax", "avax-c-chain"].includes(depositChain.toLowerCase())) {
+      throw new BlockchainError(`Pretium returned a non-Avalanche deposit chain "${depositChain}" — refusing to send`);
+    }
 
+    // railReference holds `reference` (our own id) until initiatePayout()
+    // returns Pretium's transaction_code below — no Pretium payout record
+    // exists until the on-chain send has actually happened.
     const [tx] = await db
       .insert(transactions)
       .values({
@@ -385,18 +401,18 @@ withdrawRouter.post(
         senderId: userId,
         recipientPhone: phone,
         recipientUserId: userId,
-        recipientWalletAddress: order.depositAddress,
-        amountUsdc: order.totalDepositUsdc.toFixed(6),
-        amountLocal: order.amountLocal.toFixed(2),
-        localCurrency: order.currency,
-        fxRate: order.rate.toFixed(8),
+        recipientWalletAddress: depositAddress,
+        amountUsdc: stored.amountUsd.toFixed(6),
+        amountLocal: stored.amountLocal.toFixed(2),
+        localCurrency: stored.currency,
+        fxRate: stored.rate.toFixed(8),
         fxLockedAt: new Date(),
         token: "USDC",
-        rail: "minisend",
-        railReference: order.orderId,
-        feeUsdc: (order.feeLocal / order.rate).toFixed(6),
+        rail: "pretium",
+        railReference: reference,
+        feeUsdc: (stored.feeLocal / stored.rate).toFixed(6),
         networkFeeUsdc: stored.networkFeeUsd.toFixed(6),
-        note: "Contributor payout via Minisend",
+        note: "Contributor payout via Pretium",
       })
       .returning();
 
@@ -407,8 +423,8 @@ withdrawRouter.post(
       txHash = await transferUsdc(
         user.phoneHash,
         user.walletAddress as Address,
-        order.depositAddress as Address,
-        order.totalDepositUsdc,
+        depositAddress as Address,
+        stored.amountUsd,
       );
     } catch (err) {
       await recordSettlementStep(tx.id, "failed", {
@@ -424,7 +440,7 @@ withdrawRouter.post(
       .where(eq(transactions.id, tx.id));
     await recordSettlementStep(tx.id, "onchain", { txHash });
 
-    // Separate leg from the Minisend deposit above — recoups the relayer's
+    // Separate leg from the Pretium deposit above — recoups the relayer's
     // gas cost for this send, charged on the contributor's side.
     if (stored.networkFeeUsd > 0 && treasuryAddress) {
       transferUsdc(
@@ -440,47 +456,54 @@ withdrawRouter.post(
       );
     }
 
-    // NGN deposits are auto-detected by Minisend; KES/GHS/UGX need the hash
-    // submitted explicitly to trigger the fiat payout.
-    if (order.currency !== "NGN") {
-      try {
-        await provider.submitDeposit(order.orderId, txHash);
-      } catch (err) {
-        // The USDC has already left the wallet at this point — this isn't a
-        // failed withdrawal, it's an unconfirmed one that needs a human to
-        // check Minisend's dashboard for order.orderId. Surface as
-        // requires_review rather than failed (which would incorrectly imply
-        // the funds are safe/unmoved).
-        await recordSettlementStep(tx.id, "requires_review", {
-          stage: "submit_deposit",
-          error: (err as Error).message,
-          orderId: order.orderId,
+    let orderId: string;
+    try {
+      const order = await provider.initiatePayout({
+        amountUsd: stored.amountUsd,
+        currency: stored.currency,
+        recipient: stored.recipient,
+        txHash,
+        reference,
+        idempotencyKey: `withdraw:${userId}:${reference}`,
+      });
+      orderId = order.orderId;
+      await db
+        .update(transactions)
+        .set({ railReference: orderId })
+        .where(eq(transactions.id, tx.id));
+    } catch (err) {
+      // The USDC has already left the wallet at this point — this isn't a
+      // failed withdrawal, it's an unconfirmed one that needs a human to
+      // check Pretium's dashboard for txHash. Surface as requires_review
+      // rather than failed (which would incorrectly imply the funds are
+      // safe/unmoved).
+      await recordSettlementStep(tx.id, "requires_review", {
+        stage: "initiate_payout",
+        error: (err as Error).message,
+        txHash,
+      });
+      return c.json({
+        ok: true,
+        data: {
+          transactionId: tx.id,
+          reference,
           txHash,
-        });
-        return c.json({
-          ok: true,
-          data: {
-            transactionId: tx.id,
-            reference,
-            orderId: order.orderId,
-            txHash,
-            status: "requires_review",
-          },
-        });
-      }
+          status: "requires_review",
+        },
+      });
     }
 
-    await recordSettlementStep(tx.id, "routed", { orderId: order.orderId });
+    await recordSettlementStep(tx.id, "routed", { orderId });
 
     return c.json({
       ok: true,
       data: {
         transactionId: tx.id,
         reference,
-        orderId: order.orderId,
+        orderId,
         txHash,
-        amountLocal: order.amountLocal,
-        localCurrency: order.currency,
+        amountLocal: stored.amountLocal,
+        localCurrency: stored.currency,
         status: "routed",
       },
     });
