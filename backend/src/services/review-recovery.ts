@@ -242,12 +242,20 @@ export async function retryRailDisbursement(
     );
   }
 
-  // This retries the Paystack-backed rail-disbursement leg only — merchant
-  // Pay (B2B) transactions have their own disbursement/refund pipeline and
-  // always have a null recipientPhone.
+  // This retries the Pretium-backed rail-disbursement leg only — merchant
+  // Pay (Till/PayBill) transactions have their own disbursement/refund
+  // pipeline and always have a null recipientPhone. Direct Tuma-to-Tuma
+  // sends no longer create this failure mode going forward (see send.ts —
+  // they settle on-chain with no rail leg at all now), so this path mainly
+  // exists to recover transactions stuck from before that fix.
   if (!tx.recipientPhone) {
     throw new ConflictError(
       `Transaction ${tx.id} has no recipientPhone — use the Pay dead-letter recovery path instead.`
+    );
+  }
+  if (!tx.recipientWalletAddress) {
+    throw new ConflictError(
+      `Transaction ${tx.id} has no recipientWalletAddress to retry a rail disbursement with.`
     );
   }
 
@@ -255,6 +263,9 @@ export async function retryRailDisbursement(
     transactionId: tx.id,
     rail: tx.rail,
     recipientPhone: tx.recipientPhone,
+    recipientWalletAddress: tx.recipientWalletAddress,
+    token: (tx.token === "USDT" ? "USDT" : "USDC") as "USDC" | "USDT",
+    amountUsdc: parseFloat(tx.amountUsdc),
     amountLocal: parseFloat(tx.amountLocal),
     localCurrency: tx.localCurrency,
     reference: tx.reference,
