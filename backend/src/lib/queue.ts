@@ -51,6 +51,12 @@ export type RailDisburseJob = {
   transactionId: string;
   rail: string;
   recipientPhone: string;
+  // The recipient's own wallet — this rail forwards their already-claimed
+  // on-chain balance to Pretium's settlement address, it doesn't disburse
+  // from a Tuma-owned float. See services/rail-disbursement.ts.
+  recipientWalletAddress: string;
+  token: "USDC" | "USDT";
+  amountUsdc: number;
   amountLocal: number;
   localCurrency: string;
   reference: string;
@@ -78,7 +84,9 @@ export type PayDisburseJob = {
   payMethod: "buy_goods" | "paybill";
   merchantNumber: string;
   accountNumber?: string;
-  amountKes: number;
+  amountUsd: number;
+  currency: string;
+  txHash: string;
   reference: string;
 };
 
