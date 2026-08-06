@@ -131,8 +131,13 @@ export default function ReviewPage() {
                   <TableCell className="font-mono text-xs">
                     <div>{tx.reference}</div>
                     {tx.isEscrow && <Badge variant="info" className="mt-0.5">escrow</Badge>}
+                    {tx.merchantPayMethod && (
+                      <Badge variant="secondary" className="mt-0.5">
+                        pay · {tx.merchantPayMethod === "buy_goods" ? tx.merchantTillNumber : tx.merchantPaybillNumber}
+                      </Badge>
+                    )}
                   </TableCell>
-                  <TableCell className="text-sm">{tx.recipientPhone}</TableCell>
+                  <TableCell className="text-sm">{tx.recipientPhone ?? "—"}</TableCell>
                   <TableCell>
                     <div>{fmtUsd(tx.amountUsdc)}</div>
                     <div className="text-xs text-muted-foreground">
