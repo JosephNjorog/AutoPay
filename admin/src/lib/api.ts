@@ -60,7 +60,7 @@ export type Transaction = {
   reference: string;
   senderPhone: string | null;
   senderCountry: string | null;
-  recipientPhone: string;
+  recipientPhone: string | null;
   amountUsdc: number;
   amountLocal: number;
   localCurrency: string;
@@ -70,6 +70,11 @@ export type Transaction = {
   token: string;
   status: string;
   isEscrow: boolean;
+  // Merchant Pay transactions have a null recipientPhone and settle to a
+  // Till/PayBill instead — set only on those.
+  merchantPayMethod?: "buy_goods" | "paybill" | null;
+  merchantTillNumber?: string | null;
+  merchantPaybillNumber?: string | null;
   txHash: string | null;
   failureStage: string | null;
   failureReason: string | null;
@@ -224,6 +229,13 @@ export const opsApi = {
   overview: () => opsRequest<Overview>("/api/ops/overview"),
 
   meta: () => opsRequest<OpsMeta>("/api/ops/meta"),
+
+  pretiumMarkets: () =>
+    opsRequest<{
+      candidateMarkets: string[];
+      verifiedOfframpMarkets: string[];
+      verifiedOnrampMarkets: string[];
+    }>("/api/ops/pretium-markets"),
 
   balances: () => opsRequest<Balances>("/api/ops/balances"),
 
