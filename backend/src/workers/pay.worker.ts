@@ -1,8 +1,9 @@
 /**
- * Merchant Pay (Daraja B2B) disbursement worker.
+ * Merchant Pay (Pretium offramp) disbursement worker.
  * Runs as a separate Bun process: `bun run src/workers/pay.worker.ts`
- * Pushes the confirmed KES amount to the merchant's Till/PayBill after the
- * user's on-chain stablecoin debit has been recorded.
+ * Calls Pretium's /v1/pay/{currency} to push the confirmed amount to the
+ * merchant's Till/PayBill after the user's on-chain stablecoin deposit to
+ * Pretium's settlement address has been recorded.
  */
 
 import { Worker, type Job } from "bullmq";
@@ -46,7 +47,7 @@ const worker = queueConnectionOptions
 
         try {
           const result = await processPayB2BDisbursement(data);
-          console.log(`[PayWorker] ✓ TX ${tx.id} routed to Daraja B2B ref=${result.railReference}`);
+          console.log(`[PayWorker] ✓ TX ${tx.id} routed via Pretium ref=${result.railReference}`);
         } catch (err) {
           const attempts = job.opts.attempts ?? 1;
           if (job.attemptsMade + 1 >= attempts) {
@@ -55,7 +56,8 @@ const worker = queueConnectionOptions
               error: errorMessage(err),
               payMethod: data.payMethod,
               merchantNumber: data.merchantNumber,
-              amountKes: data.amountKes,
+              amountUsd: data.amountUsd,
+              txHash: data.txHash,
               reference: data.reference,
               bullJobId: job.id,
               attemptsMade: job.attemptsMade + 1,
