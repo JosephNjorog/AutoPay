@@ -340,6 +340,7 @@ async function processClaimEvent(event: ChainEvent): Promise<boolean> {
     localCurrency: tx.localCurrency,
     rail: tx.rail,
     reference: tx.reference,
+    token: tx.token === "USDT" ? "USDT" : "USDC",
   };
 
   if (escrow.status === "claimed") {
