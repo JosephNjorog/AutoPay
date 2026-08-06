@@ -25,8 +25,15 @@ import {
   resendClaimLink,
   retryEscrowRefund,
   retryRailDisbursement,
+  retryPayDisbursement,
+  type DisbursementRetryResult,
 } from "../services/review-recovery";
 import { listHeartbeatStatus } from "../services/worker-heartbeat";
+import {
+  PRETIUM_CANDIDATE_MARKETS,
+  PRETIUM_VERIFIED_OFFRAMP_MARKETS,
+  PRETIUM_VERIFIED_ONRAMP_MARKETS,
+} from "../services/settlement-providers/pretium";
 import {
   symbolForTokenAddress,
   isTestnet,
@@ -213,6 +220,23 @@ opsRouter.get("/meta", async (c) => {
   return c.json({
     ok: true,
     data: { network: isTestnet ? "testnet" : "mainnet" },
+  });
+});
+
+// GET /api/ops/pretium-markets — which markets Pretium candidate-covers vs
+// has actually been verified for on this account. Verified sets stay empty
+// until a human runs `bun run monitor:pretium-networks` and sets
+// PRETIUM_VERIFIED_OFFRAMP_MARKETS / PRETIUM_VERIFIED_ONRAMP_MARKETS — this
+// just surfaces that env-var state so it's visible somewhere other than a
+// console log.
+opsRouter.get("/pretium-markets", async (c) => {
+  return c.json({
+    ok: true,
+    data: {
+      candidateMarkets: PRETIUM_CANDIDATE_MARKETS,
+      verifiedOfframpMarkets: [...PRETIUM_VERIFIED_OFFRAMP_MARKETS],
+      verifiedOnrampMarkets: [...PRETIUM_VERIFIED_ONRAMP_MARKETS],
+    },
   });
 });
 
@@ -608,6 +632,9 @@ opsRouter.get(
           rail: tx.rail,
           isEscrow: tx.isEscrow,
           escrowRef: tx.escrowRef,
+          merchantPayMethod: tx.merchantPayMethod,
+          merchantTillNumber: tx.merchantTillNumber,
+          merchantPaybillNumber: tx.merchantPaybillNumber,
           failureStage: tx.failureStage,
           failureReason: tx.failureReason,
           failedAt: tx.failedAt?.toISOString() ?? null,
@@ -619,6 +646,25 @@ opsRouter.get(
   }
 );
 
+// Merchant Pay transactions have a null recipientPhone and a different
+// disbursement shape (merchantPayMethod/merchantTillNumber/
+// merchantPaybillNumber instead), so they route to retryPayDisbursement
+// instead of retryRailDisbursement — a single "Retry Disburse" action in the
+// admin works for both without the frontend needing to know which kind of
+// transaction it's looking at.
+async function dispatchRetryDisbursement(
+  transactionId: string,
+  requestedBy: string
+): Promise<DisbursementRetryResult> {
+  const tx = await db.query.transactions.findFirst({
+    where: eq(transactions.id, transactionId),
+    columns: { merchantPayMethod: true },
+  });
+  return tx?.merchantPayMethod
+    ? retryPayDisbursement(transactionId, requestedBy)
+    : retryRailDisbursement(transactionId, requestedBy);
+}
+
 // POST /api/ops/review/batch-retry
 opsRouter.post(
   "/review/batch-retry",
@@ -628,7 +674,7 @@ opsRouter.post(
     const op = operator(c);
 
     const results = await Promise.allSettled(
-      transactionIds.map((id) => retryRailDisbursement(id, op))
+      transactionIds.map((id) => dispatchRetryDisbursement(id, op))
     );
 
     const summary = results.map((r, i) => ({
@@ -681,7 +727,7 @@ opsRouter.post(
   zValidator("param", RetryParamSchema),
   async (c) => {
     const { transactionId } = c.req.valid("param");
-    const data = await retryRailDisbursement(transactionId, operator(c));
+    const data = await dispatchRetryDisbursement(transactionId, operator(c));
     return c.json({ ok: true, data });
   }
 );
