@@ -23,10 +23,6 @@ import {
   type StablecoinToken,
 } from "../services/avalanche";
 import { recordSettlementStep } from "../services/settlement";
-import {
-  processRailDisbursement,
-  railProviderIdempotencyKey,
-} from "../services/rail-disbursement";
 import { lookupRailAccountName } from "../services/rails";
 import { sendClaimLink, sendReceivedNotification } from "../services/whatsapp";
 import { hashPhone, generateTxRef, generateEscrowRef } from "../lib/crypto";
@@ -38,12 +34,7 @@ import {
   ConflictError,
 } from "../lib/errors";
 import { escrowPayments } from "../db/schema";
-import {
-  enqueueRailDisburse,
-  enqueueWhatsAppNotify,
-  scheduleEscrowExpiry,
-  type RailDisburseJob,
-} from "../lib/queue";
+import { enqueueWhatsAppNotify, scheduleEscrowExpiry } from "../lib/queue";
 import { setex, getJson } from "../lib/redis";
 import {
   normalizeIdempotencyKey,
@@ -500,32 +491,17 @@ sendRouter.post(
             });
           }
 
-          const railJob: RailDisburseJob = {
-            transactionId: tx.id,
-            rail: quote.rail,
-            recipientPhone,
-            amountLocal: netAmountLocal,
-            localCurrency: quote.toCurrency,
-            reference,
-            providerIdempotencyKey: railProviderIdempotencyKey(
-              tx.id,
-              "direct_rail_disbursement",
-            ),
-            failureStage: "direct_rail_disbursement",
-            metadata: { txHash },
-          };
-
-          stage = "direct_rail_enqueue";
-          const railQueued = await enqueueRailDisburse(railJob);
-          let railReference: string | null = null;
-          let responseStatus = "onchain";
-
-          if (!railQueued) {
-            stage = "direct_rail_disbursement";
-            const result = await processRailDisbursement(railJob);
-            railReference = result.railReference;
-            responseStatus = result.status === "settled" ? "settled" : "routed";
-          }
+          // USDC/USDT settles purely on-chain here too, straight to the
+          // recipient's own wallet — same reasoning as the AVAX case above.
+          // A prior version of this code also ran a rail disbursement
+          // (Paystack Transfer, funded from Autopayke's own balance) right
+          // after this on-chain credit, which paid every direct Tuma-to-Tuma
+          // stablecoin send twice: once on-chain, once in cash. Removed —
+          // an existing Autopayke user already has the funds in their own
+          // wallet and can Withdraw whenever they choose; there's nothing
+          // for a rail to disburse here.
+          stage = "direct_settled";
+          await recordSettlementStep(tx.id, "settled", { txHash });
 
           // Notify recipient via WhatsApp; do not roll back money movement if
           // notification delivery has a transient provider issue.
@@ -550,10 +526,10 @@ sendRouter.post(
             ok: true,
             data: txToSendResponse(tx, false, {
               txHash,
-              status: responseStatus,
+              status: "settled",
               amountLocal: netAmountLocal,
-              railReference,
-              railQueued,
+              railReference: null,
+              railQueued: false,
               networkFeeUsd,
             }),
           });
